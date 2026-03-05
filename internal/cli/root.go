@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/kyaoi/gitshelf/internal/paths"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -38,7 +40,7 @@ func NewRootCommand(version string) *cobra.Command {
 			rootDir, err := shelf.ResolveShelfRoot(ctx.rootOverride, cwd)
 			if err != nil {
 				if errors.Is(err, shelf.ErrShelfNotFound) {
-					return errors.New(".shelf が見つかりません。先に `shelf init` を実行してください")
+					return errors.New(".shelf が見つかりません。`shelf init` または `shelf init --global` を実行してください")
 				}
 				return err
 			}
@@ -67,11 +69,18 @@ func NewRootCommand(version string) *cobra.Command {
 }
 
 func newInitCommand(ctx *commandContext) *cobra.Command {
-	var force bool
+	var (
+		force  bool
+		global bool
+	)
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize .shelf in the current directory",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if global {
+				return runGlobalInit(ctx.rootOverride, force)
+			}
+
 			targetDir := ctx.rootOverride
 			if targetDir == "" {
 				cwd, err := os.Getwd()
@@ -97,7 +106,75 @@ func newInitCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite config.toml with default values")
+	cmd.Flags().BoolVar(&global, "global", false, "Initialize global default root and write global config")
 	return cmd
+}
+
+func runGlobalInit(rootOverride string, force bool) error {
+	globalPath, err := paths.GlobalConfigPath()
+	if err != nil {
+		return err
+	}
+
+	var (
+		defaultRoot       string
+		existing          paths.GlobalConfig
+		hasExistingConfig bool
+	)
+	if strings.TrimSpace(rootOverride) != "" {
+		abs, err := filepath.Abs(rootOverride)
+		if err != nil {
+			return fmt.Errorf("--root の絶対パス解決に失敗しました: %w", err)
+		}
+		defaultRoot = abs
+	} else {
+		cfg, err := paths.LoadGlobalConfig()
+		switch {
+		case err == nil:
+			hasExistingConfig = true
+			existing = cfg
+			defaultRoot = cfg.DefaultRoot
+		case errors.Is(err, paths.ErrGlobalConfigNotFound):
+			defaultRoot, err = paths.DefaultGlobalRoot()
+			if err != nil {
+				return err
+			}
+		default:
+			return err
+		}
+	}
+
+	shouldSaveGlobal := force || !hasExistingConfig
+	if hasExistingConfig && strings.TrimSpace(existing.DefaultRoot) == "" {
+		shouldSaveGlobal = true
+	}
+	if strings.TrimSpace(rootOverride) != "" && (!hasExistingConfig || existing.DefaultRoot != defaultRoot) {
+		shouldSaveGlobal = true
+	}
+	if shouldSaveGlobal {
+		if err := paths.SaveGlobalConfig(paths.GlobalConfig{
+			DefaultRoot: defaultRoot,
+		}); err != nil {
+			return err
+		}
+	}
+
+	result, err := shelf.Initialize(defaultRoot, force)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("グローバル設定: %s\n", globalPath)
+	fmt.Printf("default_root: %s\n", defaultRoot)
+	switch {
+	case result.ConfigForced:
+		fmt.Printf("初期化しました: %s (config.toml を再生成)\n", result.ShelfDir)
+	case result.ConfigCreated:
+		fmt.Printf("初期化しました: %s\n", result.ShelfDir)
+	default:
+		fmt.Printf("既に初期化済みです: %s\n", result.ShelfDir)
+	}
+	return nil
 }
 
 func newStubCommand(name string) *cobra.Command {

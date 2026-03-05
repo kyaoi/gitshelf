@@ -5,11 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kyaoi/gitshelf/internal/paths"
 )
 
 func TestResolveShelfRootWithOverride(t *testing.T) {
 	tmp := t.TempDir()
-	if err := os.Mkdir(filepath.Join(tmp, ShelfDirName), 0o755); err != nil {
+	if _, err := Initialize(tmp, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -24,7 +26,7 @@ func TestResolveShelfRootWithOverride(t *testing.T) {
 
 func TestResolveShelfRootByWalkingUp(t *testing.T) {
 	tmp := t.TempDir()
-	if err := os.Mkdir(filepath.Join(tmp, ShelfDirName), 0o755); err != nil {
+	if _, err := Initialize(tmp, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -44,8 +46,35 @@ func TestResolveShelfRootByWalkingUp(t *testing.T) {
 
 func TestResolveShelfRootNotFound(t *testing.T) {
 	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "config"))
 	_, err := ResolveShelfRoot("", tmp)
 	if !errors.Is(err, ErrShelfNotFound) {
 		t.Fatalf("expected ErrShelfNotFound, got %v", err)
+	}
+}
+
+func TestResolveShelfRootFallsBackToGlobalDefaultRoot(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "config"))
+
+	globalRoot := filepath.Join(tmp, "global-store")
+	if _, err := Initialize(globalRoot, false); err != nil {
+		t.Fatalf("initialize global root failed: %v", err)
+	}
+	if err := paths.SaveGlobalConfig(paths.GlobalConfig{DefaultRoot: globalRoot}); err != nil {
+		t.Fatalf("save global config failed: %v", err)
+	}
+
+	unrelatedCwd := filepath.Join(tmp, "workspace")
+	if err := os.MkdirAll(unrelatedCwd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := ResolveShelfRoot("", unrelatedCwd)
+	if err != nil {
+		t.Fatalf("expected fallback root, got error: %v", err)
+	}
+	if root != globalRoot {
+		t.Fatalf("expected %q, got %q", globalRoot, root)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/kyaoi/gitshelf/internal/paths"
 )
 
 const ShelfDirName = ".shelf"
@@ -21,7 +23,7 @@ func ResolveShelfRoot(rootOverride, cwd string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve --root path: %w", err)
 		}
-		if err := ensureShelfDir(rootAbs); err != nil {
+		if err := ensureShelfConfig(rootAbs); err != nil {
 			return "", err
 		}
 		return rootAbs, nil
@@ -33,7 +35,7 @@ func ResolveShelfRoot(rootOverride, cwd string) (string, error) {
 	}
 
 	for {
-		if err := ensureShelfDir(dir); err == nil {
+		if err := ensureShelfConfig(dir); err == nil {
 			return dir, nil
 		}
 
@@ -44,10 +46,20 @@ func ResolveShelfRoot(rootOverride, cwd string) (string, error) {
 		dir = parent
 	}
 
-	return "", ErrShelfNotFound
+	globalCfg, err := paths.LoadGlobalConfig()
+	if err != nil {
+		if errors.Is(err, paths.ErrGlobalConfigNotFound) {
+			return "", ErrShelfNotFound
+		}
+		return "", err
+	}
+	if err := ensureShelfConfig(globalCfg.DefaultRoot); err != nil {
+		return "", err
+	}
+	return globalCfg.DefaultRoot, nil
 }
 
-func ensureShelfDir(root string) error {
+func ensureShelfConfig(root string) error {
 	p := filepath.Join(root, ShelfDirName)
 	info, err := os.Stat(p)
 	if err != nil {
@@ -58,6 +70,17 @@ func ensureShelfDir(root string) error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("%s exists but is not a directory", p)
+	}
+	configPath := filepath.Join(p, "config.toml")
+	info, err = os.Stat(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: missing %s", ErrShelfNotFound, configPath)
+		}
+		return fmt.Errorf("failed to access %s: %w", configPath, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%s exists but is a directory", configPath)
 	}
 	return nil
 }
