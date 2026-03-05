@@ -10,7 +10,6 @@ func TestEdgesAreSortedAndDeduplicated(t *testing.T) {
 		{To: "B", Type: LinkType("related")},
 		{To: "A", Type: LinkType("depends_on")},
 		{To: "A", Type: LinkType("depends_on")},
-		{To: "A", Type: LinkType("derived_from")},
 	}
 
 	data := FormatEdgesTOML(edges)
@@ -18,17 +17,14 @@ func TestEdgesAreSortedAndDeduplicated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("expected 3 edges, got %d", len(got))
+	if len(got) != 2 {
+		t.Fatalf("expected 2 edges, got %d", len(got))
 	}
 	if got[0].To != "A" || got[0].Type != "depends_on" {
 		t.Fatalf("unexpected first edge: %+v", got[0])
 	}
-	if got[1].To != "A" || got[1].Type != "derived_from" {
+	if got[1].To != "B" || got[1].Type != "related" {
 		t.Fatalf("unexpected second edge: %+v", got[1])
-	}
-	if got[2].To != "B" || got[2].Type != "related" {
-		t.Fatalf("unexpected third edge: %+v", got[2])
 	}
 }
 

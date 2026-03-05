@@ -41,3 +41,12 @@ func TestConfigValidationRejectsUnknownKindStateLinkType(t *testing.T) {
 		t.Fatal("expected unknown link type error")
 	}
 }
+
+func TestConfigValidationRejectsUnsupportedLinkTypeInConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.LinkTypes = append(cfg.LinkTypes, "derived_from")
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error")
+	}
+}

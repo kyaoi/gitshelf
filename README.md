@@ -7,7 +7,7 @@
 - Tasks: `.shelf/tasks/<id>.md` (flat files, one task per file)
 - Links: `.shelf/edges/<src_id>.toml` (outbound edges only)
 - Tree: represented by each task's `parent`
-- Extra relations: represented by links (`depends_on`, `related`, `derived_from`)
+- Extra relations: represented by links (`depends_on`, `related`)
 
 ## Install
 

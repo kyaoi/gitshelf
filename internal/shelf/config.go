@@ -30,11 +30,13 @@ func DefaultConfig() Config {
 	return Config{
 		Kinds:        []Kind{"todo", "idea", "memo"},
 		States:       []State{"open", "done"},
-		LinkTypes:    []LinkType{"derived_from", "depends_on", "related"},
+		LinkTypes:    []LinkType{"depends_on", "related"},
 		DefaultKind:  Kind("todo"),
 		DefaultState: State("open"),
 	}
 }
+
+var supportedLinkTypes = []LinkType{"depends_on", "related"}
 
 func LoadConfig(rootDir string) (Config, error) {
 	path := ConfigPath(rootDir)
@@ -211,6 +213,9 @@ func validateUniqueLinkTypes(values []LinkType) error {
 	for _, value := range values {
 		if value == "" {
 			return fmt.Errorf("link_types must not include empty value")
+		}
+		if !slices.Contains(supportedLinkTypes, value) {
+			return fmt.Errorf("unsupported link type: %s (allowed: depends_on, related)", value)
 		}
 		if _, ok := seen[value]; ok {
 			return fmt.Errorf("link_types contains duplicate value: %s", value)
