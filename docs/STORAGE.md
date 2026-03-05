@@ -72,7 +72,7 @@ Duplicate `(to, type)` is removed on write.
 ### Edges
 
 - source task should exist
-- `type` must exist in config `link_types`
+- `type` must exist in config `link_types` (`depends_on`, `related`)
 - destination task must exist
 - duplicate `(type, to)` is invalid
 

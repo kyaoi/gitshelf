@@ -49,7 +49,7 @@ go build -o shelf ./cmd/shelf
 
 - `shelf init [--root <dir>] [--force]`
 - `shelf add [--root <dir>] [--title ... --kind ... --status ... --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--kind ... --status ... --parent <id|root> --limit N --search ...]`
+- `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --parent <id|root> --limit N --search ...]`
 - `shelf tree [--root <dir>] [--from <id|root> --max-depth N --status ...]`
 - `shelf show <id> [--root <dir>]`
 - `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --parent ... --body ... --append-body ...]`
@@ -59,6 +59,29 @@ go build -o shelf ./cmd/shelf
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf links <id> [--root <dir>]`
 - `shelf doctor [--root <dir>]`
+
+## Kind and Status
+
+- `kind`: task category (`todo`, `idea`, `memo`, ...)
+- `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
+
+## Link Types
+
+Supported `link_types` are only:
+
+- `depends_on`
+- `related`
+
+`derived_from` is not used.
+
+## ls Filter Examples
+
+```bash
+./shelf ls --kind todo --status open
+./shelf ls --not-status done --not-status cancelled
+./shelf ls --status open --status in_progress --status blocked
+./shelf ls --kind todo --not-status done --not-status cancelled
+```
 
 ## Interactive by Default for Omitted Args
 

@@ -31,10 +31,11 @@
 
 ## Kind と Status
 - `kind`: タスクの種類（例: todo/idea/memo…）
-- `status`: 進捗（例: open/done…）
+- `status`: 進捗（`open`, `in_progress`, `blocked`, `done`, `cancelled`）
 - 両者は独立であり、`kind=idea` でも `status=done` は許可（実装は制限しない）
 
 ## リンクの向き（重要な不変条件）
+- 使用可能な link type は `depends_on`, `related` のみ
 - `A depends_on B` とは、**Aを行うにはBが先** を意味する
 - 表示は常に `A --depends_on--> B`（事故防止）
 - `related` は無向的だが、保存は有向でよい（表示で両方向に見せるのは任意）

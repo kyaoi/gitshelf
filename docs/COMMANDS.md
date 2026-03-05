@@ -30,7 +30,7 @@ Flags:
 Create a task.
 
 - Non-interactive mode: `--title` is required.
-- Interactive mode (TTY only): Title -> Kind -> Parent.
+- Interactive mode (TTY only): Title -> Kind -> Status -> Parent.
 
 Flags:
 
@@ -48,13 +48,23 @@ Flat task list.
 
 Flags:
 
-- `--kind <kind>`
-- `--status <status>`
+- `--kind <kind>` (repeatable include filter)
+- `--status <status>` (repeatable include filter)
+- `--not-kind <kind>` (repeatable exclude filter)
+- `--not-status <status>` (repeatable exclude filter)
 - `--parent <id|root>`
 - `--limit <n>` (default: 50)
 - `--search <query>` (title/body partial match)
 
 Default ordering is ULID ascending (creation order).
+Unknown `kind` / `status` values return an error.
+
+Examples:
+
+- `shelf ls --kind todo --status open`
+- `shelf ls --not-status done --not-status cancelled`
+- `shelf ls --status open --status in_progress --status blocked`
+- `shelf ls --kind todo --not-status done --not-status cancelled`
 
 ## shelf tree
 
@@ -113,6 +123,11 @@ Flags:
 - `--from <id>`
 - `--to <id>`
 - `--type <link_type>`
+
+Supported link types:
+
+- `depends_on`
+- `related`
 
 Output keeps direction explicit:
 
