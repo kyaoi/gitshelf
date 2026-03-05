@@ -36,7 +36,7 @@ func TestSetTaskUpdatesStatusAndTitle(t *testing.T) {
 	title := "After"
 	status := Status("done")
 	updated, err := SetTask(root, task.ID, SetTaskInput{
-		Title: &title,
+		Title:  &title,
 		Status: &status,
 	})
 	if err != nil {

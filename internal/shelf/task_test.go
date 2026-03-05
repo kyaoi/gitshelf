@@ -14,7 +14,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		ID:        "01JABCDEF0123456789XYZ",
 		Title:     "月曜日にやること",
 		Kind:      Kind("todo"),
-		Status:     Status("open"),
+		Status:    Status("open"),
 		Parent:    "01JWEEKGOAL000000000000",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -57,7 +57,7 @@ func TestTaskStoreCRUD(t *testing.T) {
 		ID:        "01JABCDEF0123456789XYZ",
 		Title:     "test task",
 		Kind:      Kind("todo"),
-		Status:     Status("open"),
+		Status:    Status("open"),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

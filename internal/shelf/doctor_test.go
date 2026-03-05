@@ -28,7 +28,7 @@ func TestDoctorDetectsParentCycleAndUnknownStatus(t *testing.T) {
 		ID:        a.ID,
 		Title:     "A",
 		Kind:      "todo",
-		Status:     "invalid_state",
+		Status:    "invalid_state",
 		Parent:    b.ID,
 		CreatedAt: time.Now().UTC().Round(time.Second),
 		UpdatedAt: time.Now().UTC().Round(time.Second),
