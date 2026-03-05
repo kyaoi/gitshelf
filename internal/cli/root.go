@@ -25,7 +25,7 @@ func NewRootCommand(version string) *cobra.Command {
 		Short:         "Git-backed lightweight task shelf",
 		Long:          "shelf is a lightweight CLI tool for managing tasks and links in .shelf/",
 		SilenceUsage:  true,
-		SilenceErrors: true,
+		SilenceErrors: false,
 		Version:       version,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if cmd.Name() == "init" {
