@@ -10,6 +10,18 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("default config should be valid: %v", err)
 	}
+	expected := []Status{"open", "in_progress", "blocked", "done", "cancelled"}
+	if len(cfg.Statuses) != len(expected) {
+		t.Fatalf("unexpected default statuses: %+v", cfg.Statuses)
+	}
+	for i, status := range expected {
+		if cfg.Statuses[i] != status {
+			t.Fatalf("unexpected default statuses: %+v", cfg.Statuses)
+		}
+	}
+	if cfg.DefaultStatus != "open" {
+		t.Fatalf("unexpected default status: %s", cfg.DefaultStatus)
+	}
 }
 
 func TestConfigRoundTrip(t *testing.T) {

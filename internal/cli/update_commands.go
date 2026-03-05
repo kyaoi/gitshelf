@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -51,7 +52,28 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if input.Title == nil && input.Kind == nil && input.Status == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
-				return errors.New("更新対象がありません。--title/--kind/--status/--parent/--body/--append-body を指定してください")
+				if interactive.IsTTY() {
+					cfg, err := shelf.LoadConfig(ctx.rootDir)
+					if err != nil {
+						return err
+					}
+					statusOptions := make([]interactive.Option, 0, len(cfg.Statuses))
+					for _, s := range cfg.Statuses {
+						statusOptions = append(statusOptions, interactive.Option{
+							Value:      string(s),
+							Label:      string(s),
+							SearchText: string(s),
+						})
+					}
+					selected, err := interactive.Select("Status を選択してください", statusOptions)
+					if err != nil {
+						return err
+					}
+					s := shelf.Status(selected.Value)
+					input.Status = &s
+				} else {
+					return errors.New("更新対象がありません。--title/--kind/--status/--parent/--body/--append-body を指定してください")
+				}
 			}
 
 			task, err := shelf.SetTask(ctx.rootDir, id, input)

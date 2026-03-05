@@ -41,7 +41,8 @@ Task candidate line format:
 
 1. Input `Title`
 2. Select `Kind`
-3. Select `Parent` (`0: [root]` means no parent)
+3. Select `Status`
+4. Select `Parent` (`0: [root]` means no parent)
 
 ## link Interactive Flow
 
@@ -61,6 +62,7 @@ The type selection screen includes this warning:
 ## show / set / done / links Interactive Flow
 
 1. Select target task by ID/title
+2. (`set` only, when no update flags are passed) select `Status`
 
 ## mv Interactive Flow
 

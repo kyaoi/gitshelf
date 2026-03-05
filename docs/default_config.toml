@@ -1,6 +1,6 @@
 # gitshelf config
 kinds = ["todo", "idea", "memo"]
-statuses = ["open", "done"]
+statuses = ["open", "in_progress", "blocked", "done", "cancelled"]
 link_types = ["depends_on", "related"]
 
 default_kind = "todo"

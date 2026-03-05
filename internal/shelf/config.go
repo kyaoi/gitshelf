@@ -31,7 +31,7 @@ type configFile struct {
 func DefaultConfig() Config {
 	return Config{
 		Kinds:         []Kind{"todo", "idea", "memo"},
-		Statuses:      []Status{"open", "done"},
+		Statuses:      []Status{"open", "in_progress", "blocked", "done", "cancelled"},
 		LinkTypes:     []LinkType{"depends_on", "related"},
 		DefaultKind:   Kind("todo"),
 		DefaultStatus: Status("open"),
