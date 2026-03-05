@@ -9,7 +9,7 @@ type TreeNode struct {
 
 type TreeOptions struct {
 	FromID   string
-	State    State
+	Status   Status
 	MaxDepth int
 }
 
@@ -79,7 +79,7 @@ func buildTreeNode(task Task, byParent map[string][]Task, options TreeOptions, d
 		}
 	}
 
-	if options.State != "" && task.State != options.State {
+	if options.Status != "" && task.Status != options.Status {
 		if len(children) == 0 {
 			return nil
 		}

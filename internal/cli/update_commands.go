@@ -12,7 +12,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	var (
 		title      string
 		kind       string
-		state      string
+		status     string
 		parent     string
 		body       string
 		appendBody string
@@ -36,9 +36,9 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				k := shelf.Kind(kind)
 				input.Kind = &k
 			}
-			if cmd.Flags().Changed("state") {
-				s := shelf.State(state)
-				input.State = &s
+			if cmd.Flags().Changed("status") {
+				s := shelf.Status(status)
+				input.Status = &s
 			}
 			if cmd.Flags().Changed("parent") {
 				input.Parent = &parent
@@ -50,8 +50,8 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				input.AppendBody = &appendBody
 			}
 
-			if input.Title == nil && input.Kind == nil && input.State == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
-				return errors.New("更新対象がありません。--title/--kind/--state/--parent/--body/--append-body を指定してください")
+			if input.Title == nil && input.Kind == nil && input.Status == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
+				return errors.New("更新対象がありません。--title/--kind/--status/--parent/--body/--append-body を指定してください")
 			}
 
 			task, err := shelf.SetTask(ctx.rootDir, id, input)
@@ -65,7 +65,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&kind, "kind", "", "New kind")
-	cmd.Flags().StringVar(&state, "state", "", "New state")
+	cmd.Flags().StringVar(&status, "status", "", "New status")
 	cmd.Flags().StringVar(&parent, "parent", "", "New parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Replace body")
 	cmd.Flags().StringVar(&appendBody, "append-body", "", "Append text to body")
@@ -114,19 +114,19 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 func newDoneCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "done <id>",
-		Short: "Shortcut to set --state done",
+		Short: "Shortcut to set --status done",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "done にするタスクを選択", func(task shelf.Task) bool {
-				return task.State != shelf.State("done")
+				return task.Status != shelf.Status("done")
 			})
 			if err != nil {
 				return err
 			}
 
-			done := shelf.State("done")
+			done := shelf.Status("done")
 			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				State: &done,
+				Status: &done,
 			})
 			if err != nil {
 				return err

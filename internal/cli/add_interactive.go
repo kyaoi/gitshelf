@@ -11,7 +11,7 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
-func resolveAddInputInteractive(ctx *commandContext, body string, initialState string) (shelf.AddTaskInput, error) {
+func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string) (shelf.AddTaskInput, error) {
 	if !interactive.IsTTY() {
 		return shelf.AddTaskInput{}, errors.New("非TTYでは対話入力できません。--title を指定してください")
 	}
@@ -56,7 +56,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialState s
 		},
 	}
 	for _, task := range tasks {
-		label := fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.State)
+		label := fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status)
 		parentOptions = append(parentOptions, interactive.Option{
 			Value:      task.ID,
 			Label:      label,
@@ -71,7 +71,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialState s
 	return shelf.AddTaskInput{
 		Title:  title,
 		Kind:   shelf.Kind(kindSelected.Value),
-		State:  shelf.State(initialState),
+		Status: shelf.Status(initialStatus),
 		Parent: parentSelected.Value,
 		Body:   body,
 	}, nil

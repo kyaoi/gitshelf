@@ -9,7 +9,7 @@
 ## コア概念
 ### タスク（Task）
 - 1つの作業/アイデア/メモの単位
-- `kind` と `state` を持つ
+- `kind` と `status` を持つ
 - `parent` を持てる（親は最大1つ、rootは親なし）
 - 本文（メモ）は任意
 
@@ -29,10 +29,10 @@
 - `.shelf/tasks/` にタスク本体
 - `.shelf/edges/` にリンク
 
-## Kind と State
+## Kind と Status
 - `kind`: タスクの種類（例: todo/idea/memo…）
-- `state`: 進捗（例: open/done…）
-- 両者は独立であり、`kind=idea` でも `state=done` は許可（実装は制限しない）
+- `status`: 進捗（例: open/done…）
+- 両者は独立であり、`kind=idea` でも `status=done` は許可（実装は制限しない）
 
 ## リンクの向き（重要な不変条件）
 - `A depends_on B` とは、**Aを行うにはBが先** を意味する

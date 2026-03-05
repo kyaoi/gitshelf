@@ -11,14 +11,14 @@ import (
 )
 
 type Kind string
-type State string
+type Status string
 type LinkType string
 
 type Task struct {
 	ID        string
 	Title     string
 	Kind      Kind
-	State     State
+	Status    Status
 	Parent    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -29,6 +29,7 @@ type taskFrontMatter struct {
 	ID        string `toml:"id"`
 	Title     string `toml:"title"`
 	Kind      string `toml:"kind"`
+	Status    string `toml:"status"`
 	State     string `toml:"state"`
 	Parent    string `toml:"parent,omitempty"`
 	CreatedAt string `toml:"created_at"`
@@ -69,6 +70,10 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	if err != nil {
 		return Task{}, fmt.Errorf("invalid updated_at: %w", err)
 	}
+	status := strings.TrimSpace(fm.Status)
+	if status == "" {
+		status = strings.TrimSpace(fm.State)
+	}
 
 	body := ""
 	if end+1 < len(lines) {
@@ -83,7 +88,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		ID:        fm.ID,
 		Title:     fm.Title,
 		Kind:      Kind(fm.Kind),
-		State:     State(fm.State),
+		Status:    Status(status),
 		Parent:    fm.Parent,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
@@ -105,7 +110,7 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 	buf.WriteString(fmt.Sprintf("id = %q\n", task.ID))
 	buf.WriteString(fmt.Sprintf("title = %q\n", task.Title))
 	buf.WriteString(fmt.Sprintf("kind = %q\n", string(task.Kind)))
-	buf.WriteString(fmt.Sprintf("state = %q\n", string(task.State)))
+	buf.WriteString(fmt.Sprintf("status = %q\n", string(task.Status)))
 	if task.Parent != "" {
 		buf.WriteString(fmt.Sprintf("parent = %q\n", task.Parent))
 	}
@@ -127,8 +132,8 @@ func validateTaskRequiredFields(task Task) error {
 		return errors.New("task title is required")
 	case task.Kind == "":
 		return errors.New("task kind is required")
-	case task.State == "":
-		return errors.New("task state is required")
+	case task.Status == "":
+		return errors.New("task status is required")
 	case task.CreatedAt.IsZero():
 		return errors.New("task created_at is required")
 	case task.UpdatedAt.IsZero():

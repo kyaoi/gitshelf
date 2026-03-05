@@ -4,7 +4,7 @@
 - タスク: `.shelf/tasks/<id>.md`（フラット）
 - 親子: タスクfront matterの `parent` で表現（無限ネスト可）
 - リンク: `.shelf/edges/<src_id>.toml`（outbound edges）
-- Kind/State: 分離する
+- Kind/Status: 分離する
 
 ## UI（確定）
 - TUIは作らない

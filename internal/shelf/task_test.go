@@ -3,6 +3,7 @@ package shelf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -13,7 +14,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		ID:        "01JABCDEF0123456789XYZ",
 		Title:     "月曜日にやること",
 		Kind:      Kind("todo"),
-		State:     State("open"),
+		Status:     Status("open"),
 		Parent:    "01JWEEKGOAL000000000000",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -30,7 +31,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		t.Fatalf("parse failed: %v", err)
 	}
 
-	if parsed.ID != orig.ID || parsed.Title != orig.Title || parsed.Kind != orig.Kind || parsed.State != orig.State {
+	if parsed.ID != orig.ID || parsed.Title != orig.Title || parsed.Kind != orig.Kind || parsed.Status != orig.Status {
 		t.Fatalf("parsed task mismatch: %+v", parsed)
 	}
 	if parsed.Parent != orig.Parent || parsed.Body != orig.Body {
@@ -53,7 +54,7 @@ func TestTaskStoreCRUD(t *testing.T) {
 		ID:        "01JABCDEF0123456789XYZ",
 		Title:     "test task",
 		Kind:      Kind("todo"),
-		State:     State("open"),
+		Status:     Status("open"),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -95,5 +96,35 @@ func TestTaskStoreCRUD(t *testing.T) {
 	path := filepath.Join(TasksDir(root), task.ID+".md")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("task file missing: %v", err)
+	}
+}
+
+func TestParseTaskMarkdownLegacyStateField(t *testing.T) {
+	raw := `+++
+id = "01JABCDEF0123456789XYZ"
+title = "legacy"
+kind = "todo"
+state = "open"
+created_at = "2026-03-05T12:34:56+09:00"
+updated_at = "2026-03-05T12:34:56+09:00"
++++
+
+body
+`
+	task, err := ParseTaskMarkdown([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if task.Status != "open" {
+		t.Fatalf("unexpected status: %s", task.Status)
+	}
+
+	data, err := FormatTaskMarkdown(task)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+	formatted := string(data)
+	if !strings.Contains(formatted, "status = \"open\"") || strings.Contains(formatted, "state = ") {
+		t.Fatalf("formatted task should use status key: %s", formatted)
 	}
 }

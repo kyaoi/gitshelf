@@ -135,7 +135,7 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 	for _, task := range tasks {
 		taskOptions = append(taskOptions, interactive.Option{
 			Value:      task.ID,
-			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.State),
+			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
 			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
 		})
 	}
@@ -194,7 +194,7 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 	for _, task := range tasks {
 		taskOptions = append(taskOptions, interactive.Option{
 			Value:      task.ID,
-			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.State),
+			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
 			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
 		})
 	}

@@ -17,10 +17,10 @@ func TestBuildTreeFromRoot(t *testing.T) {
 
 	store := NewTaskStore(root)
 	now := time.Now().UTC().Round(time.Second)
-	mustUpsertTask(t, store, Task{ID: "01A", Title: "A", Kind: "todo", State: "open", CreatedAt: now, UpdatedAt: now})
-	mustUpsertTask(t, store, Task{ID: "01B", Title: "B", Kind: "todo", State: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now})
-	mustUpsertTask(t, store, Task{ID: "01C", Title: "C", Kind: "todo", State: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now})
-	mustUpsertTask(t, store, Task{ID: "01D", Title: "D", Kind: "todo", State: "done", Parent: "01B", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01B", Title: "B", Kind: "todo", Status: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01C", Title: "C", Kind: "todo", Status: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01D", Title: "D", Kind: "todo", Status: "done", Parent: "01B", CreatedAt: now, UpdatedAt: now})
 
 	tree, err := BuildTree(root, TreeOptions{})
 	if err != nil {
@@ -40,18 +40,18 @@ func TestBuildTreeFromRoot(t *testing.T) {
 	}
 }
 
-func TestBuildTreeFromNodeAndStateFilter(t *testing.T) {
+func TestBuildTreeFromNodeAndStatusFilter(t *testing.T) {
 	root := t.TempDir()
 	if _, err := Initialize(root, false); err != nil {
 		t.Fatalf("initialize failed: %v", err)
 	}
 	store := NewTaskStore(root)
 	now := time.Now().UTC().Round(time.Second)
-	mustUpsertTask(t, store, Task{ID: "01A", Title: "A", Kind: "todo", State: "open", CreatedAt: now, UpdatedAt: now})
-	mustUpsertTask(t, store, Task{ID: "01B", Title: "B", Kind: "todo", State: "done", Parent: "01A", CreatedAt: now, UpdatedAt: now})
-	mustUpsertTask(t, store, Task{ID: "01C", Title: "C", Kind: "todo", State: "open", Parent: "01B", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01B", Title: "B", Kind: "todo", Status: "done", Parent: "01A", CreatedAt: now, UpdatedAt: now})
+	mustUpsertTask(t, store, Task{ID: "01C", Title: "C", Kind: "todo", Status: "open", Parent: "01B", CreatedAt: now, UpdatedAt: now})
 
-	tree, err := BuildTree(root, TreeOptions{FromID: "01B", State: "done"})
+	tree, err := BuildTree(root, TreeOptions{FromID: "01B", Status: "done"})
 	if err != nil {
 		t.Fatalf("build tree failed: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestBuildTreeFromNodeAndStateFilter(t *testing.T) {
 		t.Fatalf("unexpected root node: %s", tree[0].Task.ID)
 	}
 	if len(tree[0].Children) != 0 {
-		t.Fatalf("expected children to be filtered out by state, got %d", len(tree[0].Children))
+		t.Fatalf("expected children to be filtered out by status, got %d", len(tree[0].Children))
 	}
 }
 

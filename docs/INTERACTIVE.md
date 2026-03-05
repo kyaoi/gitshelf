@@ -11,7 +11,7 @@ If not TTY, users must provide required flags.
 - `shelf show` (when `<id>` is omitted)
 - `shelf set` (when `<id>` is omitted)
 - `shelf mv` (when `<id>` and/or `--parent` is omitted)
-- `shelf done` (when `<id>` is omitted; `state!=done` tasks are prioritized)
+- `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
 
 ## Key Bindings
@@ -35,7 +35,7 @@ If not TTY, users must provide required flags.
 
 Task candidate line format:
 
-`[{short}] {title}  ({kind}/{state})`
+`[{short}] {title}  ({kind}/{status})`
 
 ## add Interactive Flow
 

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestDoctorDetectsParentCycleAndUnknownState(t *testing.T) {
+func TestDoctorDetectsParentCycleAndUnknownStatus(t *testing.T) {
 	root := t.TempDir()
 	if _, err := Initialize(root, false); err != nil {
 		t.Fatalf("initialize failed: %v", err)
@@ -22,13 +22,13 @@ func TestDoctorDetectsParentCycleAndUnknownState(t *testing.T) {
 		t.Fatalf("add B failed: %v", err)
 	}
 
-	// Force a parent cycle and unknown state by direct file write for doctor test.
+	// Force a parent cycle and unknown status by direct file write for doctor test.
 	taskAPath := filepath.Join(TasksDir(root), a.ID+".md")
 	badTask := Task{
 		ID:        a.ID,
 		Title:     "A",
 		Kind:      "todo",
-		State:     "invalid_state",
+		Status:     "invalid_state",
 		Parent:    b.ID,
 		CreatedAt: time.Now().UTC().Round(time.Second),
 		UpdatedAt: time.Now().UTC().Round(time.Second),

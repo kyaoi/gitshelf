@@ -10,7 +10,7 @@ import (
 type AddTaskInput struct {
 	Title  string
 	Kind   Kind
-	State  State
+	Status Status
 	Parent string
 	Body   string
 }
@@ -34,11 +34,11 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 		return Task{}, err
 	}
 
-	state := input.State
-	if state == "" {
-		state = cfg.DefaultState
+	status := input.Status
+	if status == "" {
+		status = cfg.DefaultStatus
 	}
-	if err := cfg.ValidateState(state); err != nil {
+	if err := cfg.ValidateStatus(status); err != nil {
 		return Task{}, err
 	}
 
@@ -55,7 +55,7 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 		ID:        NewID(),
 		Title:     title,
 		Kind:      kind,
-		State:     state,
+		Status:    status,
 		Parent:    parentID,
 		CreatedAt: now,
 		UpdatedAt: now,

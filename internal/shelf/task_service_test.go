@@ -17,8 +17,8 @@ func TestAddTaskWithDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add task failed: %v", err)
 	}
-	if task.Kind != "todo" || task.State != "open" {
-		t.Fatalf("unexpected defaults: kind=%s state=%s", task.Kind, task.State)
+	if task.Kind != "todo" || task.Status != "open" {
+		t.Fatalf("unexpected defaults: kind=%s status=%s", task.Kind, task.Status)
 	}
 
 	if _, err := os.Stat(TasksDir(root) + "/" + task.ID + ".md"); err != nil {

@@ -34,7 +34,7 @@ go build -o shelf ./cmd/shelf
 ./shelf show <task-id>
 
 # Update and move
-./shelf set <task-id> --state done
+./shelf set <task-id> --status done
 ./shelf mv <task-id> --parent root
 
 # Link tasks
@@ -48,11 +48,11 @@ go build -o shelf ./cmd/shelf
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --state ... --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--kind ... --state ... --parent <id|root> --limit N --search ...]`
-- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --state ...]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --parent <id|root> --body ...]`
+- `shelf ls [--root <dir>] [--kind ... --status ... --parent <id|root> --limit N --search ...]`
+- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --status ...]`
 - `shelf show <id> [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --state ... --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --parent ... --body ... --append-body ...]`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
 - `shelf done <id> [--root <dir>]`
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
@@ -109,7 +109,7 @@ Task file format (`.shelf/tasks/<id>.md`):
 id = "01..."
 title = "Example"
 kind = "todo"
-state = "open"
+status = "open"
 parent = "01..." # optional
 created_at = "2026-03-05T12:34:56+09:00"
 updated_at = "2026-03-05T12:34:56+09:00"

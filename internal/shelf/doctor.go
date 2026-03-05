@@ -44,7 +44,7 @@ func RunDoctor(rootDir string) (DoctorReport, error) {
 		if err := cfg.ValidateKind(task.Kind); err != nil {
 			report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
 		}
-		if err := cfg.ValidateState(task.State); err != nil {
+		if err := cfg.ValidateStatus(task.Status); err != nil {
 			report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
 		}
 		if task.Parent != "" {

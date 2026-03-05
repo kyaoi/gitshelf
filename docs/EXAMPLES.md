@@ -28,7 +28,7 @@ shelf tree --from 01JWEEK...
 
 ## done にする
 ```sh
-shelf set 01JWORD... --state done
+shelf set 01JWORD... --status done
 ```
 
 ## links 確認

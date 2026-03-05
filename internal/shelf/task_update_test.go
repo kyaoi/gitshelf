@@ -23,7 +23,7 @@ func TestSetTaskParentCycleRejected(t *testing.T) {
 	}
 }
 
-func TestSetTaskUpdatesStateAndTitle(t *testing.T) {
+func TestSetTaskUpdatesStatusAndTitle(t *testing.T) {
 	root := t.TempDir()
 	if _, err := Initialize(root, false); err != nil {
 		t.Fatalf("initialize failed: %v", err)
@@ -34,15 +34,15 @@ func TestSetTaskUpdatesStateAndTitle(t *testing.T) {
 	}
 
 	title := "After"
-	state := State("done")
+	status := Status("done")
 	updated, err := SetTask(root, task.ID, SetTaskInput{
 		Title: &title,
-		State: &state,
+		Status: &status,
 	})
 	if err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
-	if updated.Title != "After" || updated.State != "done" {
+	if updated.Title != "After" || updated.Status != "done" {
 		t.Fatalf("unexpected updated task: %+v", updated)
 	}
 }

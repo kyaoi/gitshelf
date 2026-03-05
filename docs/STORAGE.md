@@ -23,7 +23,7 @@
   - `id`
   - `title`
   - `kind`
-  - `state`
+  - `status`
   - `created_at`
   - `updated_at`
 - Optional:
@@ -35,7 +35,7 @@ Key order is stable:
 1. `id`
 2. `title`
 3. `kind`
-4. `state`
+4. `status`
 5. `parent` (if present)
 6. `created_at`
 7. `updated_at`
@@ -63,7 +63,7 @@ Duplicate `(to, type)` is removed on write.
 - filename ID and front matter `id` must match
 - `title` must be non-empty
 - `kind` must exist in config `kinds`
-- `state` must exist in config `states`
+- `status` must exist in config `statuses`
 - when `parent` exists:
   - parent task must exist
   - cannot point to self

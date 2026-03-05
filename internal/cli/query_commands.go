@@ -11,7 +11,7 @@ import (
 func newLsCommand(ctx *commandContext) *cobra.Command {
 	var (
 		kind   string
-		state  string
+		status string
 		parent string
 		limit  int
 		search string
@@ -23,7 +23,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			tasks, err := shelf.ListTasks(ctx.rootDir, shelf.TaskFilter{
 				Kind:   shelf.Kind(kind),
-				State:  shelf.State(state),
+				Status: shelf.Status(status),
 				Parent: parent,
 				Limit:  limit,
 				Search: search,
@@ -36,14 +36,14 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if task.Parent != "" {
 					parentLabel = shelf.ShortID(task.Parent)
 				}
-				fmt.Printf("[%s] %s  (%s/%s) parent=%s\n", shelf.ShortID(task.ID), task.Title, task.Kind, task.State, parentLabel)
+				fmt.Printf("[%s] %s  (%s/%s) parent=%s\n", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status, parentLabel)
 			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&kind, "kind", "", "Filter by kind")
-	cmd.Flags().StringVar(&state, "state", "", "Filter by state")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
@@ -70,7 +70,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("id = %q\n", task.ID)
 			fmt.Printf("title = %q\n", task.Title)
 			fmt.Printf("kind = %q\n", task.Kind)
-			fmt.Printf("state = %q\n", task.State)
+			fmt.Printf("status = %q\n", task.Status)
 			if task.Parent != "" {
 				fmt.Printf("parent = %q\n", task.Parent)
 			}
@@ -117,7 +117,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	var (
 		from     string
 		maxDepth int
-		state    string
+		status   string
 	)
 
 	cmd := &cobra.Command{
@@ -130,7 +130,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			}
 			nodes, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{
 				FromID:   fromID,
-				State:    shelf.State(state),
+				Status:   shelf.Status(status),
 				MaxDepth: maxDepth,
 			})
 			if err != nil {
@@ -145,7 +145,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
-	cmd.Flags().StringVar(&state, "state", "", "Filter by state")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status")
 	return cmd
 }
 
@@ -160,7 +160,7 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool) {
 		branch = ""
 	}
 
-	fmt.Printf("%s%s[%s] %s (%s/%s)\n", prefix, branch, shelf.ShortID(node.Task.ID), node.Task.Title, node.Task.Kind, node.Task.State)
+	fmt.Printf("%s%s[%s] %s (%s/%s)\n", prefix, branch, shelf.ShortID(node.Task.ID), node.Task.Title, node.Task.Kind, node.Task.Status)
 	for i, child := range node.Children {
 		printTreeNode(child, nextPrefix, i == len(node.Children)-1)
 	}

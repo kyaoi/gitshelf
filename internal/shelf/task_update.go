@@ -9,7 +9,7 @@ import (
 type SetTaskInput struct {
 	Title      *string
 	Kind       *Kind
-	State      *State
+	Status     *Status
 	Parent     *string
 	Body       *string
 	AppendBody *string
@@ -42,11 +42,11 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 		task.Kind = *input.Kind
 	}
 
-	if input.State != nil {
-		if err := cfg.ValidateState(*input.State); err != nil {
+	if input.Status != nil {
+		if err := cfg.ValidateStatus(*input.Status); err != nil {
 			return Task{}, err
 		}
-		task.State = *input.State
+		task.Status = *input.Status
 	}
 
 	if input.Parent != nil {

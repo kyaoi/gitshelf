@@ -11,28 +11,30 @@ import (
 )
 
 type Config struct {
-	Kinds        []Kind
-	States       []State
-	LinkTypes    []LinkType
-	DefaultKind  Kind
-	DefaultState State
+	Kinds         []Kind
+	Statuses      []Status
+	LinkTypes     []LinkType
+	DefaultKind   Kind
+	DefaultStatus Status
 }
 
 type configFile struct {
-	Kinds        []string `toml:"kinds"`
-	States       []string `toml:"states"`
-	LinkTypes    []string `toml:"link_types"`
-	DefaultKind  string   `toml:"default_kind"`
-	DefaultState string   `toml:"default_state"`
+	Kinds              []string `toml:"kinds"`
+	Statuses           []string `toml:"statuses"`
+	LegacyStates       []string `toml:"states"`
+	LinkTypes          []string `toml:"link_types"`
+	DefaultKind        string   `toml:"default_kind"`
+	DefaultStatus      string   `toml:"default_status"`
+	LegacyDefaultState string   `toml:"default_state"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:        []Kind{"todo", "idea", "memo"},
-		States:       []State{"open", "done"},
-		LinkTypes:    []LinkType{"depends_on", "related"},
-		DefaultKind:  Kind("todo"),
-		DefaultState: State("open"),
+		Kinds:         []Kind{"todo", "idea", "memo"},
+		Statuses:      []Status{"open", "done"},
+		LinkTypes:     []LinkType{"depends_on", "related"},
+		DefaultKind:   Kind("todo"),
+		DefaultStatus: Status("open"),
 	}
 }
 
@@ -65,23 +67,31 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		return Config{}, fmt.Errorf("failed to parse config TOML: %w", err)
 	}
 
+	statuses := f.Statuses
+	if len(statuses) == 0 {
+		statuses = f.LegacyStates
+	}
+	defaultStatus := strings.TrimSpace(f.DefaultStatus)
+	if defaultStatus == "" {
+		defaultStatus = strings.TrimSpace(f.LegacyDefaultState)
+	}
+
 	cfg := Config{
-		Kinds:        make([]Kind, len(f.Kinds)),
-		States:       make([]State, len(f.States)),
-		LinkTypes:    make([]LinkType, len(f.LinkTypes)),
-		DefaultKind:  Kind(strings.TrimSpace(f.DefaultKind)),
-		DefaultState: State(strings.TrimSpace(f.DefaultState)),
+		Kinds:         make([]Kind, len(f.Kinds)),
+		Statuses:      make([]Status, len(statuses)),
+		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
+		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
+		DefaultStatus: Status(defaultStatus),
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
 	}
-	for i, state := range f.States {
-		cfg.States[i] = State(strings.TrimSpace(state))
+	for i, status := range statuses {
+		cfg.Statuses[i] = Status(strings.TrimSpace(status))
 	}
 	for i, linkType := range f.LinkTypes {
 		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
 	}
-
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -100,12 +110,12 @@ func FormatConfigTOML(cfg Config) []byte {
 	}
 	buf.WriteString("]\n")
 
-	buf.WriteString("states = [")
-	for i, state := range cfg.States {
+	buf.WriteString("statuses = [")
+	for i, status := range cfg.Statuses {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fmt.Sprintf("%q", state))
+		buf.WriteString(fmt.Sprintf("%q", status))
 	}
 	buf.WriteString("]\n")
 
@@ -118,7 +128,7 @@ func FormatConfigTOML(cfg Config) []byte {
 	}
 	buf.WriteString("]\n\n")
 	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
-	buf.WriteString(fmt.Sprintf("default_state = %q\n", cfg.DefaultState))
+	buf.WriteString(fmt.Sprintf("default_status = %q\n", cfg.DefaultStatus))
 	return buf.Bytes()
 }
 
@@ -126,8 +136,8 @@ func (c Config) Validate() error {
 	if len(c.Kinds) == 0 {
 		return fmt.Errorf("config kinds is empty")
 	}
-	if len(c.States) == 0 {
-		return fmt.Errorf("config states is empty")
+	if len(c.Statuses) == 0 {
+		return fmt.Errorf("config statuses is empty")
 	}
 	if len(c.LinkTypes) == 0 {
 		return fmt.Errorf("config link_types is empty")
@@ -135,7 +145,7 @@ func (c Config) Validate() error {
 	if err := validateUniqueKinds(c.Kinds); err != nil {
 		return err
 	}
-	if err := validateUniqueStates(c.States); err != nil {
+	if err := validateUniqueStatuses(c.Statuses); err != nil {
 		return err
 	}
 	if err := validateUniqueLinkTypes(c.LinkTypes); err != nil {
@@ -144,8 +154,8 @@ func (c Config) Validate() error {
 	if err := c.ValidateKind(c.DefaultKind); err != nil {
 		return fmt.Errorf("default_kind: %w", err)
 	}
-	if err := c.ValidateState(c.DefaultState); err != nil {
-		return fmt.Errorf("default_state: %w", err)
+	if err := c.ValidateStatus(c.DefaultStatus); err != nil {
+		return fmt.Errorf("default_status: %w", err)
 	}
 	return nil
 }
@@ -160,14 +170,14 @@ func (c Config) ValidateKind(kind Kind) error {
 	return fmt.Errorf("unknown kind: %s", kind)
 }
 
-func (c Config) ValidateState(state State) error {
-	if strings.TrimSpace(string(state)) == "" {
-		return fmt.Errorf("state is required")
+func (c Config) ValidateStatus(status Status) error {
+	if strings.TrimSpace(string(status)) == "" {
+		return fmt.Errorf("status is required")
 	}
-	if slices.Contains(c.States, state) {
+	if slices.Contains(c.Statuses, status) {
 		return nil
 	}
-	return fmt.Errorf("unknown state: %s", state)
+	return fmt.Errorf("unknown status: %s", status)
 }
 
 func (c Config) ValidateLinkType(linkType LinkType) error {
@@ -194,14 +204,14 @@ func validateUniqueKinds(values []Kind) error {
 	return nil
 }
 
-func validateUniqueStates(values []State) error {
-	seen := map[State]struct{}{}
+func validateUniqueStatuses(values []Status) error {
+	seen := map[Status]struct{}{}
 	for _, value := range values {
 		if value == "" {
-			return fmt.Errorf("states must not include empty value")
+			return fmt.Errorf("statuses must not include empty value")
 		}
 		if _, ok := seen[value]; ok {
-			return fmt.Errorf("states contains duplicate value: %s", value)
+			return fmt.Errorf("statuses contains duplicate value: %s", value)
 		}
 		seen[value] = struct{}{}
 	}

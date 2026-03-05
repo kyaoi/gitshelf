@@ -36,7 +36,7 @@ Flags:
 
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
-- `--state <state>` (defaults to config `default_state`)
+- `--status <status>` (defaults to config `default_status`)
 - `--parent <id|root>`
 - `--body <str>`
 
@@ -49,7 +49,7 @@ Flat task list.
 Flags:
 
 - `--kind <kind>`
-- `--state <state>`
+- `--status <status>`
 - `--parent <id|root>`
 - `--limit <n>` (default: 50)
 - `--search <query>` (title/body partial match)
@@ -64,7 +64,7 @@ Flags:
 
 - `--from <id|root>` (default: `root`)
 - `--max-depth <n>` (`0` means unlimited)
-- `--state <state>` (display filter)
+- `--status <status>` (display filter)
 
 ## shelf show <id>
 
@@ -82,7 +82,7 @@ Flags:
 
 - `--title <str>`
 - `--kind <kind>`
-- `--state <state>`
+- `--status <status>`
 - `--parent <id|root>`
 - `--body <str>` (replace body)
 - `--append-body <str>` (append text)
@@ -99,7 +99,7 @@ Flags:
 
 ## shelf done <id>
 
-Shortcut for `set --state done`.
+Shortcut for `set --status done`.
 
 ## shelf link
 
@@ -144,7 +144,7 @@ Integrity checker for `.shelf/`:
 
 - task parent existence
 - parent cycle detection
-- unknown `kind` / `state`
+- unknown `kind` / `status`
 - edge destination existence
 - unknown `link_type`
 - duplicate edge detection

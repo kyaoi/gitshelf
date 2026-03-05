@@ -8,7 +8,7 @@ import (
 
 type TaskFilter struct {
 	Kind   Kind
-	State  State
+	Status Status
 	Parent string
 	Search string
 	Limit  int
@@ -29,7 +29,7 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 		if filter.Kind != "" && task.Kind != filter.Kind {
 			continue
 		}
-		if filter.State != "" && task.State != filter.State {
+		if filter.Status != "" && task.Status != filter.Status {
 			continue
 		}
 		if filter.Parent != "" {
