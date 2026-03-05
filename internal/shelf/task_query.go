@@ -7,14 +7,20 @@ import (
 )
 
 type TaskFilter struct {
-	Kind   Kind
-	Status Status
-	Parent string
-	Search string
-	Limit  int
+	Kinds       []Kind
+	Statuses    []Status
+	NotKinds    []Kind
+	NotStatuses []Status
+	Parent      string
+	Search      string
+	Limit       int
 }
 
 func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
+	if err := validateTaskFilter(rootDir, filter); err != nil {
+		return nil, err
+	}
+
 	store := NewTaskStore(rootDir)
 	tasks, err := store.List()
 	if err != nil {
@@ -26,10 +32,16 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 	parent := normalizeParent(filter.Parent)
 
 	for _, task := range tasks {
-		if filter.Kind != "" && task.Kind != filter.Kind {
+		if len(filter.Kinds) > 0 && !slices.Contains(filter.Kinds, task.Kind) {
 			continue
 		}
-		if filter.Status != "" && task.Status != filter.Status {
+		if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, task.Status) {
+			continue
+		}
+		if slices.Contains(filter.NotKinds, task.Kind) {
+			continue
+		}
+		if slices.Contains(filter.NotStatuses, task.Status) {
 			continue
 		}
 		if filter.Parent != "" {
@@ -71,4 +83,32 @@ func EnsureTaskExists(rootDir string, taskID string) (Task, error) {
 		return Task{}, fmt.Errorf("task %s の取得に失敗しました: %w", taskID, err)
 	}
 	return task, nil
+}
+
+func validateTaskFilter(rootDir string, filter TaskFilter) error {
+	cfg, err := LoadConfig(rootDir)
+	if err != nil {
+		return err
+	}
+	for _, kind := range filter.Kinds {
+		if err := cfg.ValidateKind(kind); err != nil {
+			return err
+		}
+	}
+	for _, kind := range filter.NotKinds {
+		if err := cfg.ValidateKind(kind); err != nil {
+			return err
+		}
+	}
+	for _, status := range filter.Statuses {
+		if err := cfg.ValidateStatus(status); err != nil {
+			return err
+		}
+	}
+	for _, status := range filter.NotStatuses {
+		if err := cfg.ValidateStatus(status); err != nil {
+			return err
+		}
+	}
+	return nil
 }
