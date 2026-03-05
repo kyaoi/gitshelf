@@ -1,97 +1,150 @@
-# COMMANDS（CLI仕様）
+# COMMANDS (CLI Specification)
 
-## 共通
-- ワークディレクトリの上位に `.shelf/` が無ければエラー（ただし `init` は例外）
-- 出力は人間向け（必要に応じて `--json` を追加してもよいが必須ではない）
-- 失敗時は非ゼロ終了コード
+## Common
+
+- All commands support `--root <dir>` to explicitly select the project root (directory that contains `.shelf/`).
+- If `--root` is omitted, commands search upward from the current directory for `.shelf/`.
+- If `.shelf/` cannot be found, commands fail with a non-zero exit code.
+- `init` is the only command that does not require existing `.shelf/`.
 
 ## shelf init
-- `.shelf/` と必要ファイルを作る
-- 既に存在する場合は安全にスキップ（上書きしない）
 
-### 作成物
-- `.shelf/config.toml`（デフォルト）
-- `.shelf/tasks/`
-- `.shelf/edges/`
+Initialize `.shelf/` layout.
+
+- Creates:
+  - `.shelf/config.toml`
+  - `.shelf/tasks/`
+  - `.shelf/edges/`
+- Existing directories are preserved.
+- Existing `config.toml` is preserved unless `--force` is passed.
+
+Flags:
+
+- `--force`: overwrite `config.toml` with defaults.
 
 ## shelf add
-- タスクを追加する
-- TTYの場合: 対話（Title → Kind → Parent）
-- 非TTYの場合: `--title` 必須（対話不可）
 
-### flags（例）
+Create a task.
+
+- Non-interactive mode: `--title` is required.
+- Interactive mode (TTY only): Title -> Kind -> Parent.
+
+Flags:
+
 - `--title <str>`
-- `--kind <kind>`
-- `--state <state>`（通常は default）
+- `--kind <kind>` (defaults to config `default_kind`)
+- `--state <state>` (defaults to config `default_state`)
 - `--parent <id|root>`
-- `--body <str>`（任意）
+- `--body <str>`
 
-### 出力（例）
-- `Created: [<short>] <title>`
+Output includes full ID for copy-paste.
 
 ## shelf ls
-- フラット一覧
-- フィルタ可能
 
-### flags（例）
+Flat task list.
+
+Flags:
+
 - `--kind <kind>`
 - `--state <state>`
 - `--parent <id|root>`
-- `--limit <n>`（デフォルト50）
-- `--search <query>`（title/bodyの部分一致）
+- `--limit <n>` (default: 50)
+- `--search <query>` (title/body partial match)
+
+Default ordering is ULID ascending (creation order).
 
 ## shelf tree
-- 親子をツリー表示
 
-### flags
-- `--from <id|root>`
-- `--max-depth <n>`（省略時は無制限）
-- `--state <state>`（doneを隠す等）
+Render tree based on `parent`.
+
+Flags:
+
+- `--from <id|root>` (default: `root`)
+- `--max-depth <n>` (`0` means unlimited)
+- `--state <state>` (display filter)
 
 ## shelf show <id>
-- タスク詳細（front matter + body）
-- 併せて outbound/inbound links のサマリも表示して良い
+
+Show task details:
+
+- front matter fields
+- body
+- outbound and inbound link summary
 
 ## shelf set <id>
-- `kind` / `state` / `title` / `body` の更新
 
-### flags
+Update task fields.
+
+Flags:
+
 - `--title <str>`
 - `--kind <kind>`
 - `--state <state>`
-- `--body <str>`（置換）
-- `--append-body <str>`（追記）
+- `--parent <id|root>`
+- `--body <str>` (replace body)
+- `--append-body <str>` (append text)
+
+Parent updates validate existence and reject cycles.
 
 ## shelf mv <id>
-- 親の付け替え
 
-### flags
-- `--parent <id|root>`
+Thin wrapper of `set` for parent updates.
+
+Flags:
+
+- `--parent <id|root>` (required)
+
+## shelf done <id>
+
+Shortcut for `set --state done`.
 
 ## shelf link
-- リンク追加（outbound）
-- TTY: source → dest → type の対話（j/k + /search）
-- 非TTY: `--from --to --type` 必須
 
-### flags
+Create outbound link.
+
+- Non-interactive mode requires `--from --to --type`.
+- Interactive mode (TTY only): source -> destination -> type.
+
+Flags:
+
 - `--from <id>`
 - `--to <id>`
 - `--type <link_type>`
 
-### 出力（例）
-- `Linked: [src] --depends_on--> [dst]`
+Output keeps direction explicit:
+
+`Linked: [A] --depends_on--> [B]`
 
 ## shelf unlink
-- リンク削除（outbound）
-- `--from --to --type` 必須
+
+Remove outbound link.
+
+- Non-interactive mode requires `--from --to --type`.
+- Interactive mode (TTY only) lets users select existing outbound edge from a source task.
+
+Flags:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <link_type>`
 
 ## shelf links <id>
-- 指定タスクの links を表示
-  - outbound: `.shelf/edges/<id>.toml`
-  - inbound: 全edge走査で逆引き（`to == id`）
 
-表示は `type` ごとにグルーピングしても良い。
+Show links of a task:
+
+- outbound: from `.shelf/edges/<id>.toml`
+- inbound: reverse lookup by scanning all edge files
 
 ## shelf doctor
-- `.shelf/` の整合性チェック（不変条件検証）
-- 壊れているファイルを列挙し、修正ヒントを出す
+
+Integrity checker for `.shelf/`:
+
+- task parent existence
+- parent cycle detection
+- unknown `kind` / `state`
+- edge destination existence
+- unknown `link_type`
+- duplicate edge detection
+- edge source existence
+
+Outputs file path + task ID + issue message for manual fixes.

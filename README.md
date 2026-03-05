@@ -1,14 +1,111 @@
 # gitshelf
 
-Gitで TODO / IDEA / MEMO を管理するための **軽量CLI**。
+`gitshelf` is a lightweight Git-friendly CLI task manager.
 
-- コマンド: `shelf`
-- 保存: `.shelf/`（リポジトリ内に置く）
-- タスク: `.shelf/tasks/<id>.md`（フラット、1タスク=1ファイル）
-- リンク: `.shelf/edges/<src_id>.toml`（outbound edgesを分離）
-- 階層: タスクの `parent` により無限に入れ子
-- 関連: edgesにより子同士/別枝同士の関係を表現
-- 分類: `kind`（todo/idea/memo/...）
-- 進捗: `state`（open/done/...）
+- CLI command: `shelf`
+- Data root: `.shelf/`
+- Tasks: `.shelf/tasks/<id>.md` (flat files, one task per file)
+- Links: `.shelf/edges/<src_id>.toml` (outbound edges only)
+- Tree: represented by each task's `parent`
+- Extra relations: represented by links (`depends_on`, `related`, `derived_from`)
 
-詳細は `START_HERE.md` と `docs/` を参照。
+## Install
+
+```bash
+go build -o shelf ./cmd/shelf
+```
+
+## Quick Start
+
+```bash
+# Initialize in current directory
+./shelf init
+
+# Add tasks
+./shelf add --title "Weekly Goal"
+./shelf add --title "Monday Plan" --parent root
+
+# List and inspect
+./shelf ls
+./shelf tree
+./shelf show <task-id>
+
+# Update and move
+./shelf set <task-id> --state done
+./shelf mv <task-id> --parent root
+
+# Link tasks
+./shelf link --from <a> --to <b> --type depends_on
+./shelf links <a>
+
+# Check integrity
+./shelf doctor
+```
+
+## Commands
+
+- `shelf init [--root <dir>] [--force]`
+- `shelf add [--root <dir>] [--title ... --kind ... --state ... --parent <id|root> --body ...]`
+- `shelf ls [--root <dir>] [--kind ... --state ... --parent <id|root> --limit N --search ...]`
+- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --state ...]`
+- `shelf show <id> [--root <dir>]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --state ... --parent ... --body ... --append-body ...]`
+- `shelf mv <id> --parent <id|root> [--root <dir>]`
+- `shelf done <id> [--root <dir>]`
+- `shelf link [--root <dir>] [--from ... --to ... --type ...]`
+- `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
+- `shelf links <id> [--root <dir>]`
+- `shelf doctor [--root <dir>]`
+
+## Storage Format
+
+```text
+.shelf/
+  config.toml
+  tasks/
+    <id>.md
+  edges/
+    <src_id>.toml
+```
+
+Task file format (`.shelf/tasks/<id>.md`):
+
+```md
++++
+id = "01..."
+title = "Example"
+kind = "todo"
+state = "open"
+parent = "01..." # optional
+created_at = "2026-03-05T12:34:56+09:00"
+updated_at = "2026-03-05T12:34:56+09:00"
++++
+
+Body text...
+```
+
+Edge file format (`.shelf/edges/<src_id>.toml`):
+
+```toml
+[[edge]]
+to = "01..."
+type = "depends_on"
+```
+
+## FAQ
+
+### What does `depends_on` mean?
+
+`A depends_on B` means `B` must be completed before `A`.
+The CLI always displays it as:
+
+`A --depends_on--> B`
+
+### Is interactive mode always available?
+
+No. Interactive mode is enabled only when stdin/stdout are TTY.
+In non-TTY mode, required flags must be provided.
+
+### Can I move `.shelf`?
+
+Use `--root <dir>` on every command to target a specific project root.

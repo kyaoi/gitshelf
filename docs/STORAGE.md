@@ -1,6 +1,7 @@
-# STORAGE（保存形式と不変条件）
+# STORAGE (Formats and Invariants)
 
-## ディレクトリ
+## Directory Layout
+
 ```text
 .shelf/
   config.toml
@@ -10,73 +11,83 @@
     <src_id>.toml
 ```
 
-## ID
-- ULID推奨（時系列ソートに強い）
-- 表示用短縮ID: `id[:8]`（または `id[:10]`）
+## IDs
 
-## タスクファイル（Markdown + TOML front matter）
-- 先頭を `+++` で囲むTOML front matter
-- 本文は任意（空でも可）
+- ULID is used for new tasks.
+- Short display ID uses the first 8 characters.
 
-### 例
-```md
-+++
-id = "01JABCDEF0123456789XYZ"
-title = "月曜日にやること"
-kind = "todo"
-state = "open"
-parent = "01JWEEKGOAL000000000000" # rootなら省略/空
-created_at = "2026-03-05T12:34:56+09:00"
-updated_at = "2026-03-05T12:34:56+09:00"
-+++
+## Task File (`.shelf/tasks/<id>.md`)
 
-（任意のメモ）
-```
+- Markdown body with TOML front matter (`+++ ... +++`).
+- Required front matter keys:
+  - `id`
+  - `title`
+  - `kind`
+  - `state`
+  - `created_at`
+  - `updated_at`
+- Optional:
+  - `parent`
+  - body text
 
-### 必須/任意
-- 必須: `id`, `title`, `kind`, `state`, `created_at`, `updated_at`
-- 任意: `parent`, 本文
+Key order is stable:
 
-## edges（outbound links）
-- ファイル: `.shelf/edges/<src_id>.toml`
-- `[[edge]]` の配列
+1. `id`
+2. `title`
+3. `kind`
+4. `state`
+5. `parent` (if present)
+6. `created_at`
+7. `updated_at`
 
-### 例
-```toml
-[[edge]]
-to = "01JNOTE...."
-type = "depends_on"
+Timestamps use RFC3339.
 
-[[edge]]
-to = "01JQUANT...."
-type = "related"
-```
+## Edge File (`.shelf/edges/<src_id>.toml`)
 
-## 不変条件（MUST）
-### タスク
-- `id` はファイル名の `<id>` と一致
-- `title` は空でない
-- `kind` は `config.toml` の `kinds` に含まれる（含まれない場合はエラー）
-- `state` は `config.toml` の `states` に含まれる（含まれない場合はエラー）
-- `parent` がある場合:
-  - 対象タスクが存在する
-  - 自分自身ではない
-  - 循環が発生しない（親を辿って自分に戻らない）
+`[[edge]]` array with:
 
-### edges
-- `type` は `config.toml` の `link_types` に含まれる（含まれない場合はエラー）
-- `to` のタスクが存在する（存在しない場合はエラー）
-- 同じ `(type,to)` の重複は禁止（idempotent）
-- `depends_on` の意味は固定（SPEC参照）
+- `to`
+- `type`
 
-## 安定ソート（SHOULD）
-- `ls` のデフォルト: `created_at desc`（新しい順）
-- `tree`: siblingは `created_at asc` か `title asc` のいずれかで固定（どちらでも良いが固定する）
-- `edges` ファイル内の `[[edge]]`: `to asc`, `type asc` で固定
+Edge output is stable sorted by:
 
-## 原子的更新（MUST）
-- 変更は `*.tmp` に書き出して `rename`（同一FS上）
-- 失敗時は既存ファイルを壊さない
+1. `to` ascending
+2. `type` ascending
 
-## エラーメッセージ（MUST）
-- パスと原因を含める（例: `.shelf/tasks/<id>.md: invalid kind: ...`）
+Duplicate `(to, type)` is removed on write.
+
+## Invariants
+
+### Tasks
+
+- filename ID and front matter `id` must match
+- `title` must be non-empty
+- `kind` must exist in config `kinds`
+- `state` must exist in config `states`
+- when `parent` exists:
+  - parent task must exist
+  - cannot point to self
+  - must not create parent cycle
+
+### Edges
+
+- source task should exist
+- `type` must exist in config `link_types`
+- destination task must exist
+- duplicate `(type, to)` is invalid
+
+### Link Direction
+
+`A depends_on B` always means:
+
+`A --depends_on--> B`
+
+## Atomic Writes
+
+All writes use temp file -> rename in same filesystem to avoid partial corruption.
+
+## Error Messages
+
+Error output should include file path and cause where possible, for example:
+
+`.shelf/tasks/<id>.md: unknown kind: ...`
