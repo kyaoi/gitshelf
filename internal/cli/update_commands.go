@@ -21,8 +21,13 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <id>",
 		Short: "Update task fields",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := selectTaskIDIfMissing(ctx, args, "更新するタスクを選択", nil)
+			if err != nil {
+				return err
+			}
+
 			input := shelf.SetTaskInput{}
 			if cmd.Flags().Changed("title") {
 				input.Title = &title
@@ -49,7 +54,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				return errors.New("更新対象がありません。--title/--kind/--state/--parent/--body/--append-body を指定してください")
 			}
 
-			task, err := shelf.SetTask(ctx.rootDir, args[0], input)
+			task, err := shelf.SetTask(ctx.rootDir, id, input)
 			if err != nil {
 				return err
 			}
@@ -72,13 +77,23 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mv <id>",
 		Short: "Move task under a new parent",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("parent") {
-				return errors.New("--parent が必須です")
+			id, err := selectTaskIDIfMissing(ctx, args, "移動するタスクを選択", nil)
+			if err != nil {
+				return err
 			}
-			task, err := shelf.SetTask(ctx.rootDir, args[0], shelf.SetTaskInput{
-				Parent: &parent,
+
+			resolvedParent := parent
+			if !cmd.Flags().Changed("parent") {
+				resolvedParent, err = selectParentIfMissing(ctx, id, parent)
+				if err != nil {
+					return err
+				}
+			}
+
+			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+				Parent: &resolvedParent,
 			})
 			if err != nil {
 				return err
@@ -100,10 +115,17 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "done <id>",
 		Short: "Shortcut to set --state done",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			id, err := selectTaskIDIfMissing(ctx, args, "done にするタスクを選択", func(task shelf.Task) bool {
+				return task.State != shelf.State("done")
+			})
+			if err != nil {
+				return err
+			}
+
 			done := shelf.State("done")
-			task, err := shelf.SetTask(ctx.rootDir, args[0], shelf.SetTaskInput{
+			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 				State: &done,
 			})
 			if err != nil {

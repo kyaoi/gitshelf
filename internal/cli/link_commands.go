@@ -83,9 +83,12 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "links <id>",
 		Short: "Show outbound and inbound links",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			id := args[0]
+			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil)
+			if err != nil {
+				return err
+			}
 			outbound, inbound, err := shelf.ListLinks(ctx.rootDir, id)
 			if err != nil {
 				return err

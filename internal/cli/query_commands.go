@@ -54,9 +54,14 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show task details",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			task, err := shelf.EnsureTaskExists(ctx.rootDir, args[0])
+			id, err := selectTaskIDIfMissing(ctx, args, "表示するタスクを選択", nil)
+			if err != nil {
+				return err
+			}
+
+			task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
 			if err != nil {
 				return err
 			}
