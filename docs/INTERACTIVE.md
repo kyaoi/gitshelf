@@ -8,6 +8,11 @@ If not TTY, users must provide required flags.
 - `shelf add` (when `--title` is omitted)
 - `shelf link` (when `--from/--to/--type` are omitted)
 - `shelf unlink` (when `--from/--to/--type` are omitted)
+- `shelf show` (when `<id>` is omitted)
+- `shelf set` (when `<id>` is omitted)
+- `shelf mv` (when `<id>` and/or `--parent` is omitted)
+- `shelf done` (when `<id>` is omitted; `state!=done` tasks are prioritized)
+- `shelf links` (when `<id>` is omitted)
 
 ## Key Bindings
 
@@ -52,3 +57,12 @@ The type selection screen includes this warning:
 
 1. Select source task
 2. Select existing outbound edge to remove
+
+## show / set / done / links Interactive Flow
+
+1. Select target task by ID/title
+
+## mv Interactive Flow
+
+1. Select target task by ID/title (when `<id>` omitted)
+2. Select new parent (`0: [root]`) when `--parent` omitted

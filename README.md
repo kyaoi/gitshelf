@@ -60,6 +60,17 @@ go build -o shelf ./cmd/shelf
 - `shelf links <id> [--root <dir>]`
 - `shelf doctor [--root <dir>]`
 
+## Interactive by Default for Omitted Args
+
+When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts interactively instead of failing.
+
+- `add`: omitted `--title`
+- `link` / `unlink`: omitted required flags
+- `show` / `set` / `done` / `links`: omitted `<id>`
+- `mv`: omitted `<id>` and/or `--parent`
+
+In non-TTY mode, interactive prompts are disabled and missing values produce clear errors.
+
 ## Global Shelf and Fallback
 
 gitshelf supports a global default root configured at:
