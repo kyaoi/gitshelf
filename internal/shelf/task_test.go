@@ -25,6 +25,9 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
 	}
+	if !strings.Contains(string(data), "status = \"open\"") {
+		t.Fatalf("formatted task should include status key: %s", string(data))
+	}
 
 	parsed, err := ParseTaskMarkdown(data)
 	if err != nil {
