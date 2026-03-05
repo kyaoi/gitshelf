@@ -122,17 +122,24 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		Use:   "add",
 		Short: "Add a new task",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			var input shelf.AddTaskInput
 			if strings.TrimSpace(title) == "" {
-				return errors.New("非対話モードでは --title が必須です")
+				interactiveInput, err := resolveAddInputInteractive(ctx, body, state)
+				if err != nil {
+					return err
+				}
+				input = interactiveInput
+			} else {
+				input = shelf.AddTaskInput{
+					Title:  title,
+					Kind:   shelf.Kind(kind),
+					State:  shelf.State(state),
+					Parent: parent,
+					Body:   body,
+				}
 			}
 
-			task, err := shelf.AddTask(ctx.rootDir, shelf.AddTaskInput{
-				Title:  title,
-				Kind:   shelf.Kind(kind),
-				State:  shelf.State(state),
-				Parent: parent,
-				Body:   body,
-			})
+			task, err := shelf.AddTask(ctx.rootDir, input)
 			if err != nil {
 				return err
 			}
