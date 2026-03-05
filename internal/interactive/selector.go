@@ -14,6 +14,8 @@ import (
 
 var ErrCanceled = errors.New("selection canceled")
 
+const eol = "\r\n"
+
 type Option struct {
 	Value      string
 	Label      string
@@ -35,7 +37,7 @@ func Select(prompt string, options []Option) (Option, error) {
 	}
 	defer func() {
 		_ = term.Restore(fd, oldState)
-		fmt.Fprint(os.Stdout, "\n")
+		fmt.Fprint(os.Stdout, eol)
 	}()
 
 	reader := bufio.NewReader(os.Stdin)
@@ -125,17 +127,19 @@ func Select(prompt string, options []Option) (Option, error) {
 
 func render(prompt string, options []Option, cursor int, search string, searchMode bool) {
 	var b strings.Builder
-	b.WriteString("\033[H\033[2J")
+	b.WriteString("\r\033[H\033[2J")
 	b.WriteString(prompt)
-	b.WriteString("\n")
-	b.WriteString("j/k: 移動  Enter: 決定  /: 検索  Esc/Ctrl+C: キャンセル\n")
+	b.WriteString(eol)
+	b.WriteString("j/k: 移動  Enter: 決定  /: 検索  Esc/Ctrl+C: キャンセル")
+	b.WriteString(eol)
 
 	if searchMode {
-		b.WriteString(fmt.Sprintf("検索: %s_\n", search))
+		b.WriteString(fmt.Sprintf("検索: %s_%s", search, eol))
 	} else if search != "" {
-		b.WriteString(fmt.Sprintf("検索: %s\n", search))
+		b.WriteString(fmt.Sprintf("検索: %s%s", search, eol))
 	} else {
-		b.WriteString("検索: (なし)\n")
+		b.WriteString("検索: (なし)")
+		b.WriteString(eol)
 	}
 
 	max := min(len(options), 15)
@@ -144,10 +148,11 @@ func render(prompt string, options []Option, cursor int, search string, searchMo
 		if i == cursor {
 			prefix = "> "
 		}
-		b.WriteString(prefix + options[i].Label + "\n")
+		b.WriteString(prefix + options[i].Label + eol)
 	}
 	if len(options) == 0 {
-		b.WriteString("(候補なし)\n")
+		b.WriteString("(候補なし)")
+		b.WriteString(eol)
 	}
 	fmt.Fprint(os.Stdout, b.String())
 }
