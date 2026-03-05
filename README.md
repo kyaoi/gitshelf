@@ -21,6 +21,9 @@ go build -o shelf ./cmd/shelf
 # Initialize in current directory
 ./shelf init
 
+# Initialize global shelf (writes global config + creates global .shelf)
+./shelf init --global
+
 # Add tasks
 ./shelf add --title "Weekly Goal"
 ./shelf add --title "Monday Plan" --parent root
@@ -56,6 +59,26 @@ go build -o shelf ./cmd/shelf
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf links <id> [--root <dir>]`
 - `shelf doctor [--root <dir>]`
+
+## Global Shelf and Fallback
+
+gitshelf supports a global default root configured at:
+
+- `~/.config/gitshelf/config.toml` (Linux default location via `os.UserConfigDir()`)
+
+Global config format:
+
+```toml
+default_root = "/abs/path/to/store"
+```
+
+Resolution order for commands:
+
+1. Use `--root` when provided.
+2. Otherwise search upward from cwd for `.shelf/config.toml`.
+3. If not found, use global config `default_root`.
+4. If global config is missing, command fails with guidance to run:
+   - `shelf init --global`
 
 ## Storage Format
 

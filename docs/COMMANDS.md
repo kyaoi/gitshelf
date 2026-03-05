@@ -4,6 +4,7 @@
 
 - All commands support `--root <dir>` to explicitly select the project root (directory that contains `.shelf/`).
 - If `--root` is omitted, commands search upward from the current directory for `.shelf/`.
+- If local `.shelf/` is not found, commands fall back to global config `default_root`.
 - If `.shelf/` cannot be found, commands fail with a non-zero exit code.
 - `init` is the only command that does not require existing `.shelf/`.
 
@@ -17,10 +18,12 @@ Initialize `.shelf/` layout.
   - `.shelf/edges/`
 - Existing directories are preserved.
 - Existing `config.toml` is preserved unless `--force` is passed.
+- `--global` writes global config (`GlobalConfigPath`) and initializes `.shelf/` under `default_root`.
 
 Flags:
 
 - `--force`: overwrite `config.toml` with defaults.
+- `--global`: initialize global default root + global config.
 
 ## shelf add
 
