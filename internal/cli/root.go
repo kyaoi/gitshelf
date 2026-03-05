@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
@@ -50,7 +51,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&ctx.rootOverride, "root", "", "Directory that contains .shelf")
 
 	cmd.AddCommand(newInitCommand(ctx))
-	cmd.AddCommand(newStubCommand("add"))
+	cmd.AddCommand(newAddCommand(ctx))
 	cmd.AddCommand(newStubCommand("ls"))
 	cmd.AddCommand(newStubCommand("tree"))
 	cmd.AddCommand(newStubCommand("show"))
@@ -106,4 +107,46 @@ func newStubCommand(name string) *cobra.Command {
 			return fmt.Errorf("`shelf %s` は未実装です", name)
 		},
 	}
+}
+
+func newAddCommand(ctx *commandContext) *cobra.Command {
+	var (
+		title  string
+		kind   string
+		state  string
+		parent string
+		body   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add a new task",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if strings.TrimSpace(title) == "" {
+				return errors.New("非対話モードでは --title が必須です")
+			}
+
+			task, err := shelf.AddTask(ctx.rootDir, shelf.AddTaskInput{
+				Title:  title,
+				Kind:   shelf.Kind(kind),
+				State:  shelf.State(state),
+				Parent: parent,
+				Body:   body,
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Created: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+			fmt.Printf("ID: %s\n", task.ID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&title, "title", "", "Task title")
+	cmd.Flags().StringVar(&kind, "kind", "", "Task kind")
+	cmd.Flags().StringVar(&state, "state", "", "Task state")
+	cmd.Flags().StringVar(&parent, "parent", "", "Parent task ID or root")
+	cmd.Flags().StringVar(&body, "body", "", "Task body")
+	return cmd
 }
