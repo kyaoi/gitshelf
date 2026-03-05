@@ -1,0 +1,232 @@
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/kyaoi/gitshelf/internal/interactive"
+	"github.com/kyaoi/gitshelf/internal/shelf"
+	"github.com/spf13/cobra"
+)
+
+func newLinkCommand(ctx *commandContext) *cobra.Command {
+	var (
+		from string
+		to   string
+		kind string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "link",
+		Short: "Create outbound link",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" || strings.TrimSpace(kind) == "" {
+				var err error
+				from, to, kind, err = resolveLinkInputInteractive(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
+				return err
+			}
+			fmt.Printf("Linked: [%s] --%s--> [%s]\n", shelf.ShortID(from), kind, shelf.ShortID(to))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Source task ID")
+	cmd.Flags().StringVar(&to, "to", "", "Destination task ID")
+	cmd.Flags().StringVar(&kind, "type", "", "Link type")
+	return cmd
+}
+
+func newUnlinkCommand(ctx *commandContext) *cobra.Command {
+	var (
+		from string
+		to   string
+		kind string
+	)
+	cmd := &cobra.Command{
+		Use:   "unlink",
+		Short: "Remove outbound link",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" || strings.TrimSpace(kind) == "" {
+				var err error
+				from, to, kind, err = resolveUnlinkInputInteractive(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind))
+			if err != nil {
+				return err
+			}
+			if !removed {
+				return errors.New("指定リンクは存在しません")
+			}
+			fmt.Printf("Unlinked: [%s] --%s--> [%s]\n", shelf.ShortID(from), kind, shelf.ShortID(to))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Source task ID")
+	cmd.Flags().StringVar(&to, "to", "", "Destination task ID")
+	cmd.Flags().StringVar(&kind, "type", "", "Link type")
+	return cmd
+}
+
+func newLinksCommand(ctx *commandContext) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "links <id>",
+		Short: "Show outbound and inbound links",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			id := args[0]
+			outbound, inbound, err := shelf.ListLinks(ctx.rootDir, id)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("Outbound:")
+			if len(outbound) == 0 {
+				fmt.Println("  (none)")
+			}
+			for _, edge := range outbound {
+				fmt.Printf("  [%s] --%s--> [%s]\n", shelf.ShortID(id), edge.Type, shelf.ShortID(edge.To))
+			}
+
+			fmt.Println("Inbound:")
+			if len(inbound) == 0 {
+				fmt.Println("  (none)")
+			}
+			for _, edge := range inbound {
+				fmt.Printf("  [%s] --%s--> [%s]\n", shelf.ShortID(edge.From), edge.Type, shelf.ShortID(id))
+			}
+
+			fmt.Println("depends_on の向き: A depends_on B = AをやるにはBが先")
+			return nil
+		},
+	}
+	return cmd
+}
+
+func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, error) {
+	if !interactive.IsTTY() {
+		return "", "", "", errors.New("非TTYでは対話入力できません。--from --to --type を指定してください")
+	}
+
+	taskStore := shelf.NewTaskStore(ctx.rootDir)
+	tasks, err := taskStore.List()
+	if err != nil {
+		return "", "", "", err
+	}
+	if len(tasks) == 0 {
+		return "", "", "", errors.New("タスクがありません")
+	}
+
+	taskOptions := make([]interactive.Option, 0, len(tasks))
+	for _, task := range tasks {
+		taskOptions = append(taskOptions, interactive.Option{
+			Value:      task.ID,
+			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.State),
+			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
+		})
+	}
+
+	src, err := interactive.Select("source を選択", taskOptions)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	dstOptions := make([]interactive.Option, 0, len(taskOptions)-1)
+	for _, opt := range taskOptions {
+		if opt.Value == src.Value {
+			continue
+		}
+		dstOptions = append(dstOptions, opt)
+	}
+	dst, err := interactive.Select("destination を選択", dstOptions)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	cfg, err := shelf.LoadConfig(ctx.rootDir)
+	if err != nil {
+		return "", "", "", err
+	}
+	typeOptions := make([]interactive.Option, 0, len(cfg.LinkTypes))
+	for _, linkType := range cfg.LinkTypes {
+		typeOptions = append(typeOptions, interactive.Option{
+			Value:      string(linkType),
+			Label:      string(linkType),
+			SearchText: string(linkType),
+		})
+	}
+	selectedType, err := interactive.Select("type を選択（A depends_on B = AをやるにはBが先）", typeOptions)
+	if err != nil {
+		return "", "", "", err
+	}
+	return src.Value, dst.Value, selectedType.Value, nil
+}
+
+func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string, error) {
+	if !interactive.IsTTY() {
+		return "", "", "", errors.New("非TTYでは対話入力できません。--from --to --type を指定してください")
+	}
+
+	taskStore := shelf.NewTaskStore(ctx.rootDir)
+	tasks, err := taskStore.List()
+	if err != nil {
+		return "", "", "", err
+	}
+	if len(tasks) == 0 {
+		return "", "", "", errors.New("タスクがありません")
+	}
+
+	taskOptions := make([]interactive.Option, 0, len(tasks))
+	for _, task := range tasks {
+		taskOptions = append(taskOptions, interactive.Option{
+			Value:      task.ID,
+			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.State),
+			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
+		})
+	}
+
+	src, err := interactive.Select("source を選択", taskOptions)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	edgeStore := shelf.NewEdgeStore(ctx.rootDir)
+	edges, err := edgeStore.ListOutbound(src.Value)
+	if err != nil {
+		return "", "", "", err
+	}
+	if len(edges) == 0 {
+		return "", "", "", errors.New("選択した source には outbound link がありません")
+	}
+
+	edgeOptions := make([]interactive.Option, 0, len(edges))
+	for _, edge := range edges {
+		edgeOptions = append(edgeOptions, interactive.Option{
+			Value:      fmt.Sprintf("%s\t%s", edge.To, edge.Type),
+			Label:      fmt.Sprintf("[%s] --%s--> [%s]", shelf.ShortID(src.Value), edge.Type, shelf.ShortID(edge.To)),
+			SearchText: fmt.Sprintf("%s %s %s", edge.To, shelf.ShortID(edge.To), edge.Type),
+		})
+	}
+
+	selectedEdge, err := interactive.Select("削除する edge を選択", edgeOptions)
+	if err != nil {
+		return "", "", "", err
+	}
+	parts := strings.SplitN(selectedEdge.Value, "\t", 2)
+	if len(parts) != 2 {
+		return "", "", "", errors.New("edge 値の解析に失敗しました")
+	}
+
+	return src.Value, parts[0], parts[1], nil
+}

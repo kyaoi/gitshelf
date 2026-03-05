@@ -58,9 +58,9 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newSetCommand(ctx))
 	cmd.AddCommand(newMvCommand(ctx))
 	cmd.AddCommand(newDoneCommand(ctx))
-	cmd.AddCommand(newStubCommand("link"))
-	cmd.AddCommand(newStubCommand("unlink"))
-	cmd.AddCommand(newStubCommand("links"))
+	cmd.AddCommand(newLinkCommand(ctx))
+	cmd.AddCommand(newUnlinkCommand(ctx))
+	cmd.AddCommand(newLinksCommand(ctx))
 	cmd.AddCommand(newStubCommand("doctor"))
 
 	return cmd
