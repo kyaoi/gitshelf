@@ -1,0 +1,7 @@
+# gitshelf config
+kinds = ["todo", "idea", "memo"]
+states = ["open", "done"]
+link_types = ["derived_from", "depends_on", "related"]
+
+default_kind = "todo"
+default_state = "open"
