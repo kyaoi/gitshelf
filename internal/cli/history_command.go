@@ -83,9 +83,9 @@ func newHistoryShowCommand(ctx *commandContext) *cobra.Command {
 
 			if asJSON {
 				payload := map[string]any{
-					"entry":          entry,
-					"index":          index,
-					"snapshot_path":  snapshotPath,
+					"entry":           entry,
+					"index":           index,
+					"snapshot_path":   snapshotPath,
 					"snapshot_exists": snapshotExists,
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
