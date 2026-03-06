@@ -9,6 +9,7 @@ If not TTY, users must provide required flags.
 - `shelf link` (when `--from/--to/--type` are omitted)
 - `shelf unlink` (when `--from/--to/--type` are omitted)
 - `shelf show` (when `<id>` is omitted)
+- `shelf explain` (when `<id>` is omitted)
 - `shelf edit` (when `<id>` is omitted)
 - `shelf set` (when `<id>` is omitted)
 - `shelf mv` (when `<id>` and/or `--parent` is omitted)
@@ -76,11 +77,11 @@ The type selection screen includes this warning:
 1. Select source task
 2. Select existing outbound edge to remove
 
-## show / edit / set / done / links Interactive Flow
+## show / explain / edit / set / done / links Interactive Flow
 
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
-2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Parent`/`Body replace`/`Body append`)
+2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
 3. `set` shows change preview before apply
 
 ## mv Interactive Flow

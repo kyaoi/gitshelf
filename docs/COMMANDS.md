@@ -7,6 +7,7 @@
 - If local `.shelf/` is not found, commands fall back to global config `default_root`.
 - If `.shelf/` cannot be found, commands fail with a non-zero exit code.
 - `init` is the only command that does not require existing `.shelf/`.
+- `completion` is also available without existing `.shelf/`.
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors.
 - Task selectors always show a body preview (or `(empty body)`).
 - Colorized output is enabled by default on TTY.
@@ -43,6 +44,7 @@ Flags:
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
 - `--due <YYYY-MM-DD|today|tomorrow>` (optional)
+- `--repeat-every <N>d|<N>w|<N>m|<N>y>` (optional)
 - `--parent <id|root>`
 - `--body <str>`
 
@@ -93,6 +95,29 @@ Flags:
 - `--limit <n>` (default: 50)
 - `--json`
 
+## shelf view
+
+Manage saved views in `.shelf/config.toml`.
+
+Subcommands:
+
+- `shelf view list|ls [--json]`
+- `shelf view show <name> [--json]`
+- `shelf view set <name> [filter flags...]`
+- `shelf view delete|rm <name>`
+
+`view set` supports:
+
+- `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
+- `--ready`, `--blocked-by-deps`
+- `--due-before`, `--due-after`, `--overdue`, `--no-due`
+- `--parent`, `--search`, `--limit`
+
+Rules:
+
+- built-in views (`active|ready|blocked|overdue`) cannot be overwritten/deleted
+- at least one filter flag is required for `view set`
+
 ## shelf agenda
 
 Due-oriented daily list.
@@ -108,6 +133,21 @@ Flags:
 - `--not-kind <kind>` (repeatable exclude filter)
 - `--not-status <status>` (repeatable exclude filter)
 - `--json`
+
+## shelf today
+
+Show only overdue + today tasks.
+
+Default target statuses are `open`, `in_progress`, `blocked`.
+
+Flags:
+
+- `--view <name>` (built-in or config view)
+- `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
+- `--format <compact|detail>`
+- `--json`
+- `--include-archived`
+- `--only-archived`
 
 ## shelf tree
 
@@ -140,6 +180,17 @@ Flags:
 - `--only-body` (print body only)
 - `--json`
 
+## shelf explain <id>
+
+Explain why a task matches or does not match built-in views and default command filters.
+
+Also prints current readiness (`ready`, unresolved `depends_on`).
+
+Flags:
+
+- `--view <name>` (add custom/built-in view explanation)
+- `--json`
+
 ## shelf edit [id]
 
 Open task file (`.shelf/tasks/<id>.md`) in editor.
@@ -161,6 +212,8 @@ Flags:
 - `--status <status>`
 - `--due <YYYY-MM-DD|today|tomorrow>`
 - `--clear-due`
+- `--repeat-every <N>d|<N>w|<N>m|<N>y>`
+- `--clear-repeat`
 - `--parent <id|root>`
 - `--body <str>` (replace body)
 - `--append-body <str>` (append text)
@@ -183,6 +236,14 @@ Rules:
 - exactly one of `--by` or `--to` is required
 - if `<id>` is omitted and TTY is available, task selector is shown
 
+## shelf archive <id>
+
+Set `archived_at` to current local RFC3339 timestamp.
+
+## shelf unarchive <id>
+
+Clear `archived_at`.
+
 ## shelf mv <id>
 
 Thin wrapper of `set` for parent updates.
@@ -195,6 +256,13 @@ Flags:
 
 Shortcut for `set --status done`.
 
+Recurring tasks (`repeat_every` present):
+
+- `--recurring-action create`: mark current task done and create next task
+- `--recurring-action reopen`: keep same task and advance due/status to open
+
+On non-TTY, recurring `done` requires `--recurring-action`.
+
 ## shelf start <id>
 
 Shortcut for `set --status in_progress`.
@@ -206,6 +274,10 @@ Shortcut for `set --status blocked`.
 ## shelf cancel <id>
 
 Shortcut for `set --status cancelled`.
+
+## shelf reopen <id>
+
+Shortcut for `set --status open`.
 
 ## shelf link
 
@@ -254,6 +326,29 @@ Flags:
 - `--transitive` (show recursive `depends_on` closure)
 - `--json`
 
+## shelf export
+
+Export full `.shelf` data as JSON (`config`, `tasks`, `edges`).
+
+Flags:
+
+- `--out <path>` (`-` for stdout)
+
+## shelf import
+
+Import full `.shelf` data from JSON export format.
+
+This operation replaces current `tasks`/`edges` and writes `config`.
+Undo snapshot is taken before import.
+
+Flags:
+
+- `--in <path>` (`-` for stdin)
+
+## shelf undo
+
+Restore last snapshot taken by mutating commands (`add/set/mv/done/start/block/cancel/reopen/snooze/archive/unarchive/link/unlink/import`).
+
 ## shelf doctor
 
 Integrity checker for `.shelf/`:
@@ -272,3 +367,14 @@ Flags:
 
 - `--fix` (apply safe normalization before checks)
 - `--json`
+
+Doctor output includes per-issue `hint` text for common recovery paths.
+
+## shelf completion
+
+Generate shell completions:
+
+- `shelf completion bash`
+- `shelf completion zsh`
+- `shelf completion fish`
+- `shelf completion powershell`

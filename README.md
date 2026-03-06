@@ -42,11 +42,24 @@ go build -o shelf ./cmd/shelf
 ./shelf cancel <task-id>
 ./shelf next
 ./shelf agenda
+./shelf today
 ./shelf snooze <task-id> --by 2d
+./shelf archive <task-id>
+./shelf unarchive <task-id>
+./shelf reopen <task-id>
+./shelf undo
+./shelf explain <task-id>
 
 # Link tasks
 ./shelf link --from <a> --to <b> --type depends_on
 ./shelf links <a> --transitive
+
+# Manage views / backup
+./shelf view list
+./shelf view set focus --ready --limit 20
+./shelf export --out backup.json
+./shelf import --in backup.json
+./shelf completion zsh
 
 # Check integrity
 ./shelf doctor
@@ -56,23 +69,33 @@ go build -o shelf ./cmd/shelf
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --parent <id|root> --body ...]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
 - `shelf ls [--root <dir>] [--view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
+- `shelf view list|show|set|delete [--root <dir>] ...`
 - `shelf next [--root <dir>] [--view <name> --limit N --json]`
 - `shelf agenda [--root <dir>] [--view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf today [--root <dir>] [--view <name> --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf tree [--root <dir>] [--view <name> --from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
+- `shelf explain <id> [--root <dir>] [--view <name> --json]`
 - `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --clear-due --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
 - `shelf snooze <id> [--root <dir>] (--by <Nd> | --to YYYY-MM-DD|today|tomorrow)`
+- `shelf archive <id> [--root <dir>]`
+- `shelf unarchive <id> [--root <dir>]`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
-- `shelf done <id> [--root <dir>]`
+- `shelf done <id> [--root <dir>] [--recurring-action create|reopen]`
 - `shelf start <id> [--root <dir>]`
 - `shelf block <id> [--root <dir>]`
 - `shelf cancel <id> [--root <dir>]`
+- `shelf reopen <id> [--root <dir>]`
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf links <id> [--root <dir>] [--transitive --json]`
+- `shelf export [--root <dir>] [--out <path>|-]`
+- `shelf import [--root <dir>] [--in <path>|-]`
+- `shelf undo [--root <dir>]`
+- `shelf completion bash|zsh|fish|powershell`
 - `shelf doctor [--root <dir>] [--fix --json]`
 
 Global display flags:
@@ -91,6 +114,8 @@ Color output:
 - `kind`: task category (`todo`, `idea`, `memo`, ...)
 - `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
+- `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
+- `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
 - CLI input for due also accepts `today` / `tomorrow` and stores normalized date
 
 ## Link Types
@@ -112,6 +137,7 @@ Supported `link_types` are only:
 ./shelf ls --ready --overdue
 ./shelf ls --blocked-by-deps
 ./shelf ls --view active
+./shelf ls --include-archived
 ./shelf ls --json
 ```
 
@@ -145,6 +171,15 @@ Task selectors always show body preview.
 ```toml
 [views."only_done"]
 statuses = ["done"]
+```
+
+You can also manage this from CLI:
+
+```bash
+./shelf view list
+./shelf view show only_done
+./shelf view set only_done --status done
+./shelf view delete only_done
 ```
 
 In non-TTY mode, interactive prompts are disabled and missing values produce clear errors.
@@ -189,6 +224,8 @@ title = "Example"
 kind = "todo"
 status = "open"
 due_on = "2026-03-31" # optional
+repeat_every = "1w" # optional
+archived_at = "2026-03-31T11:22:33+09:00" # optional
 parent = "01..." # optional
 created_at = "2026-03-05T12:34:56+09:00"
 updated_at = "2026-03-05T12:34:56+09:00"

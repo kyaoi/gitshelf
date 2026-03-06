@@ -9,6 +9,9 @@
     <id>.md
   edges/
     <src_id>.toml
+  history/
+    snapshot/
+    last_action.json
 ```
 
 ## Config File (`.shelf/config.toml`)
@@ -56,6 +59,8 @@ Supported view keys:
   - `updated_at`
 - Optional:
   - `due_on` (`YYYY-MM-DD`)
+  - `repeat_every` (`<N>d|<N>w|<N>m|<N>y`)
+  - `archived_at` (RFC3339)
   - `parent`
   - body text (freeform notes)
 
@@ -77,9 +82,11 @@ Key order is stable:
 3. `kind`
 4. `status`
 5. `due_on` (if present)
-6. `parent` (if present)
-7. `created_at`
-8. `updated_at`
+6. `repeat_every` (if present)
+7. `archived_at` (if present)
+8. `parent` (if present)
+9. `created_at`
+10. `updated_at`
 
 Timestamps use RFC3339.
 
@@ -106,6 +113,8 @@ Duplicate `(to, type)` is removed on write.
 - `kind` must exist in config `kinds`
 - `status` must exist in config `statuses`
 - `due_on` must match `YYYY-MM-DD` when present
+- `repeat_every` must match `<N>d|<N>w|<N>m|<N>y` when present
+- `archived_at` must be RFC3339 when present
 - when `parent` exists:
   - parent task must exist
   - cannot point to self
@@ -127,6 +136,11 @@ Duplicate `(to, type)` is removed on write.
 ## Atomic Writes
 
 All writes use temp file -> rename in same filesystem to avoid partial corruption.
+
+## Undo Snapshot
+
+Mutating commands create one snapshot under `.shelf/history/snapshot`.
+`shelf undo` restores that snapshot (single-level undo).
 
 ## Error Messages
 
