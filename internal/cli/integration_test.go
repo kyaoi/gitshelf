@@ -472,6 +472,42 @@ func TestCLIShowBodyModesAndJSON(t *testing.T) {
 	}
 }
 
+func TestCLILinksTransitiveAndJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	a, _ := shelf.AddTask(root, shelf.AddTaskInput{Title: "A"})
+	b, _ := shelf.AddTask(root, shelf.AddTaskInput{Title: "B"})
+	c, _ := shelf.AddTask(root, shelf.AddTaskInput{Title: "C"})
+	if err := shelf.LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, b.ID, c.ID, "depends_on"); err != nil {
+		t.Fatalf("link B->C failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, a.ID, "--transitive")
+	if err != nil {
+		t.Fatalf("links --transitive failed: %v", err)
+	}
+	if !strings.Contains(out, "Transitive depends_on:") {
+		t.Fatalf("expected transitive section in links output: %s", out)
+	}
+
+	out, err = executeCLI(t, "links", "--root", root, a.ID, "--transitive", "--json")
+	if err != nil {
+		t.Fatalf("links --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse links json output: %v output=%s", err, out)
+	}
+	if _, ok := payload["transitive_depends_on"]; !ok {
+		t.Fatalf("expected transitive_depends_on in json output: %s", out)
+	}
+}
+
 func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -80,6 +81,11 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newLinksCommand(ctx *commandContext) *cobra.Command {
+	var (
+		transitive bool
+		asJSON     bool
+	)
+
 	cmd := &cobra.Command{
 		Use:   "links <id>",
 		Short: "Show outbound and inbound links",
@@ -92,6 +98,31 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			outbound, inbound, err := shelf.ListLinks(ctx.rootDir, id)
 			if err != nil {
 				return err
+			}
+
+			transitiveDeps := []string{}
+			if transitive {
+				transitiveDeps, err = shelf.ListTransitiveDependencies(ctx.rootDir, id)
+				if err != nil {
+					return err
+				}
+			}
+
+			if asJSON {
+				payload := map[string]any{
+					"id":       id,
+					"outbound": outbound,
+					"inbound":  inbound,
+				}
+				if transitive {
+					payload["transitive_depends_on"] = transitiveDeps
+				}
+				data, err := json.MarshalIndent(payload, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
 			}
 
 			fmt.Println(uiHeading("Outbound:"))
@@ -109,11 +140,23 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			for _, edge := range inbound {
 				fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(edge.From)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(id)))
 			}
+			if transitive {
+				fmt.Println(uiHeading("Transitive depends_on:"))
+				if len(transitiveDeps) == 0 {
+					fmt.Println(uiMuted("  (none)"))
+				} else {
+					for _, depID := range transitiveDeps {
+						fmt.Printf("  %s\n", uiShortID(shelf.ShortID(depID)))
+					}
+				}
+			}
 
 			fmt.Println("depends_on の向き: A depends_on B = AをやるにはBが先")
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&transitive, "transitive", false, "Show transitive depends_on closure")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
 

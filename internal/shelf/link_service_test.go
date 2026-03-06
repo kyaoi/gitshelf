@@ -82,3 +82,52 @@ func TestBuildTaskReadinessByDependsOn(t *testing.T) {
 		t.Fatalf("A should become ready when dependency is done: %+v", readiness[a.ID])
 	}
 }
+
+func TestLinkTasksRejectsDependsOnCycle(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	a, err := AddTask(root, AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := AddTask(root, AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+	if err := LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+	if err := LinkTasks(root, b.ID, a.ID, "depends_on"); err == nil {
+		t.Fatal("expected depends_on cycle error")
+	}
+}
+
+func TestListTransitiveDependencies(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	a, _ := AddTask(root, AddTaskInput{Title: "A"})
+	b, _ := AddTask(root, AddTaskInput{Title: "B"})
+	c, _ := AddTask(root, AddTaskInput{Title: "C"})
+	d, _ := AddTask(root, AddTaskInput{Title: "D"})
+	if err := LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+	if err := LinkTasks(root, b.ID, c.ID, "depends_on"); err != nil {
+		t.Fatalf("link B->C failed: %v", err)
+	}
+	if err := LinkTasks(root, a.ID, d.ID, "related"); err != nil {
+		t.Fatalf("link A->D related failed: %v", err)
+	}
+
+	got, err := ListTransitiveDependencies(root, a.ID)
+	if err != nil {
+		t.Fatalf("list transitive dependencies failed: %v", err)
+	}
+	if len(got) != 2 || got[0] != b.ID || got[1] != c.ID {
+		t.Fatalf("unexpected transitive dependencies: %+v", got)
+	}
+}
