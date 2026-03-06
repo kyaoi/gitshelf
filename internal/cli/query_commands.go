@@ -416,6 +416,14 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			readinessMap, err := shelf.BuildTaskReadiness(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			readiness, ok := readinessMap[task.ID]
+			if !ok {
+				readiness = shelf.TaskReadiness{}
+			}
 
 			if asJSON {
 				type jsonTreeNode struct {
@@ -469,11 +477,12 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				}
 
 				payload := map[string]any{
-					"task":     taskPayload,
-					"path":     path,
-					"subtree":  subtreePayload,
-					"outbound": outbound,
-					"inbound":  inbound,
+					"task":      taskPayload,
+					"path":      path,
+					"subtree":   subtreePayload,
+					"readiness": readiness,
+					"outbound":  outbound,
+					"inbound":   inbound,
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -523,6 +532,28 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					for i, node := range subtree {
 						printTreeNode(node, "", i == len(subtree)-1, ctx.showID, "compact")
 					}
+				}
+			}
+			fmt.Println()
+			fmt.Println(uiHeading("Readiness:"))
+			if readiness.Ready {
+				fmt.Println("  ready=true")
+			} else {
+				fmt.Println("  ready=false")
+			}
+			if len(readiness.UnresolvedDependsOn) == 0 {
+				fmt.Println("  blocked_by_dependencies=(none)")
+			} else {
+				fmt.Println("  blocked_by_dependencies:")
+				for _, depID := range readiness.UnresolvedDependsOn {
+					depLabel := depID
+					if depTask, ok := byID[depID]; ok {
+						depLabel = depTask.Title
+						if ctx.showID {
+							depLabel = fmt.Sprintf("[%s] %s", shelf.ShortID(depID), depTask.Title)
+						}
+					}
+					fmt.Printf("    - %s\n", depLabel)
 				}
 			}
 			fmt.Println()

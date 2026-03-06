@@ -1077,6 +1077,32 @@ func TestCLITodayAndFormatFlags(t *testing.T) {
 	}
 }
 
+func TestCLIShowIncludesReadinessDetails(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	a, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, a.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(out, "Readiness:") || !strings.Contains(out, "blocked_by_dependencies") || !strings.Contains(out, "B") {
+		t.Fatalf("show should include readiness detail: %s", out)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
