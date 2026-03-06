@@ -36,6 +36,7 @@ go build -o shelf ./cmd/shelf
 ./shelf estimate <task-id> --set 2h --spent 30m
 ./shelf track start <task-id>
 ./shelf track stop <task-id>
+./shelf notify --command 'notify-send gitshelf "$SHELF_TASK_TITLE"'
 
 # List and inspect
 ./shelf ls
@@ -94,6 +95,7 @@ go build -o shelf ./cmd/shelf
 - `shelf board [--root <dir>] [--show-id]`
 - `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
 - `shelf track start|stop|show [--root <dir>] ...`
+- `shelf notify [--root <dir>] [--command <shell> --dry-run]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`

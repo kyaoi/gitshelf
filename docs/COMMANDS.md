@@ -152,6 +152,24 @@ Subcommands:
 - `shelf track stop <id>`
 - `shelf track show [id] [--json]`
 
+## shelf notify
+
+Run a local shell command for active tasks due today or overdue.
+
+Environment variables passed to the shell command:
+
+- `SHELF_TASK_ID`
+- `SHELF_TASK_SHORT_ID`
+- `SHELF_TASK_TITLE`
+- `SHELF_TASK_KIND`
+- `SHELF_TASK_STATUS`
+- `SHELF_TASK_DUE_ON`
+
+Flags:
+
+- `--command <shell>`
+- `--dry-run`
+
 ## shelf ls
 
 Flat task list.

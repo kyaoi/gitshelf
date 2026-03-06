@@ -448,6 +448,33 @@ func TestCLITrackStopAddsElapsedTime(t *testing.T) {
 	}
 }
 
+func TestCLINotifyRunsCommandForDueTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "DueTask",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  time.Now().Local().Format("2006-01-02"),
+	}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	outFile := filepath.Join(t.TempDir(), "notify.txt")
+	command := fmt.Sprintf("printf '%%s\\n' \"$SHELF_TASK_TITLE\" >> %s", outFile)
+	if _, err := executeCLI(t, "notify", "--root", root, "--command", command); err != nil {
+		t.Fatalf("notify failed: %v", err)
+	}
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read notify output failed: %v", err)
+	}
+	if !strings.Contains(string(data), "DueTask") {
+		t.Fatalf("notify command did not receive task title: %s", string(data))
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
