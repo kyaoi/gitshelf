@@ -391,6 +391,16 @@ func TestCLICalendarShowsWeekTasks(t *testing.T) {
 	}
 }
 
+func TestCLIBoardRequiresTTY(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "board", "--root", root); err == nil || !strings.Contains(err.Error(), "TTY") {
+		t.Fatalf("expected tty error, got: %v", err)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

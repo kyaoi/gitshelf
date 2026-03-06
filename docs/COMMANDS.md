@@ -116,6 +116,19 @@ Flags:
 - `--status <status>` (repeatable)
 - `--json`
 
+## shelf board
+
+Kanban-style TUI for status columns.
+
+- TTY only
+- columns follow configured `statuses`
+- keybindings:
+  - `h` / `l`: move columns
+  - `j` / `k`: move rows
+  - `o` / `s` / `b` / `d` / `c`: set status (`open` / `in_progress` / `blocked` / `done` / `cancelled`)
+  - `r`: reload
+  - `q`: quit
+
 ## shelf ls
 
 Flat task list.

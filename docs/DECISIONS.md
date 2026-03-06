@@ -7,8 +7,9 @@
 - Kind/Status: 分離する
 
 ## UI（確定）
-- TUIは作らない
+- 基本は通常CLI
 - ただし `shelf add` や `shelf link` はターミナルで対話選択を提供（j/k、検索、ページング）
+- 追加拡張として `shelf board` は TUI を許可する
 
 ## ID（確定）
 - ULID（推奨）

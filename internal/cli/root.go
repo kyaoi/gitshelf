@@ -61,6 +61,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newTriageCommand(ctx))
 	cmd.AddCommand(newTemplateCommand(ctx))
 	cmd.AddCommand(newCalendarCommand(ctx))
+	cmd.AddCommand(newBoardCommand(ctx))
 	cmd.AddCommand(newLsCommand(ctx))
 	cmd.AddCommand(newViewCommand(ctx))
 	cmd.AddCommand(newPresetCommand(ctx))

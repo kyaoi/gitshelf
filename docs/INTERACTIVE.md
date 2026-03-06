@@ -16,6 +16,7 @@ If not TTY, users must provide required flags.
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
 - `shelf triage` (without `--auto`)
+- `shelf board` (TTY only, dedicated TUI)
 
 ## Key Bindings
 
@@ -106,3 +107,9 @@ The type selection screen includes this warning:
    - `Set status ...`
    - `Archive task`
    - `Skip` / `Quit triage`
+
+## board TUI
+
+- status columns follow config order
+- selected task body is previewed below the board
+- `o` / `s` / `b` / `d` / `c` update task status in place
