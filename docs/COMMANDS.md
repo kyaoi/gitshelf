@@ -43,7 +43,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
-- `--due <YYYY-MM-DD|today|tomorrow>` (optional)
+- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>` (optional)
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>` (optional)
 - `--parent <id|root>`
 - `--body <str>`
@@ -58,6 +58,7 @@ ID is omitted from default display. Parent is shown as `root` or parent title.
 Flags:
 
 - `--view <name>` (built-in: `active|ready|blocked|overdue`, or config view)
+- `--preset <name>` (output preset for `ls`)
 - `--kind <kind>` (repeatable include filter)
 - `--status <status>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
@@ -92,6 +93,7 @@ List actionable tasks (`open`/`in_progress` and unblocked by dependencies).
 Flags:
 
 - `--view <name>` (built-in or config view)
+- `--preset <name>` (output preset for `next`)
 - `--limit <n>` (default: 50)
 - `--json`
 
@@ -104,6 +106,9 @@ Subcommands:
 - `shelf view list|ls [--json]`
 - `shelf view show <name> [--json]`
 - `shelf view set <name> [filter flags...]`
+- `shelf view copy <src> <dst>`
+- `shelf view rename <src> <dst>`
+- `shelf view merge <dst> --from <name> --from <name> [--strategy overlay|union]`
 - `shelf view delete|rm <name>`
 
 `view set` supports:
@@ -118,6 +123,17 @@ Rules:
 - built-in views (`active|ready|blocked|overdue`) cannot be overwritten/deleted
 - at least one filter flag is required for `view set`
 
+## shelf preset
+
+Manage output presets in `.shelf/config.toml`.
+
+Subcommands:
+
+- `shelf preset list|ls [--json]`
+- `shelf preset show <name> [--json]`
+- `shelf preset set <name> --command <ls|tree|next|agenda|today> [--format ... --view ... --limit ...]`
+- `shelf preset delete|rm <name>`
+
 ## shelf agenda
 
 Due-oriented daily list.
@@ -127,6 +143,7 @@ Default target statuses are `open`, `in_progress`, `blocked`.
 Flags:
 
 - `--view <name>` (built-in or config view)
+- `--preset <name>` (output preset for `agenda`)
 - `--days <n>` (upcoming range, default 7)
 - `--kind <kind>` (repeatable include filter)
 - `--status <status>` (repeatable include filter)
@@ -143,11 +160,14 @@ Default target statuses are `open`, `in_progress`, `blocked`.
 Flags:
 
 - `--view <name>` (built-in or config view)
+- `--preset <name>` (output preset for `today`)
 - `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
 - `--format <compact|detail>`
 - `--json`
 - `--include-archived`
 - `--only-archived`
+- `--carry-over` (move overdue active tasks to today)
+- `--yes` (required on non-TTY with `--carry-over`)
 
 ## shelf tree
 
@@ -157,6 +177,7 @@ ID is omitted from tree output by default.
 Flags:
 
 - `--view <name>` (built-in or config view; due/readiness views are rejected)
+- `--preset <name>` (output preset for `tree`)
 - `--from <id|root>` (default: `root`)
 - `--max-depth <n>` (`0` means unlimited)
 - `--kind <kind>` (repeatable include filter)
@@ -210,7 +231,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>`
 - `--status <status>`
-- `--due <YYYY-MM-DD|today|tomorrow>`
+- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>`
 - `--clear-due`
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>`
 - `--clear-repeat`
@@ -229,7 +250,7 @@ Adjust task due date.
 Flags:
 
 - `--by <Nd>` (relative day shift, e.g. `2d`, `-1d`)
-- `--to <YYYY-MM-DD|today|tomorrow>` (absolute set)
+- `--to <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>` (absolute set)
 
 Rules:
 
@@ -326,6 +347,16 @@ Flags:
 - `--transitive` (show recursive `depends_on` closure)
 - `--json`
 
+## shelf deps <id>
+
+Show `depends_on` prerequisites and dependents of a task.
+
+Flags:
+
+- `--transitive` (recursive closure)
+- `--reverse` (print dependents first)
+- `--json`
+
 ## shelf export
 
 Export full `.shelf` data as JSON (`config`, `tasks`, `edges`).
@@ -344,10 +375,35 @@ Undo snapshot is taken before import.
 Flags:
 
 - `--in <path>` (`-` for stdin)
+- `--validate-only` (validate payload only)
+- `--dry-run` (show summary without write)
+- `--merge` (merge into current shelf; incoming wins on conflicts)
+- `--replace` (replace current shelf; default mode)
 
 ## shelf undo
 
 Restore last snapshot taken by mutating commands (`add/set/mv/done/start/block/cancel/reopen/snooze/archive/unarchive/link/unlink/import`).
+
+Flags:
+
+- `--steps <n>` (default: 1)
+
+## shelf redo
+
+Re-apply undone mutating actions.
+
+Flags:
+
+- `--steps <n>` (default: 1)
+
+## shelf history
+
+Show mutating action history (`apply`/`undo`/`redo`) from `.shelf/history/actions.log`.
+
+Flags:
+
+- `--limit <n>` (default: 50)
+- `--json`
 
 ## shelf doctor
 

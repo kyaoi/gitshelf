@@ -57,13 +57,17 @@
 
 - `agenda`: 期限ベースで日次確認するための一覧
 - `today`: overdue + today の集中確認
+- `today --carry-over`: 期限切れのactive taskを今日へ繰り上げ
 - `snooze`: `due_on` を相対日数または絶対日付で調整
 - `archive` / `unarchive`: 表示対象からの退避/復帰
 - `done` (recurring対応) / `reopen`: status ショートカット
 - `--view`: `ls/tree/next/agenda` で保存済みフィルタを適用
+- `preset`: コマンド別の出力プリセット管理
 - `view`: 保存済みフィルタの管理
 - `explain`: 1タスクの readiness / view一致理由の説明
-- `undo`: 直前の更新を1段階ロールバック
+- `deps`: depends_on の前提/逆依存確認
+- `undo` / `redo`: 更新のロールバック/再適用
+- `history`: 更新履歴の確認
 - `export` / `import`: `.shelf` 全体の JSON バックアップ/復元
 
 ## 用語

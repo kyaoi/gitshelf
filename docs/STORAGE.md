@@ -10,8 +10,9 @@
   edges/
     <src_id>.toml
   history/
-    snapshot/
-    last_action.json
+    index.json
+    actions.log
+    snapshots/
 ```
 
 ## Config File (`.shelf/config.toml`)
@@ -40,6 +41,16 @@ Supported view keys:
 - `ready`, `blocked_by_deps`
 - `due_before`, `due_after`, `overdue`, `no_due`
 - `parent`, `search`, `limit`
+
+Optional output presets:
+
+```toml
+[output_presets."ls_focus"]
+command = "ls"
+view = "active"
+format = "detail"
+limit = 20
+```
 
 ## IDs
 
@@ -139,8 +150,9 @@ All writes use temp file -> rename in same filesystem to avoid partial corruptio
 
 ## Undo Snapshot
 
-Mutating commands create one snapshot under `.shelf/history/snapshot`.
-`shelf undo` restores that snapshot (single-level undo).
+Mutating commands push snapshots under `.shelf/history/snapshots`.
+`index.json` tracks undo/redo stacks.
+`actions.log` stores JSONL action records (`apply`/`undo`/`redo`).
 
 ## Error Messages
 

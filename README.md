@@ -48,6 +48,8 @@ go build -o shelf ./cmd/shelf
 ./shelf unarchive <task-id>
 ./shelf reopen <task-id>
 ./shelf undo
+./shelf redo
+./shelf history
 ./shelf explain <task-id>
 
 # Link tasks
@@ -57,8 +59,11 @@ go build -o shelf ./cmd/shelf
 # Manage views / backup
 ./shelf view list
 ./shelf view set focus --ready --limit 20
+./shelf preset set ls_focus --command ls --view active --format detail --limit 20
+./shelf deps <task-id> --transitive
 ./shelf export --out backup.json
-./shelf import --in backup.json
+./shelf import --validate-only --in backup.json
+./shelf import --merge --in backup.json
 ./shelf completion zsh
 
 # Check integrity
@@ -69,13 +74,14 @@ go build -o shelf ./cmd/shelf
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
-- `shelf view list|show|set|delete [--root <dir>] ...`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
+- `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
+- `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
+- `shelf preset list|show|set|delete [--root <dir>] ...`
 - `shelf next [--root <dir>] [--view <name> --limit N --json]`
-- `shelf agenda [--root <dir>] [--view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf today [--root <dir>] [--view <name> --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf tree [--root <dir>] [--view <name> --from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf agenda [--root <dir>] [--preset <name> --view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf today [--root <dir>] [--preset <name> --view <name> --carry-over --yes --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf tree [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf explain <id> [--root <dir>] [--view <name> --json]`
 - `shelf edit [id] [--root <dir>]`
@@ -92,9 +98,12 @@ go build -o shelf ./cmd/shelf
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf links <id> [--root <dir>] [--transitive --json]`
+- `shelf deps <id> [--root <dir>] [--transitive --reverse --json]`
 - `shelf export [--root <dir>] [--out <path>|-]`
-- `shelf import [--root <dir>] [--in <path>|-]`
+- `shelf import [--root <dir>] [--in <path>|- --validate-only --dry-run --merge --replace]`
 - `shelf undo [--root <dir>]`
+- `shelf redo [--root <dir>]`
+- `shelf history [--root <dir>] [--limit N --json]`
 - `shelf completion bash|zsh|fish|powershell`
 - `shelf doctor [--root <dir>] [--fix --json]`
 
@@ -116,7 +125,7 @@ Color output:
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
 - `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
 - `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
-- CLI input for due also accepts `today` / `tomorrow` and stores normalized date
+- CLI input for due also accepts `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `mon..sun` and stores normalized date
 
 ## Link Types
 
@@ -179,7 +188,17 @@ You can also manage this from CLI:
 ./shelf view list
 ./shelf view show only_done
 ./shelf view set only_done --status done
+./shelf view copy only_done only_done_copy
+./shelf view rename only_done_copy done_only
+./shelf view merge done_union --from only_done --from active --strategy union
 ./shelf view delete only_done
+```
+
+Output presets:
+
+```bash
+./shelf preset set ls_focus --command ls --view active --format detail --limit 20
+./shelf ls --preset ls_focus
 ```
 
 In non-TTY mode, interactive prompts are disabled and missing values produce clear errors.
@@ -213,6 +232,10 @@ Resolution order for commands:
     <id>.md
   edges/
     <src_id>.toml
+  history/
+    index.json
+    actions.log
+    snapshots/
 ```
 
 Task file format (`.shelf/tasks/<id>.md`):
@@ -262,6 +285,32 @@ The CLI always displays it as:
 
 No. Interactive mode is enabled only when stdin/stdout are TTY.
 In non-TTY mode, required flags must be provided.
+
+## Local Quality Gate (mise + lefthook)
+
+```bash
+mise install
+mise run hooks-install
+mise run hooks-pre-commit
+mise run hooks-pre-push
+```
+
+Hooks:
+
+- `pre-commit`: staged gofmt check + `go test ./...`
+- `pre-push`: `go test ./...`, `go test -race ./...`, `go vet ./...`
+
+## Automated Backup Script
+
+```bash
+SHELF_ROOT=/path/to/repo ./scripts/backup_shelf.sh
+```
+
+Environment variables:
+
+- `SHELF_BIN` (default: `shelf`)
+- `SHELF_BACKUP_DIR` (default: `${SHELF_ROOT}/.shelf/backups`)
+- `SHELF_BACKUP_KEEP` (default: `30`)
 
 ### Can I move `.shelf`?
 
