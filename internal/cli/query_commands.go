@@ -48,11 +48,18 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if task.Parent != "" {
 					if title, ok := titleByID[task.Parent]; ok {
 						parentLabel = title
+						if ctx.showID {
+							parentLabel = fmt.Sprintf("[%s] %s", shelf.ShortID(task.Parent), title)
+						}
 					} else {
 						parentLabel = "(missing)"
 					}
 				}
-				fmt.Printf("%s  (%s/%s) parent=%s\n", task.Title, task.Kind, task.Status, parentLabel)
+				label := task.Title
+				if ctx.showID {
+					label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), task.Title)
+				}
+				fmt.Printf("%s  (%s/%s) parent=%s\n", label, task.Kind, task.Status, parentLabel)
 			}
 			return nil
 		},
@@ -118,7 +125,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println("  (none)")
 			} else {
 				for i, node := range subtree {
-					printTreeNode(node, "", i == len(subtree)-1)
+					printTreeNode(node, "", i == len(subtree)-1, ctx.showID)
 				}
 			}
 			fmt.Println()
@@ -179,7 +186,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			for i, node := range nodes {
-				printTreeNode(node, "", i == len(nodes)-1)
+				printTreeNode(node, "", i == len(nodes)-1, ctx.showID)
 			}
 			return nil
 		},
@@ -191,7 +198,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	return cmd
 }
 
-func printTreeNode(node shelf.TreeNode, prefix string, isLast bool) {
+func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool) {
 	branch := "├─ "
 	nextPrefix := prefix + "│  "
 	if isLast {
@@ -202,9 +209,13 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool) {
 		branch = ""
 	}
 
-	fmt.Printf("%s%s%s (%s/%s)\n", prefix, branch, node.Task.Title, node.Task.Kind, node.Task.Status)
+	label := node.Task.Title
+	if showID {
+		label = fmt.Sprintf("[%s] %s", shelf.ShortID(node.Task.ID), node.Task.Title)
+	}
+	fmt.Printf("%s%s%s (%s/%s)\n", prefix, branch, label, node.Task.Kind, node.Task.Status)
 	for i, child := range node.Children {
-		printTreeNode(child, nextPrefix, i == len(node.Children)-1)
+		printTreeNode(child, nextPrefix, i == len(node.Children)-1, showID)
 	}
 }
 

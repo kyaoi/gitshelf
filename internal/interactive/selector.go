@@ -20,6 +20,7 @@ type Option struct {
 	Value      string
 	Label      string
 	SearchText string
+	Preview    string
 }
 
 func Select(prompt string, options []Option) (Option, error) {
@@ -153,6 +154,23 @@ func render(prompt string, options []Option, cursor int, search string, searchMo
 	if len(options) == 0 {
 		b.WriteString("(候補なし)")
 		b.WriteString(eol)
+	} else if cursor >= 0 && cursor < len(options) {
+		preview := strings.TrimSpace(options[cursor].Preview)
+		if preview != "" {
+			b.WriteString(eol)
+			b.WriteString("----- preview -----")
+			b.WriteString(eol)
+			lines := strings.Split(preview, "\n")
+			maxPreviewLines := min(len(lines), 8)
+			for i := 0; i < maxPreviewLines; i++ {
+				b.WriteString(lines[i])
+				b.WriteString(eol)
+			}
+			if len(lines) > maxPreviewLines {
+				b.WriteString("...")
+				b.WriteString(eol)
+			}
+		}
 	}
 	fmt.Fprint(os.Stdout, b.String())
 }

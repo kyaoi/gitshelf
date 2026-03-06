@@ -24,7 +24,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 		Short: "Update task fields",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := selectTaskIDIfMissing(ctx, args, "更新するタスクを選択", nil, false)
+			id, err := selectTaskIDIfMissing(ctx, args, "更新するタスクを選択", nil, true)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 		Short: "Move task under a new parent",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := selectTaskIDIfMissing(ctx, args, "移動するタスクを選択", nil, false)
+			id, err := selectTaskIDIfMissing(ctx, args, "移動するタスクを選択", nil, true)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "done にするタスクを選択", func(task shelf.Task) bool {
 				return task.Status != shelf.Status("done")
-			}, false)
+			}, true)
 			if err != nil {
 				return err
 			}

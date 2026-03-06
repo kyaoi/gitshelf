@@ -85,7 +85,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show outbound and inbound links",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, false)
+			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, true)
 			if err != nil {
 				return err
 			}
@@ -131,27 +131,31 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 		return "", "", "", errors.New("タスクがありません")
 	}
 
-	taskOptions := make([]interactive.Option, 0, len(tasks))
-	for _, task := range tasks {
-		taskOptions = append(taskOptions, interactive.Option{
-			Value:      task.ID,
-			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
-			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
-		})
-	}
+	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        ctx.showID,
+		PreviewBody:   ctx.previewBody,
+		IncludeOrphan: true,
+	})
 
 	src, err := interactive.Select("source を選択", taskOptions)
 	if err != nil {
 		return "", "", "", err
 	}
 
-	dstOptions := make([]interactive.Option, 0, len(taskOptions)-1)
-	for _, opt := range taskOptions {
-		if opt.Value == src.Value {
+	dstTasks := make([]shelf.Task, 0, len(tasks)-1)
+	for _, task := range tasks {
+		if task.ID == src.Value {
 			continue
 		}
-		dstOptions = append(dstOptions, opt)
+		dstTasks = append(dstTasks, task)
 	}
+	dstOptions := buildTaskSelectionOptions(dstTasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        ctx.showID,
+		PreviewBody:   ctx.previewBody,
+		IncludeOrphan: true,
+	})
 	dst, err := interactive.Select("destination を選択", dstOptions)
 	if err != nil {
 		return "", "", "", err
@@ -190,13 +194,15 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 		return "", "", "", errors.New("タスクがありません")
 	}
 
-	taskOptions := make([]interactive.Option, 0, len(tasks))
+	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        ctx.showID,
+		PreviewBody:   ctx.previewBody,
+		IncludeOrphan: true,
+	})
+	byID := make(map[string]shelf.Task, len(tasks))
 	for _, task := range tasks {
-		taskOptions = append(taskOptions, interactive.Option{
-			Value:      task.ID,
-			Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
-			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
-		})
+		byID[task.ID] = task
 	}
 
 	src, err := interactive.Select("source を選択", taskOptions)
@@ -215,9 +221,17 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 
 	edgeOptions := make([]interactive.Option, 0, len(edges))
 	for _, edge := range edges {
+		dstLabel := edge.To
+		if task, ok := byID[edge.To]; ok {
+			dstLabel = task.Title
+		}
+		label := fmt.Sprintf("%s --%s--> %s", src.Label, edge.Type, dstLabel)
+		if ctx.showID {
+			label = fmt.Sprintf("[%s] --%s--> [%s]", shelf.ShortID(src.Value), edge.Type, shelf.ShortID(edge.To))
+		}
 		edgeOptions = append(edgeOptions, interactive.Option{
 			Value:      fmt.Sprintf("%s\t%s", edge.To, edge.Type),
-			Label:      fmt.Sprintf("[%s] --%s--> [%s]", shelf.ShortID(src.Value), edge.Type, shelf.ShortID(edge.To)),
+			Label:      label,
 			SearchText: fmt.Sprintf("%s %s %s", edge.To, shelf.ShortID(edge.To), edge.Type),
 		})
 	}

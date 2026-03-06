@@ -50,7 +50,7 @@ func resolveEditTaskID(ctx *commandContext, args []string, isTTY bool) (string, 
 	if !isTTY {
 		return "", errors.New("<id> を指定してください")
 	}
-	return selectTaskIDIfMissing(ctx, args, "編集するタスクを選択", nil, false)
+	return selectTaskIDIfMissing(ctx, args, "編集するタスクを選択", nil, true)
 }
 
 func resolveEditorCommand(lookupEnv func(string) (string, bool)) (string, error) {

@@ -53,7 +53,12 @@ func selectTaskIDIfMissing(
 		return "", errors.New("選択可能なタスクがありません")
 	}
 
-	options := buildTaskSelectionOptions(candidates, hierarchical)
+	options := buildTaskSelectionOptions(candidates, taskSelectionBuildOptions{
+		Hierarchical:  hierarchical,
+		ShowID:        ctx.showID,
+		PreviewBody:   ctx.previewBody,
+		IncludeOrphan: true,
+	})
 	selected, err := interactive.Select(prompt, options)
 	if err != nil {
 		return "", err
@@ -75,7 +80,7 @@ func selectParentIfMissing(ctx *commandContext, currentID string, parentFlag str
 		return "", err
 	}
 
-	options := buildParentSelectionOptions(tasks, currentID)
+	options := buildParentSelectionOptions(tasks, currentID, ctx.showID, ctx.previewBody)
 	selected, err := interactive.Select("Parent を選択してください", options)
 	if err != nil {
 		return "", err
@@ -83,7 +88,7 @@ func selectParentIfMissing(ctx *commandContext, currentID string, parentFlag str
 	return selected.Value, nil
 }
 
-func buildParentSelectionOptions(tasks []shelf.Task, excludeID string) []interactive.Option {
+func buildParentSelectionOptions(tasks []shelf.Task, excludeID string, showID bool, previewBody bool) []interactive.Option {
 	options := []interactive.Option{{
 		Value:      "root",
 		Label:      "(root)",
@@ -93,74 +98,44 @@ func buildParentSelectionOptions(tasks []shelf.Task, excludeID string) []interac
 		return options
 	}
 
-	byID := make(map[string]shelf.Task, len(tasks))
+	filtered := make([]shelf.Task, 0, len(tasks))
 	for _, task := range tasks {
 		if task.ID == excludeID {
 			continue
 		}
-		byID[task.ID] = task
+		filtered = append(filtered, task)
 	}
-	if len(byID) == 0 {
+	if len(filtered) == 0 {
 		return options
 	}
+	return append(options, buildTaskSelectionOptions(filtered, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        showID,
+		PreviewBody:   previewBody,
+		IncludeOrphan: false,
+	})...)
+}
 
-	children := make(map[string][]shelf.Task, len(byID))
-	titleCount := map[string]int{}
-	titleKindStatusCount := map[string]int{}
-	for _, task := range byID {
-		if task.Parent == "" {
-			children[""] = append(children[""], task)
-		} else if _, ok := byID[task.Parent]; ok {
-			children[task.Parent] = append(children[task.Parent], task)
-		}
-		titleCount[task.Title]++
-		key := task.Title + "\x00" + string(task.Kind) + "\x00" + string(task.Status)
-		titleKindStatusCount[key]++
-	}
-	for parent := range children {
-		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].ID < children[parent][j].ID
-		})
-	}
+type taskSelectionBuildOptions struct {
+	Hierarchical  bool
+	ShowID        bool
+	PreviewBody   bool
+	IncludeOrphan bool
+}
 
-	var visit func(parent string, prefix string, depth int)
-	visit = func(parent string, prefix string, depth int) {
-		siblings := children[parent]
-		for i, task := range siblings {
-			isLast := i == len(siblings)-1
-			label := taskDisplayLabel(task, titleCount, titleKindStatusCount)
-			nextPrefix := prefix
-
-			if depth > 0 {
-				branch := "├─ "
-				nextPrefix = prefix + "│  "
-				if isLast {
-					branch = "└─ "
-					nextPrefix = prefix + "   "
-				}
-				label = prefix + branch + label
+func buildTaskSelectionOptions(tasks []shelf.Task, opts taskSelectionBuildOptions) []interactive.Option {
+	if !opts.Hierarchical {
+		options := make([]interactive.Option, 0, len(tasks))
+		for _, task := range tasks {
+			label := fmt.Sprintf("%s  (%s/%s)", task.Title, task.Kind, task.Status)
+			if opts.ShowID {
+				label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
 			}
-
 			options = append(options, interactive.Option{
 				Value:      task.ID,
 				Label:      label,
-				SearchText: fmt.Sprintf("%s %s %s %s %s", task.ID, shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
-			})
-			visit(task.ID, nextPrefix, depth+1)
-		}
-	}
-	visit("", "", 0)
-	return options
-}
-
-func buildTaskSelectionOptions(tasks []shelf.Task, hierarchical bool) []interactive.Option {
-	if !hierarchical {
-		options := make([]interactive.Option, 0, len(tasks))
-		for _, task := range tasks {
-			options = append(options, interactive.Option{
-				Value:      task.ID,
-				Label:      fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
 				SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
+				Preview:    buildPreview(task, opts.PreviewBody),
 			})
 		}
 		return options
@@ -176,8 +151,10 @@ func buildTaskSelectionOptions(tasks []shelf.Task, hierarchical bool) []interact
 	titleCount := map[string]int{}
 	titleKindStatusCount := map[string]int{}
 
-	for _, task := range tasks {
+	orderByID := make(map[string]int, len(tasks))
+	for i, task := range tasks {
 		byID[task.ID] = task
+		orderByID[task.ID] = i
 		titleCount[task.Title]++
 		key := task.Title + "\x00" + string(task.Kind) + "\x00" + string(task.Status)
 		titleKindStatusCount[key]++
@@ -188,14 +165,16 @@ func buildTaskSelectionOptions(tasks []shelf.Task, hierarchical bool) []interact
 			continue
 		}
 		if _, ok := byID[task.Parent]; !ok {
-			children[""] = append(children[""], task)
+			if opts.IncludeOrphan {
+				children[""] = append(children[""], task)
+			}
 			continue
 		}
 		children[task.Parent] = append(children[task.Parent], task)
 	}
 	for parent := range children {
 		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].ID < children[parent][j].ID
+			return orderByID[children[parent][i].ID] < orderByID[children[parent][j].ID]
 		})
 	}
 
@@ -217,10 +196,14 @@ func buildTaskSelectionOptions(tasks []shelf.Task, hierarchical bool) []interact
 				label = prefix + branch + label
 			}
 
+			if opts.ShowID {
+				label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
+			}
 			options = append(options, interactive.Option{
 				Value:      task.ID,
 				Label:      label,
 				SearchText: fmt.Sprintf("%s %s %s %s %s", task.ID, shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
+				Preview:    buildPreview(task, opts.PreviewBody),
 			})
 			visit(task.ID, nextPrefix, depth+1)
 		}
@@ -240,4 +223,15 @@ func taskDisplayLabel(task shelf.Task, titleCount map[string]int, tksCount map[s
 		label = fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
 	}
 	return label
+}
+
+func buildPreview(task shelf.Task, enabled bool) string {
+	if !enabled {
+		return ""
+	}
+	body := strings.TrimSpace(task.Body)
+	if body == "" {
+		return "(empty body)"
+	}
+	return body
 }

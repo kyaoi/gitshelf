@@ -17,7 +17,7 @@ func TestBuildParentSelectionOptionsHierarchyOrder(t *testing.T) {
 		{ID: "01D", Title: "D", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "")
+	options := buildParentSelectionOptions(tasks, "", false, false)
 	if len(options) != 5 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -46,7 +46,7 @@ func TestBuildParentSelectionOptionsDuplicateTitles(t *testing.T) {
 		{ID: "01B", Title: "same", Kind: "idea", Status: "blocked", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "")
+	options := buildParentSelectionOptions(tasks, "", false, false)
 	if len(options) != 3 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -64,7 +64,7 @@ func TestBuildParentSelectionOptionsOmitsIDsForUniqueTitles(t *testing.T) {
 		{ID: "01A", Title: "unique", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "")
+	options := buildParentSelectionOptions(tasks, "", false, false)
 	if len(options) != 2 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -80,7 +80,7 @@ func TestBuildParentSelectionOptionsExcludeID(t *testing.T) {
 		{ID: "01B", Title: "B", Kind: "todo", Status: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "01A")
+	options := buildParentSelectionOptions(tasks, "01A", false, false)
 	if len(options) != 1 {
 		t.Fatalf("expected only root when excluding current branch, got %+v", options)
 	}
@@ -97,7 +97,12 @@ func TestBuildTaskSelectionOptionsHierarchical(t *testing.T) {
 		{ID: "01C", Title: "C", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildTaskSelectionOptions(tasks, true)
+	options := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        false,
+		PreviewBody:   false,
+		IncludeOrphan: true,
+	})
 	if len(options) != 3 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -111,5 +116,27 @@ func TestBuildTaskSelectionOptionsHierarchical(t *testing.T) {
 		if strings.Contains(option.Label, "[") {
 			t.Fatalf("hierarchical task selection should omit IDs in label: %q", option.Label)
 		}
+	}
+}
+
+func TestBuildTaskSelectionOptionsWithIDAndPreview(t *testing.T) {
+	now := time.Now().UTC().Round(time.Second)
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", Body: "body text", CreatedAt: now, UpdatedAt: now},
+	}
+	options := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        true,
+		PreviewBody:   true,
+		IncludeOrphan: true,
+	})
+	if len(options) != 1 {
+		t.Fatalf("unexpected options: %+v", options)
+	}
+	if !strings.HasPrefix(options[0].Label, "[") {
+		t.Fatalf("expected ID prefix in label: %q", options[0].Label)
+	}
+	if options[0].Preview != "body text" {
+		t.Fatalf("unexpected preview: %q", options[0].Preview)
 	}
 }

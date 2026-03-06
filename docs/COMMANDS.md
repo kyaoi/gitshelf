@@ -7,6 +7,8 @@
 - If local `.shelf/` is not found, commands fall back to global config `default_root`.
 - If `.shelf/` cannot be found, commands fail with a non-zero exit code.
 - `init` is the only command that does not require existing `.shelf/`.
+- `--show-id`: show IDs in `ls` / `tree` / interactive task selectors.
+- `--preview-body`: show selected task body preview in interactive task selectors.
 
 ## shelf init
 

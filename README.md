@@ -62,6 +62,11 @@ go build -o shelf ./cmd/shelf
 - `shelf links <id> [--root <dir>]`
 - `shelf doctor [--root <dir>]`
 
+Global display flags:
+
+- `--show-id`: show IDs in `ls` / `tree` / interactive task selectors
+- `--preview-body`: show selected task body preview in interactive selectors
+
 ## Kind and Status
 
 - `kind`: task category (`todo`, `idea`, `memo`, ...)

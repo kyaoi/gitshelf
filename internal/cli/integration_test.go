@@ -166,6 +166,22 @@ func TestCLITreeLsAndShowHideIDsAndShowHierarchy(t *testing.T) {
 		t.Fatalf("unexpected tree output: %s", treeOutput)
 	}
 
+	lsWithID, err := executeCLI(t, "ls", "--root", root, "--show-id")
+	if err != nil {
+		t.Fatalf("ls --show-id failed: %v", err)
+	}
+	if !strings.Contains(lsWithID, "["+shelf.ShortID(parent.ID)+"] Parent") {
+		t.Fatalf("ls --show-id should include IDs: %s", lsWithID)
+	}
+
+	treeWithID, err := executeCLI(t, "tree", "--root", root, "--show-id")
+	if err != nil {
+		t.Fatalf("tree --show-id failed: %v", err)
+	}
+	if !strings.Contains(treeWithID, "["+shelf.ShortID(parent.ID)+"] Parent") {
+		t.Fatalf("tree --show-id should include IDs: %s", treeWithID)
+	}
+
 	showOutput, err := executeCLI(t, "show", "--root", root, child.ID)
 	if err != nil {
 		t.Fatalf("show failed: %v", err)
