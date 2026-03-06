@@ -32,6 +32,8 @@
   - `parent`
   - body text (freeform notes)
 
+CLI accepts `today` / `tomorrow` for due input, but stores normalized `YYYY-MM-DD`.
+
 Body is intentionally freeform. Typical usage:
 
 - detailed description

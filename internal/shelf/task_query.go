@@ -54,6 +54,14 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 		}
 	}
 	today := time.Now().Local().Format(dueOnLayout)
+	dueBefore := filter.DueBefore
+	if dueBefore != "" {
+		dueBefore, _ = NormalizeDueOn(filter.DueBefore)
+	}
+	dueAfter := filter.DueAfter
+	if dueAfter != "" {
+		dueAfter, _ = NormalizeDueOn(filter.DueAfter)
+	}
 
 	for _, task := range tasks {
 		if len(filter.Kinds) > 0 && !slices.Contains(filter.Kinds, task.Kind) {
@@ -77,10 +85,10 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 		if filter.NoDue && task.DueOn != "" {
 			continue
 		}
-		if filter.DueBefore != "" && (task.DueOn == "" || task.DueOn >= filter.DueBefore) {
+		if dueBefore != "" && (task.DueOn == "" || task.DueOn >= dueBefore) {
 			continue
 		}
-		if filter.DueAfter != "" && (task.DueOn == "" || task.DueOn <= filter.DueAfter) {
+		if dueAfter != "" && (task.DueOn == "" || task.DueOn <= dueAfter) {
 			continue
 		}
 		if filter.Overdue && (task.DueOn == "" || task.DueOn >= today) {

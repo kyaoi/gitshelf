@@ -76,6 +76,10 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	if status == "" {
 		status = strings.TrimSpace(fm.State)
 	}
+	dueOn, err := NormalizeDueOn(fm.DueOn)
+	if err != nil {
+		return Task{}, err
+	}
 
 	body := ""
 	if end+1 < len(lines) {
@@ -91,7 +95,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		Title:     fm.Title,
 		Kind:      Kind(fm.Kind),
 		Status:    Status(status),
-		DueOn:     fm.DueOn,
+		DueOn:     dueOn,
 		Parent:    fm.Parent,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,

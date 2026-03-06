@@ -54,13 +54,13 @@ go build -o shelf ./cmd/shelf
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD --parent <id|root> --body ...]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --parent <id|root> --body ...]`
 - `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf next [--root <dir>] [--limit N --json]`
 - `shelf tree [--root <dir>] [--from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD --clear-due --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --clear-due --parent ... --body ... --append-body ...]`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
 - `shelf done <id> [--root <dir>]`
 - `shelf start <id> [--root <dir>]`
@@ -87,6 +87,7 @@ Color output:
 - `kind`: task category (`todo`, `idea`, `memo`, ...)
 - `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
+- CLI input for due also accepts `today` / `tomorrow` and stores normalized date
 
 ## Link Types
 

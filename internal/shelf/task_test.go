@@ -67,6 +67,29 @@ body
 	}
 }
 
+func TestParseTaskMarkdownDueKeywordNormalized(t *testing.T) {
+	raw := `+++
+id = "01JABCDEF0123456789XYZ"
+title = "keyword due"
+kind = "todo"
+status = "open"
+due_on = "tomorrow"
+created_at = "2026-03-05T12:34:56+09:00"
+updated_at = "2026-03-05T12:34:56+09:00"
++++
+
+body
+`
+	task, err := ParseTaskMarkdown([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	want := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	if task.DueOn != want {
+		t.Fatalf("unexpected normalized due_on: got=%q want=%q", task.DueOn, want)
+	}
+}
+
 func TestTaskStoreCRUD(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(TasksDir(root), 0o755); err != nil {

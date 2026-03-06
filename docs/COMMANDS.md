@@ -42,7 +42,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
-- `--due <YYYY-MM-DD>` (optional)
+- `--due <YYYY-MM-DD|today|tomorrow>` (optional)
 - `--parent <id|root>`
 - `--body <str>`
 
@@ -140,7 +140,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>`
 - `--status <status>`
-- `--due <YYYY-MM-DD>`
+- `--due <YYYY-MM-DD|today|tomorrow>`
 - `--clear-due`
 - `--parent <id|root>`
 - `--body <str>` (replace body)

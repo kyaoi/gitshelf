@@ -289,6 +289,40 @@ func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	}
 }
 
+func TestCLIAddAndSetDueKeywords(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	addOut, err := executeCLI(t, "add", "--root", root, "--title", "keyword due", "--due", "tomorrow")
+	if err != nil {
+		t.Fatalf("add with tomorrow failed: %v", err)
+	}
+	id := extractIDFromAddOutput(addOut)
+	wantTomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+
+	showOut, err := executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+wantTomorrow+`"`) {
+		t.Fatalf("show should contain normalized tomorrow due_on: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "today"); err != nil {
+		t.Fatalf("set due today failed: %v", err)
+	}
+	wantToday := time.Now().Local().Format("2006-01-02")
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set today failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+wantToday+`"`) {
+		t.Fatalf("show should contain normalized today due_on: %s", showOut)
+	}
+}
+
 func TestCLINextShowsOnlyReadyTasks(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

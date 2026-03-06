@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAddTaskWithDefaults(t *testing.T) {
@@ -78,5 +79,34 @@ func TestAddTaskRejectsInvalidDueOn(t *testing.T) {
 		DueOn: "2026-99-31",
 	}); err == nil || !strings.Contains(err.Error(), "invalid due_on") {
 		t.Fatalf("expected invalid due_on error, got: %v", err)
+	}
+}
+
+func TestAddTaskWithDueKeywords(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	taskToday, err := AddTask(root, AddTaskInput{
+		Title: "today due",
+		DueOn: "today",
+	})
+	if err != nil {
+		t.Fatalf("add today due failed: %v", err)
+	}
+	if taskToday.DueOn != time.Now().Local().Format("2006-01-02") {
+		t.Fatalf("unexpected normalized today due: %q", taskToday.DueOn)
+	}
+
+	taskTomorrow, err := AddTask(root, AddTaskInput{
+		Title: "tomorrow due",
+		DueOn: "tomorrow",
+	})
+	if err != nil {
+		t.Fatalf("add tomorrow due failed: %v", err)
+	}
+	if taskTomorrow.DueOn != time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02") {
+		t.Fatalf("unexpected normalized tomorrow due: %q", taskTomorrow.DueOn)
 	}
 }
