@@ -884,6 +884,18 @@ func TestCLIViewManageCommands(t *testing.T) {
 	if _, err := executeCLI(t, "view", "--root", root, "set", "todo_open", "--kind", "todo", "--status", "open", "--limit", "20"); err != nil {
 		t.Fatalf("view set failed: %v", err)
 	}
+	if _, err := executeCLI(t, "view", "--root", root, "copy", "todo_open", "todo_open_copy"); err != nil {
+		t.Fatalf("view copy failed: %v", err)
+	}
+	if _, err := executeCLI(t, "view", "--root", root, "rename", "todo_open_copy", "todo_open_renamed"); err != nil {
+		t.Fatalf("view rename failed: %v", err)
+	}
+	if _, err := executeCLI(t, "view", "--root", root, "set", "progress", "--status", "in_progress"); err != nil {
+		t.Fatalf("view set progress failed: %v", err)
+	}
+	if _, err := executeCLI(t, "view", "--root", root, "merge", "todo_or_progress", "--from", "todo_open", "--from", "progress", "--strategy", "union"); err != nil {
+		t.Fatalf("view merge failed: %v", err)
+	}
 
 	showOut, err := executeCLI(t, "view", "--root", root, "show", "todo_open")
 	if err != nil {
@@ -903,6 +915,9 @@ func TestCLIViewManageCommands(t *testing.T) {
 	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "memo-open", Kind: "memo", Status: "open"}); err != nil {
 		t.Fatalf("add memo-open failed: %v", err)
 	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "todo-progress", Kind: "todo", Status: "in_progress"}); err != nil {
+		t.Fatalf("add todo-progress failed: %v", err)
+	}
 
 	lsOut, err := executeCLI(t, "ls", "--root", root, "--view", "todo_open")
 	if err != nil {
@@ -910,6 +925,13 @@ func TestCLIViewManageCommands(t *testing.T) {
 	}
 	if !strings.Contains(lsOut, "todo-open") || strings.Contains(lsOut, "memo-open") {
 		t.Fatalf("unexpected filtered output: %s", lsOut)
+	}
+	lsOut, err = executeCLI(t, "ls", "--root", root, "--view", "todo_or_progress")
+	if err != nil {
+		t.Fatalf("ls --view todo_or_progress failed: %v", err)
+	}
+	if !strings.Contains(lsOut, "todo-open") || !strings.Contains(lsOut, "todo-progress") || strings.Contains(lsOut, "memo-open") {
+		t.Fatalf("unexpected merged view output: %s", lsOut)
 	}
 
 	if _, err := executeCLI(t, "view", "--root", root, "delete", "todo_open"); err != nil {
