@@ -18,4 +18,3 @@ func NormalizeDueOn(value string) (string, error) {
 	}
 	return trimmed, nil
 }
-

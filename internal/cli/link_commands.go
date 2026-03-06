@@ -96,7 +96,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf links <id>\n" +
 			"  shelf links <id> --transitive\n" +
 			"  shelf links <id> --json",
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, true)
 			if err != nil {

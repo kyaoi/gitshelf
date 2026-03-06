@@ -265,7 +265,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf show 01ABCDEFG...\n" +
 			"  shelf show 01ABCDEFG... --no-body\n" +
 			"  shelf show 01ABCDEFG... --json",
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if noBody && onlyBody {
 				return fmt.Errorf("--no-body と --only-body は同時に指定できません")

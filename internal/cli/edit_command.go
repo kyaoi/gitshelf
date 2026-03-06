@@ -20,7 +20,7 @@ func newEditCommand(ctx *commandContext) *cobra.Command {
 		Short: "Open a task file in $VISUAL/$EDITOR",
 		Example: "  shelf edit 01ABCDEFG...\n" +
 			"  shelf edit",
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := resolveEditTaskID(ctx, args, interactive.IsTTY())
 			if err != nil {
