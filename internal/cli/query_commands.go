@@ -37,7 +37,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			preset, err := resolveTaskView(view)
+			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
 			}
@@ -176,7 +176,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			"  shelf next --limit 20\n" +
 			"  shelf next --view active",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			preset, err := resolveTaskView(view)
+			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
 			}
@@ -531,7 +531,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 				NotStatuses: toStatuses(notStats),
 				MaxDepth:    maxDepth,
 			}
-			preset, err := resolveTaskView(view)
+			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
 			}

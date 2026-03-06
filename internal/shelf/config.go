@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -16,6 +17,23 @@ type Config struct {
 	LinkTypes     []LinkType
 	DefaultKind   Kind
 	DefaultStatus Status
+	Views         map[string]TaskView
+}
+
+type TaskView struct {
+	Kinds       []Kind
+	Statuses    []Status
+	NotKinds    []Kind
+	NotStatuses []Status
+	ReadyOnly   bool
+	DepsBlocked bool
+	DueBefore   string
+	DueAfter    string
+	Overdue     bool
+	NoDue       bool
+	Parent      string
+	Search      string
+	Limit       int
 }
 
 type configFile struct {
@@ -26,6 +44,23 @@ type configFile struct {
 	DefaultKind        string   `toml:"default_kind"`
 	DefaultStatus      string   `toml:"default_status"`
 	LegacyDefaultState string   `toml:"default_state"`
+	Views              map[string]configView
+}
+
+type configView struct {
+	Kinds       []string `toml:"kinds"`
+	Statuses    []string `toml:"statuses"`
+	NotKinds    []string `toml:"not_kinds"`
+	NotStatuses []string `toml:"not_statuses"`
+	ReadyOnly   bool     `toml:"ready"`
+	DepsBlocked bool     `toml:"blocked_by_deps"`
+	DueBefore   string   `toml:"due_before"`
+	DueAfter    string   `toml:"due_after"`
+	Overdue     bool     `toml:"overdue"`
+	NoDue       bool     `toml:"no_due"`
+	Parent      string   `toml:"parent"`
+	Search      string   `toml:"search"`
+	Limit       int      `toml:"limit"`
 }
 
 func DefaultConfig() Config {
@@ -35,6 +70,7 @@ func DefaultConfig() Config {
 		LinkTypes:     []LinkType{"depends_on", "related"},
 		DefaultKind:   Kind("todo"),
 		DefaultStatus: Status("open"),
+		Views:         map[string]TaskView{},
 	}
 }
 
@@ -82,6 +118,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(defaultStatus),
+		Views:         map[string]TaskView{},
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -91,6 +128,36 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	for i, linkType := range f.LinkTypes {
 		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
+	}
+	for name, rawView := range f.Views {
+		view := TaskView{
+			Kinds:       make([]Kind, len(rawView.Kinds)),
+			Statuses:    make([]Status, len(rawView.Statuses)),
+			NotKinds:    make([]Kind, len(rawView.NotKinds)),
+			NotStatuses: make([]Status, len(rawView.NotStatuses)),
+			ReadyOnly:   rawView.ReadyOnly,
+			DepsBlocked: rawView.DepsBlocked,
+			DueBefore:   strings.TrimSpace(rawView.DueBefore),
+			DueAfter:    strings.TrimSpace(rawView.DueAfter),
+			Overdue:     rawView.Overdue,
+			NoDue:       rawView.NoDue,
+			Parent:      strings.TrimSpace(rawView.Parent),
+			Search:      strings.TrimSpace(rawView.Search),
+			Limit:       rawView.Limit,
+		}
+		for i, kind := range rawView.Kinds {
+			view.Kinds[i] = Kind(strings.TrimSpace(kind))
+		}
+		for i, status := range rawView.Statuses {
+			view.Statuses[i] = Status(strings.TrimSpace(status))
+		}
+		for i, kind := range rawView.NotKinds {
+			view.NotKinds[i] = Kind(strings.TrimSpace(kind))
+		}
+		for i, status := range rawView.NotStatuses {
+			view.NotStatuses[i] = Status(strings.TrimSpace(status))
+		}
+		cfg.Views[strings.TrimSpace(name)] = view
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -129,6 +196,76 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString("]\n\n")
 	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
 	buf.WriteString(fmt.Sprintf("default_status = %q\n", cfg.DefaultStatus))
+
+	if len(cfg.Views) > 0 {
+		viewNames := make([]string, 0, len(cfg.Views))
+		for name := range cfg.Views {
+			viewNames = append(viewNames, name)
+		}
+		sort.Strings(viewNames)
+		for _, name := range viewNames {
+			view := cfg.Views[name]
+			buf.WriteString("\n")
+			buf.WriteString(fmt.Sprintf("[views.%q]\n", name))
+			writeKinds := func(key string, values []Kind) {
+				if len(values) == 0 {
+					return
+				}
+				buf.WriteString(key + " = [")
+				for i, value := range values {
+					if i > 0 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(fmt.Sprintf("%q", value))
+				}
+				buf.WriteString("]\n")
+			}
+			writeStatuses := func(key string, values []Status) {
+				if len(values) == 0 {
+					return
+				}
+				buf.WriteString(key + " = [")
+				for i, value := range values {
+					if i > 0 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(fmt.Sprintf("%q", value))
+				}
+				buf.WriteString("]\n")
+			}
+			writeKinds("kinds", view.Kinds)
+			writeStatuses("statuses", view.Statuses)
+			writeKinds("not_kinds", view.NotKinds)
+			writeStatuses("not_statuses", view.NotStatuses)
+			if view.ReadyOnly {
+				buf.WriteString("ready = true\n")
+			}
+			if view.DepsBlocked {
+				buf.WriteString("blocked_by_deps = true\n")
+			}
+			if view.DueBefore != "" {
+				buf.WriteString(fmt.Sprintf("due_before = %q\n", view.DueBefore))
+			}
+			if view.DueAfter != "" {
+				buf.WriteString(fmt.Sprintf("due_after = %q\n", view.DueAfter))
+			}
+			if view.Overdue {
+				buf.WriteString("overdue = true\n")
+			}
+			if view.NoDue {
+				buf.WriteString("no_due = true\n")
+			}
+			if view.Parent != "" {
+				buf.WriteString(fmt.Sprintf("parent = %q\n", view.Parent))
+			}
+			if view.Search != "" {
+				buf.WriteString(fmt.Sprintf("search = %q\n", view.Search))
+			}
+			if view.Limit > 0 {
+				buf.WriteString(fmt.Sprintf("limit = %d\n", view.Limit))
+			}
+		}
+	}
 	return buf.Bytes()
 }
 
@@ -156,6 +293,50 @@ func (c Config) Validate() error {
 	}
 	if err := c.ValidateStatus(c.DefaultStatus); err != nil {
 		return fmt.Errorf("default_status: %w", err)
+	}
+	for name, view := range c.Views {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("view name is required")
+		}
+		for _, kind := range view.Kinds {
+			if err := c.ValidateKind(kind); err != nil {
+				return fmt.Errorf("views.%s.kinds: %w", name, err)
+			}
+		}
+		for _, kind := range view.NotKinds {
+			if err := c.ValidateKind(kind); err != nil {
+				return fmt.Errorf("views.%s.not_kinds: %w", name, err)
+			}
+		}
+		for _, status := range view.Statuses {
+			if err := c.ValidateStatus(status); err != nil {
+				return fmt.Errorf("views.%s.statuses: %w", name, err)
+			}
+		}
+		for _, status := range view.NotStatuses {
+			if err := c.ValidateStatus(status); err != nil {
+				return fmt.Errorf("views.%s.not_statuses: %w", name, err)
+			}
+		}
+		if view.ReadyOnly && view.DepsBlocked {
+			return fmt.Errorf("views.%s: ready and blocked_by_deps cannot be true together", name)
+		}
+		if view.NoDue && (view.DueBefore != "" || view.DueAfter != "" || view.Overdue) {
+			return fmt.Errorf("views.%s: no_due cannot be combined with due_before/due_after/overdue", name)
+		}
+		if view.DueBefore != "" {
+			if _, err := NormalizeDueOn(view.DueBefore); err != nil {
+				return fmt.Errorf("views.%s.due_before: %w", name, err)
+			}
+		}
+		if view.DueAfter != "" {
+			if _, err := NormalizeDueOn(view.DueAfter); err != nil {
+				return fmt.Errorf("views.%s.due_after: %w", name, err)
+			}
+		}
+		if view.Limit < 0 {
+			return fmt.Errorf("views.%s.limit must be >= 0", name)
+		}
 	}
 	return nil
 }

@@ -7,13 +7,34 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
-func resolveTaskView(name string) (shelf.TaskFilter, error) {
+func resolveTaskView(rootDir string, name string) (shelf.TaskFilter, error) {
 	view := strings.TrimSpace(name)
 	if view == "" {
 		return shelf.TaskFilter{}, nil
 	}
 	if filter, ok := builtinTaskView(view); ok {
 		return filter, nil
+	}
+	cfg, err := shelf.LoadConfig(rootDir)
+	if err != nil {
+		return shelf.TaskFilter{}, err
+	}
+	if custom, ok := cfg.Views[view]; ok {
+		return shelf.TaskFilter{
+			Kinds:       custom.Kinds,
+			Statuses:    custom.Statuses,
+			NotKinds:    custom.NotKinds,
+			NotStatuses: custom.NotStatuses,
+			ReadyOnly:   custom.ReadyOnly,
+			DepsBlocked: custom.DepsBlocked,
+			DueBefore:   custom.DueBefore,
+			DueAfter:    custom.DueAfter,
+			Overdue:     custom.Overdue,
+			NoDue:       custom.NoDue,
+			Parent:      custom.Parent,
+			Search:      custom.Search,
+			Limit:       custom.Limit,
+		}, nil
 	}
 	return shelf.TaskFilter{}, fmt.Errorf("unknown view: %s", view)
 }

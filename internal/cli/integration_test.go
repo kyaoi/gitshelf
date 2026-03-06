@@ -734,6 +734,25 @@ func TestCLIViewPresetsForLsTreeNext(t *testing.T) {
 	if strings.Contains(out, "ChildDone") {
 		t.Fatalf("next active should not include done tasks: %s", out)
 	}
+
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	cfg.Views["only_done"] = shelf.TaskView{
+		Statuses: []shelf.Status{"done"},
+	}
+	if err := shelf.SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--view", "only_done")
+	if err != nil {
+		t.Fatalf("ls --view only_done failed: %v", err)
+	}
+	if !strings.Contains(out, "ChildDone") || strings.Contains(out, "ChildOpen") {
+		t.Fatalf("unexpected custom view output: %s", out)
+	}
 }
 
 func executeCLI(t *testing.T, args ...string) (string, error) {

@@ -26,6 +26,9 @@ func TestDefaultConfigIsValid(t *testing.T) {
 
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.Views["active"] = TaskView{
+		NotStatuses: []Status{"done", "cancelled"},
+	}
 	data := FormatConfigTOML(cfg)
 
 	parsed, err := ParseConfigTOML(data)
@@ -38,6 +41,9 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 	if parsed.DefaultKind != cfg.DefaultKind || parsed.DefaultStatus != cfg.DefaultStatus {
 		t.Fatalf("parsed defaults mismatch: %+v", parsed)
+	}
+	if _, ok := parsed.Views["active"]; !ok {
+		t.Fatalf("parsed views mismatch: %+v", parsed.Views)
 	}
 }
 
@@ -85,5 +91,43 @@ default_state = "open"
 	data := string(FormatConfigTOML(cfg))
 	if !strings.Contains(data, "statuses =") || !strings.Contains(data, "default_status =") {
 		t.Fatalf("formatted config should use status keys: %s", data)
+	}
+}
+
+func TestParseConfigTOMLViewsValidation(t *testing.T) {
+	raw := `
+kinds = ["todo", "memo"]
+statuses = ["open", "done"]
+link_types = ["depends_on", "related"]
+default_kind = "todo"
+default_status = "open"
+
+[views."active"]
+not_statuses = ["done"]
+limit = 20
+`
+	cfg, err := ParseConfigTOML([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	view, ok := cfg.Views["active"]
+	if !ok {
+		t.Fatalf("expected active view: %+v", cfg.Views)
+	}
+	if len(view.NotStatuses) != 1 || view.NotStatuses[0] != "done" {
+		t.Fatalf("unexpected not statuses: %+v", view.NotStatuses)
+	}
+	if view.Limit != 20 {
+		t.Fatalf("unexpected view limit: %d", view.Limit)
+	}
+}
+
+func TestConfigValidationRejectsUnknownStatusInView(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Views["bad"] = TaskView{
+		Statuses: []Status{"unknown"},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for unknown view status")
 	}
 }
