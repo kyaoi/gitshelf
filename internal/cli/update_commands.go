@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -65,24 +66,19 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 
 			if input.Title == nil && input.Kind == nil && input.Status == nil && input.DueOn == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
 				if interactive.IsTTY() {
+					task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
+					if err != nil {
+						return err
+					}
 					cfg, err := shelf.LoadConfig(ctx.rootDir)
 					if err != nil {
 						return err
 					}
-					statusOptions := make([]interactive.Option, 0, len(cfg.Statuses))
-					for _, s := range cfg.Statuses {
-						statusOptions = append(statusOptions, interactive.Option{
-							Value:      string(s),
-							Label:      string(s),
-							SearchText: string(s),
-						})
-					}
-					selected, err := interactive.Select("Status を選択してください", statusOptions)
+					interactiveInput, err := resolveSetInputInteractive(ctx, id, task, cfg)
 					if err != nil {
 						return err
 					}
-					s := shelf.Status(selected.Value)
-					input.Status = &s
+					input = interactiveInput
 				} else {
 					return errors.New("更新対象がありません。--title/--kind/--status/--due/--clear-due/--parent/--body/--append-body を指定してください")
 				}
@@ -106,6 +102,113 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&body, "body", "", "Replace body")
 	cmd.Flags().StringVar(&appendBody, "append-body", "", "Append text to body")
 	return cmd
+}
+
+func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task, cfg shelf.Config) (shelf.SetTaskInput, error) {
+	input := shelf.SetTaskInput{}
+	currentTitle := task.Title
+	currentKind := task.Kind
+	currentStatus := task.Status
+	currentDue := task.DueOn
+	currentParent := task.Parent
+	changed := false
+
+	for {
+		parentLabel := "root"
+		if currentParent != "" {
+			parentLabel = shelf.ShortID(currentParent)
+		}
+		dueLabel := currentDue
+		if strings.TrimSpace(dueLabel) == "" {
+			dueLabel = "(none)"
+		}
+		options := []interactive.Option{
+			{Value: "title", Label: fmt.Sprintf("Title: %s", currentTitle)},
+			{Value: "kind", Label: fmt.Sprintf("Kind: %s", currentKind)},
+			{Value: "status", Label: fmt.Sprintf("Status: %s", currentStatus)},
+			{Value: "due", Label: fmt.Sprintf("Due: %s", dueLabel)},
+			{Value: "parent", Label: fmt.Sprintf("Parent: %s", parentLabel)},
+			{Value: "save", Label: "Save changes"},
+			{Value: "cancel", Label: "Cancel"},
+		}
+		selected, err := interactive.Select("更新項目を選択してください", options)
+		if err != nil {
+			return shelf.SetTaskInput{}, err
+		}
+
+		switch selected.Value {
+		case "title":
+			title, err := interactive.PromptText("新しい Title を入力してください")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			if strings.TrimSpace(title) == "" {
+				return shelf.SetTaskInput{}, errors.New("title は空にできません")
+			}
+			currentTitle = title
+			input.Title = &title
+			changed = true
+		case "kind":
+			kindOptions := make([]interactive.Option, 0, len(cfg.Kinds))
+			for _, kind := range cfg.Kinds {
+				kindOptions = append(kindOptions, interactive.Option{
+					Value:      string(kind),
+					Label:      string(kind),
+					SearchText: string(kind),
+				})
+			}
+			selectedKind, err := interactive.Select("Kind を選択してください", kindOptions)
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			kind := shelf.Kind(selectedKind.Value)
+			currentKind = kind
+			input.Kind = &kind
+			changed = true
+		case "status":
+			statusOptions := make([]interactive.Option, 0, len(cfg.Statuses))
+			for _, status := range cfg.Statuses {
+				statusOptions = append(statusOptions, interactive.Option{
+					Value:      string(status),
+					Label:      string(status),
+					SearchText: string(status),
+				})
+			}
+			selectedStatus, err := interactive.Select("Status を選択してください", statusOptions)
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			status := shelf.Status(selectedStatus.Value)
+			currentStatus = status
+			input.Status = &status
+			changed = true
+		case "due":
+			due, err := interactive.PromptText("期限を入力してください (YYYY-MM-DD, 空でクリア)")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			currentDue = due
+			input.DueOn = &due
+			changed = true
+		case "parent":
+			parent, err := selectParentIfMissing(ctx, id, "")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			currentParent = parent
+			input.Parent = &parent
+			changed = true
+		case "save":
+			if !changed {
+				return shelf.SetTaskInput{}, errors.New("更新対象がありません")
+			}
+			return input, nil
+		case "cancel":
+			return shelf.SetTaskInput{}, interactive.ErrCanceled
+		default:
+			return shelf.SetTaskInput{}, fmt.Errorf("未知の選択肢です: %s", selected.Value)
+		}
+	}
 }
 
 func newMvCommand(ctx *commandContext) *cobra.Command {
