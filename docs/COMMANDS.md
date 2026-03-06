@@ -10,6 +10,7 @@
 - `completion` is also available without existing `.shelf/`.
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors.
 - Task selectors always show a body preview (or `(empty body)`).
+- Enum selectors and non-selection commands do not show body preview.
 - Colorized output is enabled by default on TTY.
 - Set `NO_COLOR=1` to disable color output.
 - Set `CLICOLOR_FORCE=1` to force color output.

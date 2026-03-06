@@ -111,6 +111,7 @@ Global display flags:
 
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors
 - task selectors always show body preview by default (`(empty body)` when body is empty)
+- enum selectors and non-selection commands never show body preview
 
 Color output:
 
@@ -168,7 +169,7 @@ When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts 
 - update repeatedly
 - confirm and save
 
-Task selectors always show body preview.
+Task selectors always show body preview. Enum selectors intentionally do not.
 
 ## Saved Views
 
