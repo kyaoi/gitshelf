@@ -182,6 +182,14 @@ func TestCLITreeLsAndShowHideIDsAndShowHierarchy(t *testing.T) {
 		t.Fatalf("tree --show-id should include IDs: %s", treeWithID)
 	}
 
+	treeWithIDShort, err := executeCLI(t, "tree", "--root", root, "-i")
+	if err != nil {
+		t.Fatalf("tree -i failed: %v", err)
+	}
+	if !strings.Contains(treeWithIDShort, "["+shelf.ShortID(parent.ID)+"] Parent") {
+		t.Fatalf("tree -i should include IDs: %s", treeWithIDShort)
+	}
+
 	showOutput, err := executeCLI(t, "show", "--root", root, child.ID)
 	if err != nil {
 		t.Fatalf("show failed: %v", err)

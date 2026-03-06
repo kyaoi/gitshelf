@@ -53,8 +53,8 @@ func NewRootCommand(version string) *cobra.Command {
 
 	cmd.SetVersionTemplate("{{.Version}}\n")
 	cmd.PersistentFlags().StringVar(&ctx.rootOverride, "root", "", "Directory that contains .shelf")
-	cmd.PersistentFlags().BoolVar(&ctx.showID, "show-id", false, "Show task IDs in list/tree/interactive labels")
-	cmd.PersistentFlags().BoolVar(&ctx.previewBody, "preview-body", false, "Show body preview in interactive task selectors")
+	cmd.PersistentFlags().BoolVarP(&ctx.showID, "show-id", "i", false, "Show task IDs in list/tree/interactive labels")
+	cmd.PersistentFlags().BoolVarP(&ctx.previewBody, "preview-body", "p", false, "Show body preview in interactive task selectors")
 
 	cmd.AddCommand(newInitCommand(ctx))
 	cmd.AddCommand(newAddCommand(ctx))

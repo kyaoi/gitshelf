@@ -23,6 +23,7 @@ If not TTY, users must provide required flags.
 - `Esc`:
   - in search mode: clear search and leave search mode
   - otherwise: cancel selection
+- `q`: cancel selection (outside search mode)
 - `Ctrl+C`: cancel selection
 - Arrow up/down are also supported.
 
@@ -40,8 +41,8 @@ Task candidate line format:
 - with `--show-id`: `[{short}] {tree-prefix}{title}`
 
 - Default: task selectors hide IDs and prefer hierarchical labels.
-- `--show-id`: include short IDs in selector labels.
-- `--preview-body`: show selected task body preview pane.
+- `--show-id` / `-i`: include short IDs in selector labels.
+- `--preview-body` / `-p`: show selected task body preview pane.
 
 ## add Interactive Flow
 

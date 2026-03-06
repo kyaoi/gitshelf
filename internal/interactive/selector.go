@@ -97,6 +97,13 @@ func Select(prompt string, options []Option) (Option, error) {
 		case '/':
 			searchMode = true
 			cursor = 0
+		case 'q':
+			if searchMode {
+				search += string(b)
+				cursor = 0
+				continue
+			}
+			return Option{}, ErrCanceled
 		case 127:
 			if searchMode && len(search) > 0 {
 				_, size := utf8.DecodeLastRuneInString(search)
@@ -131,7 +138,7 @@ func render(prompt string, options []Option, cursor int, search string, searchMo
 	b.WriteString("\r\033[H\033[2J")
 	b.WriteString(prompt)
 	b.WriteString(eol)
-	b.WriteString("j/k: 移動  Enter: 決定  /: 検索  Esc/Ctrl+C: キャンセル")
+	b.WriteString("j/k: 移動  Enter: 決定  /: 検索  q/Esc/Ctrl+C: キャンセル")
 	b.WriteString(eol)
 
 	if searchMode {
