@@ -1753,6 +1753,9 @@ func TestCLIAgendaAndSnooze(t *testing.T) {
 	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--by", "1d", "--to", "today"); err == nil || !strings.Contains(err.Error(), "どちらか一方") {
 		t.Fatalf("expected by/to conflict error, got: %v", err)
 	}
+	if _, err := executeCLI(t, "snooze", "--root", root, target.ID); err == nil || !strings.Contains(err.Error(), "--by か --to") {
+		t.Fatalf("expected missing by/to error, got: %v", err)
+	}
 	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--by", "x"); err == nil || !strings.Contains(err.Error(), "invalid --by") {
 		t.Fatalf("expected invalid by error, got: %v", err)
 	}

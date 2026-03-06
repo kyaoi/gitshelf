@@ -431,6 +431,14 @@ Interactive `set` includes `Body (replace)` and `Body (append)`, then shows a re
 
 Adjust task due date.
 
+Behavior:
+
+- if only `--by` is provided, shift current `due_on` by relative days
+- if only `--to` is provided, normalize and set the new `due_on`
+- if neither is provided:
+  - TTY: select `by` / `to` interactively after task selection
+  - non-TTY: fail with an explicit error
+
 Flags:
 
 - `--by <Nd>` (relative day shift, e.g. `2d`, `-1d`)
@@ -438,7 +446,7 @@ Flags:
 
 Rules:
 
-- exactly one of `--by` or `--to` is required
+- at most one of `--by` or `--to` may be provided
 - if `<id>` is omitted and TTY is available, task selector is shown
 
 ## shelf archive <id>

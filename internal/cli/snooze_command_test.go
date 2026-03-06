@@ -25,3 +25,26 @@ func TestApplyByDaysRejectsInvalid(t *testing.T) {
 		t.Fatal("expected invalid --by error")
 	}
 }
+
+func TestResolveSnoozeMode(t *testing.T) {
+	mode, err := resolveSnoozeMode(true, false, false)
+	if err != nil || mode != snoozeModeBy {
+		t.Fatalf("expected by mode, got mode=%q err=%v", mode, err)
+	}
+
+	mode, err = resolveSnoozeMode(false, true, false)
+	if err != nil || mode != snoozeModeTo {
+		t.Fatalf("expected to mode, got mode=%q err=%v", mode, err)
+	}
+
+	if _, err := resolveSnoozeMode(true, true, false); err == nil {
+		t.Fatal("expected conflict error")
+	}
+	if _, err := resolveSnoozeMode(false, false, false); err == nil {
+		t.Fatal("expected missing value error on non-tty")
+	}
+	mode, err = resolveSnoozeMode(false, false, true)
+	if err != nil || mode != "" {
+		t.Fatalf("expected interactive fallback, got mode=%q err=%v", mode, err)
+	}
+}

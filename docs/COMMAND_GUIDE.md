@@ -295,6 +295,11 @@ Move `due_on` by relative or absolute date input.
 Use when:
 The task stays valid, but the date should move.
 
+Notes:
+- `--by` shifts from the current due date (or from today if due is empty)
+- `--to` sets the due date directly
+- In TTY, if neither is provided, the command asks which mode to use
+
 ### `shelf archive` / `shelf unarchive`
 
 Meaning:

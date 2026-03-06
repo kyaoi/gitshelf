@@ -12,6 +12,7 @@ If not TTY, users must provide required flags.
 - `shelf explain` (when `<id>` is omitted)
 - `shelf edit` (when `<id>` is omitted)
 - `shelf set` (when `<id>` is omitted)
+- `shelf snooze` (when `<id>` is omitted or `--by/--to` is omitted)
 - `shelf mv` (when `<id>` and/or `--parent` is omitted)
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
@@ -87,12 +88,13 @@ The type selection screen includes this warning:
 1. Select source task
 2. Select existing outbound edge to remove
 
-## show / explain / edit / set / done / links Interactive Flow
+## show / explain / edit / set / done / links / snooze Interactive Flow
 
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
 2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
-3. `set` shows change preview before apply
+3. (`snooze` only, when `--by` and `--to` are both omitted) choose `By days` or `To date token`, then enter the value
+4. `set` shows change preview before apply
 
 ## mv Interactive Flow
 

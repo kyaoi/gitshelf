@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -34,8 +35,21 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 
 			byChanged := cmd.Flags().Changed("by")
 			toChanged := cmd.Flags().Changed("to")
-			if byChanged == toChanged {
-				return fmt.Errorf("--by か --to のどちらか一方を指定してください")
+			mode, err := resolveSnoozeMode(byChanged, toChanged, interactive.IsTTY())
+			if err != nil {
+				return err
+			}
+			value := ""
+			switch mode {
+			case snoozeModeBy:
+				value = by
+			case snoozeModeTo:
+				value = to
+			default:
+				mode, value, err = promptSnoozeInputInteractive()
+				if err != nil {
+					return err
+				}
 			}
 
 			task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
@@ -44,13 +58,13 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			var nextDue string
-			if toChanged {
-				nextDue, err = shelf.NormalizeDueOn(to)
+			if mode == snoozeModeTo {
+				nextDue, err = shelf.NormalizeDueOn(value)
 				if err != nil {
 					return err
 				}
 			} else {
-				nextDue, err = applyByDays(task.DueOn, by)
+				nextDue, err = applyByDays(task.DueOn, value)
 				if err != nil {
 					return err
 				}
@@ -80,6 +94,70 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&by, "by", "", "Shift due date by relative days (e.g. 2d, -1d)")
 	cmd.Flags().StringVar(&to, "to", "", "Set due date directly (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	return cmd
+}
+
+type snoozeMode string
+
+const (
+	snoozeModeBy snoozeMode = "by"
+	snoozeModeTo snoozeMode = "to"
+)
+
+func resolveSnoozeMode(byChanged, toChanged bool, interactiveEnabled bool) (snoozeMode, error) {
+	switch {
+	case byChanged && toChanged:
+		return "", fmt.Errorf("--by か --to のどちらか一方を指定してください")
+	case byChanged:
+		return snoozeModeBy, nil
+	case toChanged:
+		return snoozeModeTo, nil
+	case !interactiveEnabled:
+		return "", fmt.Errorf("非TTYでは --by か --to を指定してください")
+	default:
+		return "", nil
+	}
+}
+
+func promptSnoozeInputInteractive() (snoozeMode, string, error) {
+	selected, err := selectEnumOption("期限変更方法を選択してください", []interactive.Option{
+		{
+			Value:      string(snoozeModeBy),
+			Label:      "By days (<N>d)",
+			SearchText: "by days relative",
+		},
+		{
+			Value:      string(snoozeModeTo),
+			Label:      "To date token",
+			SearchText: "to date absolute",
+		},
+	})
+	if err != nil {
+		return "", "", err
+	}
+	switch snoozeMode(selected.Value) {
+	case snoozeModeBy:
+		value, err := interactive.PromptText("日数を入力してください (<N>d, 例: 2d / -1d)")
+		if err != nil {
+			return "", "", err
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return "", "", fmt.Errorf("--by の値が空です")
+		}
+		return snoozeModeBy, value, nil
+	case snoozeModeTo:
+		value, err := interactive.PromptText("新しい期限を入力してください (YYYY-MM-DD, today, tomorrow, +Nd, -Nd, next-week, mon..sun)")
+		if err != nil {
+			return "", "", err
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return "", "", fmt.Errorf("--to の値が空です")
+		}
+		return snoozeModeTo, value, nil
+	default:
+		return "", "", fmt.Errorf("unknown snooze mode: %s", selected.Value)
+	}
 }
 
 func applyByDays(currentDue string, by string) (string, error) {

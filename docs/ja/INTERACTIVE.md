@@ -12,6 +12,7 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf explain`（`<id>` 省略時）
 - `shelf edit`（`<id>` 省略時）
 - `shelf set`（`<id>` 省略時）
+- `shelf snooze`（`<id>` または `--by/--to` 省略時）
 - `shelf mv`（`<id>` や `--parent` 省略時）
 - `shelf done`（`<id>` 省略時、`status!=done` を優先表示）
 - `shelf links`（`<id>` 省略時）
@@ -91,11 +92,12 @@ type 選択画面では、次の注意文を出します。
 1. source task を選択
 2. その task の outbound edge から削除対象を選択
 
-## `show` / `explain` / `edit` / `set` / `done` / `links`
+## `show` / `explain` / `edit` / `set` / `done` / `links` / `snooze`
 
 1. 対象 task を tree 形式で選択
 2. `set` だけは、更新フラグ未指定時に menu で編集対象を選ぶ
-3. `set` は適用前に change preview を表示
+3. `snooze` は `--by` / `--to` 未指定時に `By days` / `To date token` を選び、値を入力する
+4. `set` は適用前に change preview を表示
 
 `set` の interactive 編集対象:
 
