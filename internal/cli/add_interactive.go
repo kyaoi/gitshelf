@@ -65,22 +65,8 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		return shelf.AddTaskInput{}, err
 	}
 
-	parentOptions := []interactive.Option{
-		{
-			Value:      "root",
-			Label:      "0: [root] 親なし",
-			SearchText: "root",
-		},
-	}
-	for _, task := range tasks {
-		label := fmt.Sprintf("[%s] %s  (%s/%s)", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status)
-		parentOptions = append(parentOptions, interactive.Option{
-			Value:      task.ID,
-			Label:      label,
-			SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
-		})
-	}
-	parentSelected, err := interactive.Select("Parent を選択してください（0=root）", parentOptions)
+	parentOptions := buildParentSelectionOptions(tasks, "")
+	parentSelected, err := interactive.Select("Parent を選択してください", parentOptions)
 	if err != nil {
 		return shelf.AddTaskInput{}, err
 	}

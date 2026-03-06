@@ -43,7 +43,14 @@ Task candidate line format:
 1. Input `Title`
 2. Select `Kind`
 3. Select `Status`
-4. Select `Parent` (`0: [root]` means no parent)
+4. Select `Parent` (hierarchical tree style; `(root)` means no parent)
+
+Parent candidates are rendered as tree labels (without IDs by default), for example:
+
+`(root)`
+`週目標`
+`├─ 月曜日`
+`│  └─ 英単語100個`
 
 ## link Interactive Flow
 
