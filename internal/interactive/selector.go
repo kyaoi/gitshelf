@@ -15,6 +15,9 @@ import (
 var ErrCanceled = errors.New("selection canceled")
 
 const eol = "\r\n"
+const defaultMaxRows = 15
+const defaultHelpText = "j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"
+const defaultSearchPlaceholder = "検索"
 
 type Option struct {
 	Value      string
@@ -24,11 +27,40 @@ type Option struct {
 }
 
 func Select(prompt string, options []Option) (Option, error) {
-	if len(options) == 0 {
+	return SelectWithConfig(SelectConfig{
+		Prompt:            prompt,
+		Options:           options,
+		ShowPreview:       true,
+		MaxRows:           defaultMaxRows,
+		HelpText:          defaultHelpText,
+		SearchPlaceholder: defaultSearchPlaceholder,
+	})
+}
+
+type SelectConfig struct {
+	Prompt            string
+	Options           []Option
+	ShowPreview       bool
+	MaxRows           int
+	HelpText          string
+	SearchPlaceholder string
+}
+
+func SelectWithConfig(cfg SelectConfig) (Option, error) {
+	if len(cfg.Options) == 0 {
 		return Option{}, errors.New("no options to select")
 	}
 	if !IsTTY() {
 		return Option{}, ErrNonTTY
+	}
+	if cfg.MaxRows <= 0 {
+		cfg.MaxRows = defaultMaxRows
+	}
+	if strings.TrimSpace(cfg.HelpText) == "" {
+		cfg.HelpText = defaultHelpText
+	}
+	if strings.TrimSpace(cfg.SearchPlaceholder) == "" {
+		cfg.SearchPlaceholder = defaultSearchPlaceholder
 	}
 
 	fd := int(os.Stdin.Fd())
@@ -49,14 +81,14 @@ func Select(prompt string, options []Option) (Option, error) {
 	cursor := 0
 
 	for {
-		filtered := filterOptions(options, search)
+		filtered := filterOptions(cfg.Options, search)
 		if len(filtered) == 0 {
 			cursor = 0
 		} else if cursor >= len(filtered) {
 			cursor = len(filtered) - 1
 		}
 
-		render(prompt, filtered, cursor, search, searchMode, showHelp)
+		render(cfg, filtered, cursor, search, searchMode, showHelp)
 
 		key, err := readKeyEvent(reader)
 		if err != nil {
@@ -130,12 +162,12 @@ func Select(prompt string, options []Option) (Option, error) {
 	}
 }
 
-func render(prompt string, options []Option, cursor int, search string, searchMode bool, showHelp bool) {
+func render(cfg SelectConfig, options []Option, cursor int, search string, searchMode bool, showHelp bool) {
 	var b strings.Builder
 	b.WriteString("\r\033[H\033[2J")
-	b.WriteString(uiPrompt(prompt))
+	b.WriteString(uiPrompt(cfg.Prompt))
 	b.WriteString(eol)
-	b.WriteString(uiHelp("j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"))
+	b.WriteString(uiHelp(cfg.HelpText))
 	b.WriteString(eol)
 	if showHelp {
 		b.WriteString(uiHelp("↑/↓ でも移動できます。検索中は通常文字が検索語に追加されます。"))
@@ -143,17 +175,17 @@ func render(prompt string, options []Option, cursor int, search string, searchMo
 	}
 
 	if searchMode {
-		b.WriteString(uiSearch(fmt.Sprintf("検索: %s_", search)))
+		b.WriteString(uiSearch(fmt.Sprintf("%s: %s_", cfg.SearchPlaceholder, search)))
 		b.WriteString(eol)
 	} else if search != "" {
-		b.WriteString(uiSearch(fmt.Sprintf("検索: %s", search)))
+		b.WriteString(uiSearch(fmt.Sprintf("%s: %s", cfg.SearchPlaceholder, search)))
 		b.WriteString(eol)
 	} else {
-		b.WriteString(uiHelp("検索: (なし)"))
+		b.WriteString(uiHelp(fmt.Sprintf("%s: (なし)", cfg.SearchPlaceholder)))
 		b.WriteString(eol)
 	}
 
-	max := min(len(options), 15)
+	max := min(len(options), cfg.MaxRows)
 	for i := 0; i < max; i++ {
 		prefix := "  "
 		label := options[i].Label
@@ -166,7 +198,7 @@ func render(prompt string, options []Option, cursor int, search string, searchMo
 	if len(options) == 0 {
 		b.WriteString(uiHelp("(候補なし)"))
 		b.WriteString(eol)
-	} else if cursor >= 0 && cursor < len(options) {
+	} else if cfg.ShowPreview && cursor >= 0 && cursor < len(options) {
 		preview := strings.TrimSpace(options[cursor].Preview)
 		if preview != "" {
 			b.WriteString(eol)
