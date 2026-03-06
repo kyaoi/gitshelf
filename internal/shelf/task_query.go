@@ -2,6 +2,8 @@ package shelf
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -14,6 +16,12 @@ type TaskFilter struct {
 	Parent      string
 	Search      string
 	Limit       int
+}
+
+type TaskReadiness struct {
+	Ready               bool
+	BlockedByDeps       bool
+	UnresolvedDependsOn []string
 }
 
 func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
@@ -83,6 +91,84 @@ func EnsureTaskExists(rootDir string, taskID string) (Task, error) {
 		return Task{}, fmt.Errorf("task %s の取得に失敗しました: %w", taskID, err)
 	}
 	return task, nil
+}
+
+func BuildTaskReadiness(rootDir string) (map[string]TaskReadiness, error) {
+	tasks, err := NewTaskStore(rootDir).List()
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Task, len(tasks))
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+
+	dependsOnByTask, err := loadDependsOnEdges(rootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	readiness := make(map[string]TaskReadiness, len(tasks))
+	for _, task := range tasks {
+		dependencies := dependsOnByTask[task.ID]
+		unresolved := make([]string, 0, len(dependencies))
+		for _, depID := range dependencies {
+			depTask, ok := byID[depID]
+			if !ok || !isDependencyResolved(depTask.Status) {
+				unresolved = append(unresolved, depID)
+			}
+		}
+		slices.Sort(unresolved)
+		blocked := len(unresolved) > 0
+		ready := (task.Status == Status("open") || task.Status == Status("in_progress")) && !blocked
+		readiness[task.ID] = TaskReadiness{
+			Ready:               ready,
+			BlockedByDeps:       blocked,
+			UnresolvedDependsOn: unresolved,
+		}
+	}
+	return readiness, nil
+}
+
+func isDependencyResolved(status Status) bool {
+	return status == Status("done") || status == Status("cancelled")
+}
+
+func loadDependsOnEdges(rootDir string) (map[string][]string, error) {
+	result := map[string][]string{}
+	dir := EdgesDir(rootDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to read edges directory %s: %w", dir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".toml") {
+			continue
+		}
+		srcID := strings.TrimSuffix(entry.Name(), ".toml")
+		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		edges, err := ParseEdgesTOML(data)
+		if err != nil {
+			return nil, err
+		}
+		for _, edge := range edges {
+			if edge.Type != LinkType("depends_on") {
+				continue
+			}
+			result[srcID] = append(result[srcID], edge.To)
+		}
+	}
+	for src := range result {
+		slices.Sort(result[src])
+	}
+	return result, nil
 }
 
 func validateTaskFilter(rootDir string, filter TaskFilter) error {

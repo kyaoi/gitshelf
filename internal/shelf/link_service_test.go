@@ -38,3 +38,47 @@ func TestLinkAndUnlinkTasks(t *testing.T) {
 		t.Fatal("expected link removal")
 	}
 }
+
+func TestBuildTaskReadinessByDependsOn(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	a, err := AddTask(root, AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := AddTask(root, AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+	if err := LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	readiness, err := BuildTaskReadiness(root)
+	if err != nil {
+		t.Fatalf("build readiness failed: %v", err)
+	}
+	if readiness[a.ID].Ready {
+		t.Fatalf("A should be blocked by dependency: %+v", readiness[a.ID])
+	}
+	if !readiness[a.ID].BlockedByDeps {
+		t.Fatalf("A should be marked as blocked by deps: %+v", readiness[a.ID])
+	}
+	if !readiness[b.ID].Ready {
+		t.Fatalf("B should be ready: %+v", readiness[b.ID])
+	}
+
+	done := Status("done")
+	if _, err := SetTask(root, b.ID, SetTaskInput{Status: &done}); err != nil {
+		t.Fatalf("set B done failed: %v", err)
+	}
+	readiness, err = BuildTaskReadiness(root)
+	if err != nil {
+		t.Fatalf("build readiness after done failed: %v", err)
+	}
+	if !readiness[a.ID].Ready {
+		t.Fatalf("A should become ready when dependency is done: %+v", readiness[a.ID])
+	}
+}

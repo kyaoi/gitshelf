@@ -81,6 +81,69 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	return cmd
 }
 
+func newNextCommand(ctx *commandContext) *cobra.Command {
+	var limit int
+
+	cmd := &cobra.Command{
+		Use:   "next",
+		Short: "List actionable tasks (ready to work on)",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			tasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			if err != nil {
+				return err
+			}
+			readiness, err := shelf.BuildTaskReadiness(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+
+			titleByID := make(map[string]string, len(tasks))
+			for _, task := range tasks {
+				titleByID[task.ID] = task.Title
+			}
+
+			count := 0
+			for _, task := range tasks {
+				info, ok := readiness[task.ID]
+				if !ok || !info.Ready {
+					continue
+				}
+				parentLabel := uiMuted("root")
+				if task.Parent != "" {
+					if title, ok := titleByID[task.Parent]; ok {
+						parentLabel = uiPrimary(title)
+						if ctx.showID {
+							parentLabel = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.Parent)), uiPrimary(title))
+						}
+					} else {
+						parentLabel = uiMuted("(missing)")
+					}
+				}
+				label := uiPrimary(task.Title)
+				if ctx.showID {
+					label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
+				}
+				dueText := ""
+				if task.DueOn != "" {
+					dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
+				}
+				fmt.Printf("%s  (%s/%s)%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, parentLabel)
+				count++
+				if limit > 0 && count >= limit {
+					break
+				}
+			}
+			if count == 0 {
+				fmt.Println(uiMuted("(none)"))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
+	return cmd
+}
+
 func newShowCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",

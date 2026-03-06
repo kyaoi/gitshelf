@@ -287,6 +287,55 @@ func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	}
 }
 
+func TestCLINextShowsOnlyReadyTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	a, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "A depends on B"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "B prerequisite"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+	_, err = shelf.AddTask(root, shelf.AddTaskInput{Title: "C independent"})
+	if err != nil {
+		t.Fatalf("add C failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+
+	nextOut, err := executeCLI(t, "next", "--root", root)
+	if err != nil {
+		t.Fatalf("next failed: %v", err)
+	}
+	if strings.Contains(nextOut, "A depends on B") {
+		t.Fatalf("A should not be listed while dependency is open: %s", nextOut)
+	}
+	if !strings.Contains(nextOut, "B prerequisite") || !strings.Contains(nextOut, "C independent") {
+		t.Fatalf("expected B and C in next output: %s", nextOut)
+	}
+
+	done := shelf.Status("done")
+	if _, err := shelf.SetTask(root, b.ID, shelf.SetTaskInput{Status: &done}); err != nil {
+		t.Fatalf("set B done failed: %v", err)
+	}
+	nextOut, err = executeCLI(t, "next", "--root", root)
+	if err != nil {
+		t.Fatalf("next after done failed: %v", err)
+	}
+	if !strings.Contains(nextOut, "A depends on B") || !strings.Contains(nextOut, "C independent") {
+		t.Fatalf("expected A and C after B done: %s", nextOut)
+	}
+	if strings.Contains(nextOut, "B prerequisite") {
+		t.Fatalf("done task B should not be listed in next: %s", nextOut)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
