@@ -336,6 +336,50 @@ func TestCLINextShowsOnlyReadyTasks(t *testing.T) {
 	}
 }
 
+func TestCLIStatusShortcutCommands(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "status task"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "start", "--root", root, task.ID); err != nil {
+		t.Fatalf("start failed: %v", err)
+	}
+	showOut, err := executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show after start failed: %v", err)
+	}
+	if !strings.Contains(showOut, `status = "in_progress"`) {
+		t.Fatalf("expected in_progress status: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "block", "--root", root, task.ID); err != nil {
+		t.Fatalf("block failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show after block failed: %v", err)
+	}
+	if !strings.Contains(showOut, `status = "blocked"`) {
+		t.Fatalf("expected blocked status: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "cancel", "--root", root, task.ID); err != nil {
+		t.Fatalf("cancel failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show after cancel failed: %v", err)
+	}
+	if !strings.Contains(showOut, `status = "cancelled"`) {
+		t.Fatalf("expected cancelled status: %s", showOut)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

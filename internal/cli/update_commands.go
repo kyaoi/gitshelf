@@ -148,26 +148,42 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newDoneCommand(ctx *commandContext) *cobra.Command {
+	return newStatusShortcutCommand(ctx, "done", "Shortcut to set --status done", "done", "done にするタスクを選択", "Done")
+}
+
+func newStartCommand(ctx *commandContext) *cobra.Command {
+	return newStatusShortcutCommand(ctx, "start", "Shortcut to set --status in_progress", "in_progress", "in_progress にするタスクを選択", "Started")
+}
+
+func newBlockCommand(ctx *commandContext) *cobra.Command {
+	return newStatusShortcutCommand(ctx, "block", "Shortcut to set --status blocked", "blocked", "blocked にするタスクを選択", "Blocked")
+}
+
+func newCancelCommand(ctx *commandContext) *cobra.Command {
+	return newStatusShortcutCommand(ctx, "cancel", "Shortcut to set --status cancelled", "cancelled", "cancelled にするタスクを選択", "Cancelled")
+}
+
+func newStatusShortcutCommand(ctx *commandContext, use string, short string, targetStatus string, prompt string, actionLabel string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "done <id>",
-		Short: "Shortcut to set --status done",
+		Use:   use + " <id>",
+		Short: short,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			id, err := selectTaskIDIfMissing(ctx, args, "done にするタスクを選択", func(task shelf.Task) bool {
-				return task.Status != shelf.Status("done")
+			id, err := selectTaskIDIfMissing(ctx, args, prompt, func(task shelf.Task) bool {
+				return task.Status != shelf.Status(targetStatus)
 			}, true)
 			if err != nil {
 				return err
 			}
 
-			done := shelf.Status("done")
+			next := shelf.Status(targetStatus)
 			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				Status: &done,
+				Status: &next,
 			})
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Done: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+			fmt.Printf("%s: [%s] %s\n", actionLabel, shelf.ShortID(task.ID), task.Title)
 			return nil
 		},
 	}
