@@ -1193,6 +1193,46 @@ func TestCLITodayAndFormatFlags(t *testing.T) {
 	}
 }
 
+func TestCLITodayCarryOver(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	today := time.Now().Local().Format("2006-01-02")
+	yesterday := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	openTask, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "carry open", DueOn: yesterday, Status: "open"})
+	if err != nil {
+		t.Fatalf("add open task failed: %v", err)
+	}
+	doneTask, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "keep done", DueOn: yesterday, Status: "done"})
+	if err != nil {
+		t.Fatalf("add done task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "today", "--root", root, "--carry-over"); err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("expected --yes required error in non-TTY, got: %v", err)
+	}
+	if _, err := executeCLI(t, "today", "--root", root, "--carry-over", "--yes"); err != nil {
+		t.Fatalf("today --carry-over --yes failed: %v", err)
+	}
+
+	openAfter, err := shelf.EnsureTaskExists(root, openTask.ID)
+	if err != nil {
+		t.Fatalf("load open task failed: %v", err)
+	}
+	if openAfter.DueOn != today {
+		t.Fatalf("open task due should move to today: got=%s want=%s", openAfter.DueOn, today)
+	}
+	doneAfter, err := shelf.EnsureTaskExists(root, doneTask.ID)
+	if err != nil {
+		t.Fatalf("load done task failed: %v", err)
+	}
+	if doneAfter.DueOn != yesterday {
+		t.Fatalf("done task due should stay unchanged: got=%s want=%s", doneAfter.DueOn, yesterday)
+	}
+}
+
 func TestCLIShowIncludesReadinessDetails(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

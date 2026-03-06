@@ -3,7 +3,9 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +20,8 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 		statuses        []string
 		notKinds        []string
 		notStatuses     []string
+		carryOver       bool
+		yes             bool
 		asJSON          bool
 	)
 
@@ -26,6 +30,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show overdue and today tasks",
 		Example: "  shelf today\n" +
 			"  shelf today --view active\n" +
+			"  shelf today --carry-over --yes\n" +
 			"  shelf today --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
@@ -57,10 +62,56 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			buckets := buildAgendaBuckets(tasks, 0)
+			carriedCount := 0
+			if carryOver {
+				today := time.Now().Local().Format("2006-01-02")
+				targets := make([]shelf.Task, 0, len(buckets.Overdue))
+				for _, task := range buckets.Overdue {
+					if isCarryOverStatus(task.Status) {
+						targets = append(targets, task)
+					}
+				}
+				if len(targets) > 0 {
+					if !yes {
+						if !interactive.IsTTY() {
+							return fmt.Errorf("non-TTY で --carry-over を使う場合は --yes が必要です")
+						}
+						confirm, err := selectEnumOption("期限切れタスクを今日に繰り上げますか？", []interactive.Option{
+							{Value: "apply", Label: fmt.Sprintf("Apply (%d tasks)", len(targets))},
+							{Value: "cancel", Label: "Cancel"},
+						})
+						if err != nil {
+							return err
+						}
+						if confirm.Value != "apply" {
+							return interactive.ErrCanceled
+						}
+					}
+
+					if err := prepareUndoSnapshot(ctx.rootDir, "today-carry-over"); err != nil {
+						return err
+					}
+					for _, task := range targets {
+						due := today
+						if _, err := shelf.SetTask(ctx.rootDir, task.ID, shelf.SetTaskInput{
+							DueOn: &due,
+						}); err != nil {
+							return err
+						}
+					}
+					carriedCount = len(targets)
+					tasks, err = shelf.ListTasks(ctx.rootDir, filter)
+					if err != nil {
+						return err
+					}
+					buckets = buildAgendaBuckets(tasks, 0)
+				}
+			}
 			if asJSON {
 				payload := map[string]any{
-					"overdue": buckets.Overdue,
-					"today":   buckets.Today,
+					"overdue":            buckets.Overdue,
+					"today":              buckets.Today,
+					"carried_over_count": carriedCount,
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -91,6 +142,9 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 
 			printRows("Overdue", buckets.Overdue)
 			printRows("Today", buckets.Today)
+			if carryOver {
+				fmt.Printf("carried_over=%d\n", carriedCount)
+			}
 			return nil
 		},
 	}
@@ -103,6 +157,12 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().BoolVar(&carryOver, "carry-over", false, "Move overdue active tasks due date to today")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Apply carry-over without confirmation")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
+}
+
+func isCarryOverStatus(status shelf.Status) bool {
+	return status == "open" || status == "in_progress" || status == "blocked"
 }
