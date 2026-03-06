@@ -1290,6 +1290,58 @@ func TestCLIUndoRevertsLastMutatingAction(t *testing.T) {
 	}
 }
 
+func TestCLIUndoRedoWithSteps(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "step target"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, task.ID, "--status", "in_progress"); err != nil {
+		t.Fatalf("set in_progress failed: %v", err)
+	}
+	if _, err := executeCLI(t, "set", "--root", root, task.ID, "--status", "blocked"); err != nil {
+		t.Fatalf("set blocked failed: %v", err)
+	}
+
+	cur, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("load task failed: %v", err)
+	}
+	if cur.Status != "blocked" {
+		t.Fatalf("expected blocked status, got: %s", cur.Status)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root, "--steps", "2"); err != nil {
+		t.Fatalf("undo --steps 2 failed: %v", err)
+	}
+	cur, err = shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("load task after undo failed: %v", err)
+	}
+	if cur.Status != "open" {
+		t.Fatalf("expected open status after undo --steps 2, got: %s", cur.Status)
+	}
+
+	if _, err := executeCLI(t, "redo", "--root", root, "--steps", "2"); err != nil {
+		t.Fatalf("redo --steps 2 failed: %v", err)
+	}
+	cur, err = shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("load task after redo failed: %v", err)
+	}
+	if cur.Status != "blocked" {
+		t.Fatalf("expected blocked status after redo --steps 2, got: %s", cur.Status)
+	}
+
+	if _, err := executeCLI(t, "redo", "--root", root); err == nil || !strings.Contains(err.Error(), "redo history is empty") {
+		t.Fatalf("expected redo empty error, got: %v", err)
+	}
+}
+
 func TestCLIExplainCommand(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

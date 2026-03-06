@@ -82,6 +82,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newExportCommand(ctx))
 	cmd.AddCommand(newImportCommand(ctx))
 	cmd.AddCommand(newUndoCommand(ctx))
+	cmd.AddCommand(newRedoCommand(ctx))
 	cmd.AddCommand(newDoctorCommand(ctx))
 
 	return cmd
