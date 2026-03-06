@@ -1036,6 +1036,47 @@ func TestCLIDoneRecurringAndReopen(t *testing.T) {
 	}
 }
 
+func TestCLITodayAndFormatFlags(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	today := time.Now().Local().Format("2006-01-02")
+	yesterday := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "overdue", DueOn: yesterday}); err != nil {
+		t.Fatalf("add overdue failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "today", DueOn: today}); err != nil {
+		t.Fatalf("add today failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "tomorrow", DueOn: tomorrow}); err != nil {
+		t.Fatalf("add tomorrow failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "today", "--root", root)
+	if err != nil {
+		t.Fatalf("today failed: %v", err)
+	}
+	if !strings.Contains(out, "Overdue:") || !strings.Contains(out, "Today:") {
+		t.Fatalf("today output should include sections: %s", out)
+	}
+	if strings.Contains(out, "tomorrow") {
+		t.Fatalf("today output should not include tomorrow tasks: %s", out)
+	}
+
+	if _, err := executeCLI(t, "ls", "--root", root, "--format", "bad"); err == nil || !strings.Contains(err.Error(), "invalid --format") {
+		t.Fatalf("expected invalid ls format error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "tree", "--root", root, "--format", "bad"); err == nil || !strings.Contains(err.Error(), "invalid --format") {
+		t.Fatalf("expected invalid tree format error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "agenda", "--root", root, "--format", "bad"); err == nil || !strings.Contains(err.Error(), "invalid --format") {
+		t.Fatalf("expected invalid agenda format error, got: %v", err)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

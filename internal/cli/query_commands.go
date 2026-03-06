@@ -19,6 +19,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		view            string
 		includeArchived bool
 		onlyArchived    bool
+		format          string
 		ready           bool
 		depsBlocked     bool
 		dueBefore       string
@@ -39,6 +40,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "detail", "kanban"}); err != nil {
+				return err
+			}
 			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
@@ -124,6 +128,34 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "kanban" {
+				statusOrder := []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}
+				grouped := map[shelf.Status][]shelf.Task{}
+				for _, task := range tasks {
+					grouped[task.Status] = append(grouped[task.Status], task)
+				}
+				for _, status := range statusOrder {
+					fmt.Println(uiHeading(string(status) + ":"))
+					rows := grouped[status]
+					if len(rows) == 0 {
+						fmt.Println(uiMuted("  (none)"))
+						continue
+					}
+					for _, task := range rows {
+						label := uiPrimary(task.Title)
+						if ctx.showID {
+							label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
+						}
+						dueText := uiMuted("-")
+						if task.DueOn != "" {
+							dueText = uiDue(task.DueOn)
+						}
+						fmt.Printf("  %s (%s) due=%s\n", label, uiKind(task.Kind), dueText)
+					}
+				}
+				return nil
+			}
+
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
@@ -150,6 +182,14 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if task.ArchivedAt != "" {
 					archivedText = " " + uiMuted("[archived]")
 				}
+				if format == "detail" {
+					repeatText := "-"
+					if task.RepeatEvery != "" {
+						repeatText = task.RepeatEvery
+					}
+					fmt.Printf("%s kind=%s status=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+					continue
+				}
 				fmt.Printf("%s  (%s/%s)%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, archivedText, parentLabel)
 			}
 			return nil
@@ -163,6 +203,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -480,7 +521,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			} else {
 				if !printContextTree(fullTree, task.ID, "", true, ctx.showID) {
 					for i, node := range subtree {
-						printTreeNode(node, "", i == len(subtree)-1, ctx.showID)
+						printTreeNode(node, "", i == len(subtree)-1, ctx.showID, "compact")
 					}
 				}
 			}
@@ -518,6 +559,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		view            string
 		includeArchived bool
 		onlyArchived    bool
+		format          string
 		kinds           []string
 		statuses        []string
 		notKinds        []string
@@ -532,6 +574,9 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			"  shelf tree --kind todo --not-status done\n" +
 			"  shelf tree --from root --max-depth 2 --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
+				return err
+			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
 				return err
@@ -629,7 +674,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			for i, node := range nodes {
-				printTreeNode(node, "", i == len(nodes)-1, ctx.showID)
+				printTreeNode(node, "", i == len(nodes)-1, ctx.showID, format)
 			}
 			return nil
 		},
@@ -640,6 +685,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
@@ -648,7 +694,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	return cmd
 }
 
-func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool) {
+func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool, format string) {
 	branch := "├─ "
 	nextPrefix := prefix + "│  "
 	if isLast {
@@ -667,9 +713,17 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool)
 	if node.Task.DueOn != "" {
 		dueText = fmt.Sprintf(" due=%s", uiDue(node.Task.DueOn))
 	}
-	fmt.Printf("%s%s%s (%s/%s)%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText)
+	if format == "detail" {
+		repeatText := "-"
+		if node.Task.RepeatEvery != "" {
+			repeatText = node.Task.RepeatEvery
+		}
+		fmt.Printf("%s%s%s kind=%s status=%s due=%s repeat=%s archived_at=%q\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), uiDue(node.Task.DueOn), repeatText, node.Task.ArchivedAt)
+	} else {
+		fmt.Printf("%s%s%s (%s/%s)%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText)
+	}
 	for i, child := range node.Children {
-		printTreeNode(child, nextPrefix, i == len(node.Children)-1, showID)
+		printTreeNode(child, nextPrefix, i == len(node.Children)-1, showID, format)
 	}
 }
 

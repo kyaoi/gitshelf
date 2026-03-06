@@ -24,6 +24,7 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 		view            string
 		includeArchived bool
 		onlyArchived    bool
+		format          string
 		kinds           []string
 		statuses        []string
 		notKinds        []string
@@ -39,6 +40,9 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 			"  shelf agenda --days 14\n" +
 			"  shelf agenda --view active --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
+				return err
+			}
 			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
@@ -90,6 +94,22 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 					if task.DueOn != "" {
 						dueText = uiDue(task.DueOn)
 					}
+					if format == "detail" {
+						repeatText := "-"
+						if task.RepeatEvery != "" {
+							repeatText = task.RepeatEvery
+						}
+						archivedText := "-"
+						if task.ArchivedAt != "" {
+							archivedText = task.ArchivedAt
+						}
+						parentText := "root"
+						if task.Parent != "" {
+							parentText = shelf.ShortID(task.Parent)
+						}
+						fmt.Printf("  %s kind=%s status=%s due=%s repeat=%s archived_at=%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, repeatText, archivedText, parentText)
+						continue
+					}
 					fmt.Printf("  %s (%s/%s) due=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText)
 				}
 			}
@@ -107,6 +127,7 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in or config view")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
