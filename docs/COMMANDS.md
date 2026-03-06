@@ -55,6 +55,7 @@ ID is omitted from default display. Parent is shown as `root` or parent title.
 
 Flags:
 
+- `--view <name>` (built-in: `active|ready|blocked|overdue`, or config view)
 - `--kind <kind>` (repeatable include filter)
 - `--status <status>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
@@ -88,7 +89,24 @@ List actionable tasks (`open`/`in_progress` and unblocked by dependencies).
 
 Flags:
 
+- `--view <name>` (built-in or config view)
 - `--limit <n>` (default: 50)
+- `--json`
+
+## shelf agenda
+
+Due-oriented daily list.
+
+Default target statuses are `open`, `in_progress`, `blocked`.
+
+Flags:
+
+- `--view <name>` (built-in or config view)
+- `--days <n>` (upcoming range, default 7)
+- `--kind <kind>` (repeatable include filter)
+- `--status <status>` (repeatable include filter)
+- `--not-kind <kind>` (repeatable exclude filter)
+- `--not-status <status>` (repeatable exclude filter)
 - `--json`
 
 ## shelf tree
@@ -98,6 +116,7 @@ ID is omitted from tree output by default.
 
 Flags:
 
+- `--view <name>` (built-in or config view; due/readiness views are rejected)
 - `--from <id|root>` (default: `root`)
 - `--max-depth <n>` (`0` means unlimited)
 - `--kind <kind>` (repeatable include filter)
@@ -148,6 +167,21 @@ Flags:
 
 Parent updates validate existence and reject cycles.
 When no update flags are passed on TTY, `set` opens an interactive multi-field editor.
+Interactive `set` includes `Body (replace)` and `Body (append)`, then shows a review step before apply.
+
+## shelf snooze <id>
+
+Adjust task due date.
+
+Flags:
+
+- `--by <Nd>` (relative day shift, e.g. `2d`, `-1d`)
+- `--to <YYYY-MM-DD|today|tomorrow>` (absolute set)
+
+Rules:
+
+- exactly one of `--by` or `--to` is required
+- if `<id>` is omitted and TTY is available, task selector is shown
 
 ## shelf mv <id>
 

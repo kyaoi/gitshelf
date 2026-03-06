@@ -49,10 +49,10 @@ Task candidate line format:
 
 ## add Interactive Flow
 
-1. Input `Title`
-2. Select `Kind`
-3. Select `Status`
-4. Select `Parent` (hierarchical tree style; `(root)` means no parent)
+1. Select field to edit (`Title`/`Kind`/`Status`/`Due`/`Parent`)
+2. Update fields repeatedly
+3. Select `Create task`
+4. Or select `Cancel`
 
 Parent candidates are rendered as tree labels (without IDs by default), for example:
 
@@ -80,7 +80,8 @@ The type selection screen includes this warning:
 
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
-2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Parent`), then save
+2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Parent`/`Body replace`/`Body append`)
+3. `set` shows change preview before apply
 
 ## mv Interactive Flow
 

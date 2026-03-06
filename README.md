@@ -41,6 +41,8 @@ go build -o shelf ./cmd/shelf
 ./shelf block <task-id>
 ./shelf cancel <task-id>
 ./shelf next
+./shelf agenda
+./shelf snooze <task-id> --by 2d
 
 # Link tasks
 ./shelf link --from <a> --to <b> --type depends_on
@@ -55,12 +57,14 @@ go build -o shelf ./cmd/shelf
 
 - `shelf init [--root <dir>] [--force]`
 - `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
-- `shelf next [--root <dir>] [--limit N --json]`
-- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf ls [--root <dir>] [--view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
+- `shelf next [--root <dir>] [--view <name> --limit N --json]`
+- `shelf agenda [--root <dir>] [--view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf tree [--root <dir>] [--view <name> --from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf edit [id] [--root <dir>]`
 - `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --clear-due --parent ... --body ... --append-body ...]`
+- `shelf snooze <id> [--root <dir>] (--by <Nd> | --to YYYY-MM-DD|today|tomorrow)`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
 - `shelf done <id> [--root <dir>]`
 - `shelf start <id> [--root <dir>]`
@@ -107,6 +111,7 @@ Supported `link_types` are only:
 ./shelf ls --kind todo --not-status done --not-status cancelled
 ./shelf ls --ready --overdue
 ./shelf ls --blocked-by-deps
+./shelf ls --view active
 ./shelf ls --json
 ```
 
@@ -121,6 +126,26 @@ When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts 
 - `link` / `unlink`: omitted required flags
 - `show` / `set` / `done` / `links`: omitted `<id>`
 - `mv`: omitted `<id>` and/or `--parent`
+
+`add` and `set` interactive flows use an editable field session:
+
+- choose field (`Title`/`Kind`/`Status`/`Due`/`Parent`/`Body`)
+- update repeatedly
+- confirm and save
+
+Task selectors always show body preview.
+
+## Saved Views
+
+`--view <name>` can use:
+
+- built-in views: `active`, `ready`, `blocked`, `overdue`
+- custom views from `.shelf/config.toml`:
+
+```toml
+[views."only_done"]
+statuses = ["done"]
+```
 
 In non-TTY mode, interactive prompts are disabled and missing values produce clear errors.
 

@@ -11,6 +11,33 @@
     <src_id>.toml
 ```
 
+## Config File (`.shelf/config.toml`)
+
+Core keys:
+
+- `kinds`
+- `statuses`
+- `link_types`
+- `default_kind`
+- `default_status`
+
+Optional saved views:
+
+```toml
+[views."active"]
+not_statuses = ["done", "cancelled"]
+
+[views."only_done"]
+statuses = ["done"]
+```
+
+Supported view keys:
+
+- `kinds`, `statuses`, `not_kinds`, `not_statuses`
+- `ready`, `blocked_by_deps`
+- `due_before`, `due_after`, `overdue`, `no_due`
+- `parent`, `search`, `limit`
+
 ## IDs
 
 - ULID is used for new tasks.
