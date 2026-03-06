@@ -32,6 +32,7 @@ go build -o shelf ./cmd/shelf
 ./shelf ls
 ./shelf tree
 ./shelf show <task-id>
+./shelf edit <task-id>
 
 # Update and move
 ./shelf set <task-id> --status done
@@ -52,6 +53,7 @@ go build -o shelf ./cmd/shelf
 - `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --parent <id|root> --limit N --search ...]`
 - `shelf tree [--root <dir>] [--from <id|root> --max-depth N --status ...]`
 - `shelf show <id> [--root <dir>]`
+- `shelf edit [id] [--root <dir>]`
 - `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --parent ... --body ... --append-body ...]`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
 - `shelf done <id> [--root <dir>]`

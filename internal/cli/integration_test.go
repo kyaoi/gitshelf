@@ -96,6 +96,40 @@ func TestCLILsUnknownFilterValues(t *testing.T) {
 	}
 }
 
+func TestCLIEditWithIDUsesEditor(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "edit me"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	t.Setenv("VISUAL", "true")
+	t.Setenv("EDITOR", "")
+	if _, err := executeCLI(t, "edit", "--root", root, task.ID); err != nil {
+		t.Fatalf("edit failed: %v", err)
+	}
+}
+
+func TestCLIEditReturnsEditorExitError(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "edit fail"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	t.Setenv("VISUAL", "false")
+	t.Setenv("EDITOR", "")
+	if _, err := executeCLI(t, "edit", "--root", root, task.ID); err == nil || !strings.Contains(err.Error(), "editor exited with status") {
+		t.Fatalf("expected editor exit error, got: %v", err)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

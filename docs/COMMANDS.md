@@ -84,6 +84,16 @@ Show task details:
 - body (freeform notes)
 - outbound and inbound link summary
 
+## shelf edit [id]
+
+Open task file (`.shelf/tasks/<id>.md`) in editor.
+
+- Editor resolution order: `$VISUAL` -> `$EDITOR` -> `vi`
+- Opens the whole task file (front matter + body)
+- If `<id>` is omitted:
+  - TTY: task selector is shown
+  - non-TTY: command fails with `<id> を指定してください`
+
 ## shelf set <id>
 
 Update task fields.

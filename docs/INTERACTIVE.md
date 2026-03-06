@@ -9,6 +9,7 @@ If not TTY, users must provide required flags.
 - `shelf link` (when `--from/--to/--type` are omitted)
 - `shelf unlink` (when `--from/--to/--type` are omitted)
 - `shelf show` (when `<id>` is omitted)
+- `shelf edit` (when `<id>` is omitted)
 - `shelf set` (when `<id>` is omitted)
 - `shelf mv` (when `<id>` and/or `--parent` is omitted)
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
@@ -59,7 +60,7 @@ The type selection screen includes this warning:
 1. Select source task
 2. Select existing outbound edge to remove
 
-## show / set / done / links Interactive Flow
+## show / edit / set / done / links Interactive Flow
 
 1. Select target task by ID/title
 2. (`set` only, when no update flags are passed) select `Status`
