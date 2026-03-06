@@ -42,6 +42,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
+- `--due <YYYY-MM-DD>` (optional)
 - `--parent <id|root>`
 - `--body <str>`
 
@@ -58,9 +59,16 @@ Flags:
 - `--status <status>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
 - `--not-status <status>` (repeatable exclude filter)
+- `--ready` (actionable tasks only)
+- `--blocked-by-deps` (tasks blocked by unresolved `depends_on`)
+- `--due-before <YYYY-MM-DD>`
+- `--due-after <YYYY-MM-DD>`
+- `--overdue`
+- `--no-due`
 - `--parent <id|root>`
 - `--limit <n>` (default: 50)
 - `--search <query>` (title/body partial match)
+- `--json`
 
 Default ordering is ULID ascending (creation order).
 Unknown `kind` / `status` values return an error.
@@ -71,6 +79,17 @@ Examples:
 - `shelf ls --not-status done --not-status cancelled`
 - `shelf ls --status open --status in_progress --status blocked`
 - `shelf ls --kind todo --not-status done --not-status cancelled`
+- `shelf ls --ready --overdue`
+- `shelf ls --json`
+
+## shelf next
+
+List actionable tasks (`open`/`in_progress` and unblocked by dependencies).
+
+Flags:
+
+- `--limit <n>` (default: 50)
+- `--json`
 
 ## shelf tree
 
@@ -81,7 +100,11 @@ Flags:
 
 - `--from <id|root>` (default: `root`)
 - `--max-depth <n>` (`0` means unlimited)
-- `--status <status>` (display filter)
+- `--kind <kind>` (repeatable include filter)
+- `--status <status>` (repeatable include filter)
+- `--not-kind <kind>` (repeatable exclude filter)
+- `--not-status <status>` (repeatable exclude filter)
+- `--json`
 
 ## shelf show <id>
 
@@ -91,6 +114,12 @@ Show task details:
 - body (freeform notes)
 - hierarchy path + subtree
 - outbound and inbound link summary
+
+Flags:
+
+- `--no-body` (hide body section)
+- `--only-body` (print body only)
+- `--json`
 
 ## shelf edit [id]
 
@@ -111,11 +140,14 @@ Flags:
 - `--title <str>`
 - `--kind <kind>`
 - `--status <status>`
+- `--due <YYYY-MM-DD>`
+- `--clear-due`
 - `--parent <id|root>`
 - `--body <str>` (replace body)
 - `--append-body <str>` (append text)
 
 Parent updates validate existence and reject cycles.
+When no update flags are passed on TTY, `set` opens an interactive multi-field editor.
 
 ## shelf mv <id>
 
@@ -128,6 +160,18 @@ Flags:
 ## shelf done <id>
 
 Shortcut for `set --status done`.
+
+## shelf start <id>
+
+Shortcut for `set --status in_progress`.
+
+## shelf block <id>
+
+Shortcut for `set --status blocked`.
+
+## shelf cancel <id>
+
+Shortcut for `set --status cancelled`.
 
 ## shelf link
 
@@ -171,6 +215,11 @@ Show links of a task:
 - outbound: from `.shelf/edges/<id>.toml`
 - inbound: reverse lookup by scanning all edge files
 
+Flags:
+
+- `--transitive` (show recursive `depends_on` closure)
+- `--json`
+
 ## shelf doctor
 
 Integrity checker for `.shelf/`:
@@ -184,3 +233,8 @@ Integrity checker for `.shelf/`:
 - edge source existence
 
 Outputs file path + task ID + issue message for manual fixes.
+
+Flags:
+
+- `--fix` (apply safe normalization before checks)
+- `--json`

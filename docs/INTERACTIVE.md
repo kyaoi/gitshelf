@@ -20,6 +20,7 @@ If not TTY, users must provide required flags.
 - `j` / `k`: move selection down/up
 - `Enter`: confirm
 - `/`: search mode
+- `?`: toggle help overlay
 - `Esc`:
   - in search mode: clear search and leave search mode
   - otherwise: cancel selection
@@ -79,7 +80,7 @@ The type selection screen includes this warning:
 
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
-2. (`set` only, when no update flags are passed) select `Status`
+2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Parent`), then save
 
 ## mv Interactive Flow
 

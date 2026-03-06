@@ -336,6 +336,18 @@ func TestCLINextShowsOnlyReadyTasks(t *testing.T) {
 	if strings.Contains(nextOut, "B prerequisite") {
 		t.Fatalf("done task B should not be listed in next: %s", nextOut)
 	}
+
+	nextJSON, err := executeCLI(t, "next", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("next --json failed: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(nextJSON), &rows); err != nil {
+		t.Fatalf("failed to parse next json output: %v output=%s", err, nextJSON)
+	}
+	if len(rows) == 0 {
+		t.Fatalf("expected ready tasks in next json output: %s", nextJSON)
+	}
 }
 
 func TestCLIStatusShortcutCommands(t *testing.T) {

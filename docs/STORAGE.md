@@ -28,6 +28,7 @@
   - `created_at`
   - `updated_at`
 - Optional:
+  - `due_on` (`YYYY-MM-DD`)
   - `parent`
   - body text (freeform notes)
 
@@ -46,9 +47,10 @@ Key order is stable:
 2. `title`
 3. `kind`
 4. `status`
-5. `parent` (if present)
-6. `created_at`
-7. `updated_at`
+5. `due_on` (if present)
+6. `parent` (if present)
+7. `created_at`
+8. `updated_at`
 
 Timestamps use RFC3339.
 
@@ -74,6 +76,7 @@ Duplicate `(to, type)` is removed on write.
 - `title` must be non-empty
 - `kind` must exist in config `kinds`
 - `status` must exist in config `statuses`
+- `due_on` must match `YYYY-MM-DD` when present
 - when `parent` exists:
   - parent task must exist
   - cannot point to self

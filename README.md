@@ -37,30 +37,39 @@ go build -o shelf ./cmd/shelf
 # Update and move
 ./shelf set <task-id> --status done
 ./shelf mv <task-id> --parent root
+./shelf start <task-id>
+./shelf block <task-id>
+./shelf cancel <task-id>
+./shelf next
 
 # Link tasks
 ./shelf link --from <a> --to <b> --type depends_on
-./shelf links <a>
+./shelf links <a> --transitive
 
 # Check integrity
 ./shelf doctor
+./shelf doctor --fix
 ```
 
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --parent <id|root> --limit N --search ...]`
-- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --status ...]`
-- `shelf show <id> [--root <dir>]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD --parent <id|root> --body ...]`
+- `shelf ls [--root <dir>] [--kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
+- `shelf next [--root <dir>] [--limit N --json]`
+- `shelf tree [--root <dir>] [--from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD --clear-due --parent ... --body ... --append-body ...]`
 - `shelf mv <id> --parent <id|root> [--root <dir>]`
 - `shelf done <id> [--root <dir>]`
+- `shelf start <id> [--root <dir>]`
+- `shelf block <id> [--root <dir>]`
+- `shelf cancel <id> [--root <dir>]`
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
-- `shelf links <id> [--root <dir>]`
-- `shelf doctor [--root <dir>]`
+- `shelf links <id> [--root <dir>] [--transitive --json]`
+- `shelf doctor [--root <dir>] [--fix --json]`
 
 Global display flags:
 
@@ -77,6 +86,7 @@ Color output:
 
 - `kind`: task category (`todo`, `idea`, `memo`, ...)
 - `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
+- `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
 
 ## Link Types
 
@@ -94,6 +104,9 @@ Supported `link_types` are only:
 ./shelf ls --not-status done --not-status cancelled
 ./shelf ls --status open --status in_progress --status blocked
 ./shelf ls --kind todo --not-status done --not-status cancelled
+./shelf ls --ready --overdue
+./shelf ls --blocked-by-deps
+./shelf ls --json
 ```
 
 `ls` / `tree` output omits IDs by default for readability.
@@ -149,6 +162,7 @@ id = "01..."
 title = "Example"
 kind = "todo"
 status = "open"
+due_on = "2026-03-31" # optional
 parent = "01..." # optional
 created_at = "2026-03-05T12:34:56+09:00"
 updated_at = "2026-03-05T12:34:56+09:00"
@@ -159,7 +173,7 @@ Body text...
 
 Task files are split into:
 
-- front matter: structured metadata (`title`, `kind`, `status`, `parent`, timestamps)
+- front matter: structured metadata (`title`, `kind`, `status`, `due_on`, `parent`, timestamps)
 - body: freeform notes (`details`, `supplements`, `progress logs`, `ideas`, `references`)
 
 `shelf show <id>` displays both metadata and body so the task context stays in one place.

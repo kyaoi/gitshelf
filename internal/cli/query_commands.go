@@ -143,7 +143,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
-	var limit int
+	var (
+		limit  int
+		asJSON bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "next",
@@ -163,6 +166,47 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			titleByID := make(map[string]string, len(tasks))
 			for _, task := range tasks {
 				titleByID[task.ID] = task.Title
+			}
+
+			if asJSON {
+				type nextItem struct {
+					ID          string `json:"id"`
+					Title       string `json:"title"`
+					Kind        string `json:"kind"`
+					Status      string `json:"status"`
+					DueOn       string `json:"due_on,omitempty"`
+					Parent      string `json:"parent,omitempty"`
+					ParentTitle string `json:"parent_title,omitempty"`
+				}
+				items := make([]nextItem, 0)
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if !ok || !info.Ready {
+						continue
+					}
+					parentTitle := ""
+					if task.Parent != "" {
+						parentTitle = titleByID[task.Parent]
+					}
+					items = append(items, nextItem{
+						ID:          task.ID,
+						Title:       task.Title,
+						Kind:        string(task.Kind),
+						Status:      string(task.Status),
+						DueOn:       task.DueOn,
+						Parent:      task.Parent,
+						ParentTitle: parentTitle,
+					})
+					if limit > 0 && len(items) >= limit {
+						break
+					}
+				}
+				data, err := json.MarshalIndent(items, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
 			}
 
 			count := 0
@@ -204,6 +248,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
 
