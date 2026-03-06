@@ -110,3 +110,35 @@ func TestAddTaskWithDueKeywords(t *testing.T) {
 		t.Fatalf("unexpected normalized tomorrow due: %q", taskTomorrow.DueOn)
 	}
 }
+
+func TestAddTaskWithRepeatEvery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	task, err := AddTask(root, AddTaskInput{
+		Title:       "weekly recurring",
+		RepeatEvery: "1w",
+	})
+	if err != nil {
+		t.Fatalf("add recurring task failed: %v", err)
+	}
+	if task.RepeatEvery != "1w" {
+		t.Fatalf("unexpected repeat_every: %q", task.RepeatEvery)
+	}
+}
+
+func TestAddTaskRejectsInvalidRepeatEvery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	if _, err := AddTask(root, AddTaskInput{
+		Title:       "bad repeat",
+		RepeatEvery: "weekly",
+	}); err == nil || !strings.Contains(err.Error(), "invalid repeat_every") {
+		t.Fatalf("expected invalid repeat_every error, got: %v", err)
+	}
+}

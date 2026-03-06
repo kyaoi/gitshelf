@@ -15,27 +15,31 @@ type Status string
 type LinkType string
 
 type Task struct {
-	ID        string
-	Title     string
-	Kind      Kind
-	Status    Status
-	DueOn     string
-	Parent    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Body      string
+	ID          string
+	Title       string
+	Kind        Kind
+	Status      Status
+	DueOn       string
+	RepeatEvery string
+	ArchivedAt  string
+	Parent      string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Body        string
 }
 
 type taskFrontMatter struct {
-	ID        string `toml:"id"`
-	Title     string `toml:"title"`
-	Kind      string `toml:"kind"`
-	Status    string `toml:"status"`
-	State     string `toml:"state"`
-	DueOn     string `toml:"due_on,omitempty"`
-	Parent    string `toml:"parent,omitempty"`
-	CreatedAt string `toml:"created_at"`
-	UpdatedAt string `toml:"updated_at"`
+	ID          string `toml:"id"`
+	Title       string `toml:"title"`
+	Kind        string `toml:"kind"`
+	Status      string `toml:"status"`
+	State       string `toml:"state"`
+	DueOn       string `toml:"due_on,omitempty"`
+	RepeatEvery string `toml:"repeat_every,omitempty"`
+	ArchivedAt  string `toml:"archived_at,omitempty"`
+	Parent      string `toml:"parent,omitempty"`
+	CreatedAt   string `toml:"created_at"`
+	UpdatedAt   string `toml:"updated_at"`
 }
 
 const frontMatterDelimiter = "+++"
@@ -80,6 +84,14 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	repeatEvery, err := NormalizeRepeatEvery(fm.RepeatEvery)
+	if err != nil {
+		return Task{}, err
+	}
+	archivedAt, err := normalizeArchivedAt(fm.ArchivedAt)
+	if err != nil {
+		return Task{}, err
+	}
 
 	body := ""
 	if end+1 < len(lines) {
@@ -91,15 +103,17 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	}
 
 	task := Task{
-		ID:        fm.ID,
-		Title:     fm.Title,
-		Kind:      Kind(fm.Kind),
-		Status:    Status(status),
-		DueOn:     dueOn,
-		Parent:    fm.Parent,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-		Body:      body,
+		ID:          fm.ID,
+		Title:       fm.Title,
+		Kind:        Kind(fm.Kind),
+		Status:      Status(status),
+		DueOn:       dueOn,
+		RepeatEvery: repeatEvery,
+		ArchivedAt:  archivedAt,
+		Parent:      fm.Parent,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+		Body:        body,
 	}
 	if err := validateTaskRequiredFields(task); err != nil {
 		return Task{}, err
@@ -120,6 +134,12 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 	buf.WriteString(fmt.Sprintf("status = %q\n", string(task.Status)))
 	if task.DueOn != "" {
 		buf.WriteString(fmt.Sprintf("due_on = %q\n", task.DueOn))
+	}
+	if task.RepeatEvery != "" {
+		buf.WriteString(fmt.Sprintf("repeat_every = %q\n", task.RepeatEvery))
+	}
+	if task.ArchivedAt != "" {
+		buf.WriteString(fmt.Sprintf("archived_at = %q\n", task.ArchivedAt))
 	}
 	if task.Parent != "" {
 		buf.WriteString(fmt.Sprintf("parent = %q\n", task.Parent))
@@ -152,6 +172,24 @@ func validateTaskRequiredFields(task Task) error {
 		if _, err := NormalizeDueOn(task.DueOn); err != nil {
 			return err
 		}
+		if _, err := NormalizeRepeatEvery(task.RepeatEvery); err != nil {
+			return err
+		}
+		if _, err := normalizeArchivedAt(task.ArchivedAt); err != nil {
+			return err
+		}
 		return nil
 	}
+}
+
+func normalizeArchivedAt(value string) (string, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return "", nil
+	}
+	parsed, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return "", fmt.Errorf("invalid archived_at: %w", err)
+	}
+	return parsed.Format(time.RFC3339), nil
 }

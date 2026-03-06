@@ -7,13 +7,15 @@ import (
 )
 
 type SetTaskInput struct {
-	Title      *string
-	Kind       *Kind
-	Status     *Status
-	DueOn      *string
-	Parent     *string
-	Body       *string
-	AppendBody *string
+	Title       *string
+	Kind        *Kind
+	Status      *Status
+	DueOn       *string
+	RepeatEvery *string
+	ArchivedAt  *string
+	Parent      *string
+	Body        *string
+	AppendBody  *string
 }
 
 func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
@@ -56,6 +58,20 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 			return Task{}, err
 		}
 		task.DueOn = dueOn
+	}
+	if input.RepeatEvery != nil {
+		repeatEvery, err := NormalizeRepeatEvery(*input.RepeatEvery)
+		if err != nil {
+			return Task{}, err
+		}
+		task.RepeatEvery = repeatEvery
+	}
+	if input.ArchivedAt != nil {
+		archivedAt, err := normalizeArchivedAt(*input.ArchivedAt)
+		if err != nil {
+			return Task{}, err
+		}
+		task.ArchivedAt = archivedAt
 	}
 
 	if input.Parent != nil {

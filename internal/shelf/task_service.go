@@ -8,12 +8,13 @@ import (
 )
 
 type AddTaskInput struct {
-	Title  string
-	Kind   Kind
-	Status Status
-	DueOn  string
-	Parent string
-	Body   string
+	Title       string
+	Kind        Kind
+	Status      Status
+	DueOn       string
+	RepeatEvery string
+	Parent      string
+	Body        string
 }
 
 func AddTask(rootDir string, input AddTaskInput) (Task, error) {
@@ -47,6 +48,10 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	repeatEvery, err := NormalizeRepeatEvery(input.RepeatEvery)
+	if err != nil {
+		return Task{}, err
+	}
 
 	parentID := normalizeParent(input.Parent)
 	store := NewTaskStore(rootDir)
@@ -58,15 +63,17 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 
 	now := time.Now().Local().Round(time.Second)
 	task := Task{
-		ID:        NewID(),
-		Title:     title,
-		Kind:      kind,
-		Status:    status,
-		DueOn:     dueOn,
-		Parent:    parentID,
-		CreatedAt: now,
-		UpdatedAt: now,
-		Body:      input.Body,
+		ID:          NewID(),
+		Title:       title,
+		Kind:        kind,
+		Status:      status,
+		DueOn:       dueOn,
+		RepeatEvery: repeatEvery,
+		ArchivedAt:  "",
+		Parent:      parentID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Body:        input.Body,
 	}
 
 	if err := store.Create(task); err != nil {

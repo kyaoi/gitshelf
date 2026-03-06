@@ -94,3 +94,39 @@ func TestSetTaskRejectsInvalidDueOn(t *testing.T) {
 		t.Fatalf("expected invalid due_on error, got: %v", err)
 	}
 }
+
+func TestSetTaskUpdatesRepeatEvery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "repeat target"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	repeatEvery := "2w"
+	updated, err := SetTask(root, task.ID, SetTaskInput{RepeatEvery: &repeatEvery})
+	if err != nil {
+		t.Fatalf("set repeat failed: %v", err)
+	}
+	if updated.RepeatEvery != "2w" {
+		t.Fatalf("unexpected repeat_every: %+v", updated)
+	}
+}
+
+func TestSetTaskRejectsInvalidRepeatEvery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "bad repeat"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	bad := "foo"
+	if _, err := SetTask(root, task.ID, SetTaskInput{RepeatEvery: &bad}); err == nil || !strings.Contains(err.Error(), "invalid repeat_every") {
+		t.Fatalf("expected invalid repeat_every error, got: %v", err)
+	}
+}
