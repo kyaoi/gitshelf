@@ -8,9 +8,13 @@ type TreeNode struct {
 }
 
 type TreeOptions struct {
-	FromID   string
-	Status   Status
-	MaxDepth int
+	FromID      string
+	Status      Status
+	Kinds       []Kind
+	Statuses    []Status
+	NotKinds    []Kind
+	NotStatuses []Status
+	MaxDepth    int
 }
 
 func BuildTree(rootDir string, options TreeOptions) ([]TreeNode, error) {
@@ -79,7 +83,7 @@ func buildTreeNode(task Task, byParent map[string][]Task, options TreeOptions, d
 		}
 	}
 
-	if options.Status != "" && task.Status != options.Status {
+	if !matchesTreeFilters(task, options) {
 		if len(children) == 0 {
 			return nil
 		}
@@ -92,4 +96,25 @@ func buildTreeNode(task Task, byParent map[string][]Task, options TreeOptions, d
 		Task:     task,
 		Children: children,
 	}
+}
+
+func matchesTreeFilters(task Task, options TreeOptions) bool {
+	statuses := options.Statuses
+	if len(statuses) == 0 && options.Status != "" {
+		statuses = []Status{options.Status}
+	}
+
+	if len(options.Kinds) > 0 && !slices.Contains(options.Kinds, task.Kind) {
+		return false
+	}
+	if len(statuses) > 0 && !slices.Contains(statuses, task.Status) {
+		return false
+	}
+	if slices.Contains(options.NotKinds, task.Kind) {
+		return false
+	}
+	if slices.Contains(options.NotStatuses, task.Status) {
+		return false
+	}
+	return true
 }

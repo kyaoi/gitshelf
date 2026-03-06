@@ -294,25 +294,97 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	var (
 		from     string
 		maxDepth int
-		status   string
+		kinds    []string
+		statuses []string
+		notKinds []string
+		notStats []string
+		asJSON   bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "tree",
 		Short: "Show task tree",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := shelf.LoadConfig(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			for _, kind := range toKinds(kinds) {
+				if err := cfg.ValidateKind(kind); err != nil {
+					return err
+				}
+			}
+			for _, kind := range toKinds(notKinds) {
+				if err := cfg.ValidateKind(kind); err != nil {
+					return err
+				}
+			}
+			for _, status := range toStatuses(statuses) {
+				if err := cfg.ValidateStatus(status); err != nil {
+					return err
+				}
+			}
+			for _, status := range toStatuses(notStats) {
+				if err := cfg.ValidateStatus(status); err != nil {
+					return err
+				}
+			}
+
 			fromID := ""
 			if strings.TrimSpace(from) != "" && !strings.EqualFold(from, "root") {
 				fromID = from
 			}
 			nodes, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{
-				FromID:   fromID,
-				Status:   shelf.Status(status),
-				MaxDepth: maxDepth,
+				FromID:      fromID,
+				Kinds:       toKinds(kinds),
+				Statuses:    toStatuses(statuses),
+				NotKinds:    toKinds(notKinds),
+				NotStatuses: toStatuses(notStats),
+				MaxDepth:    maxDepth,
 			})
 			if err != nil {
 				return err
 			}
+
+			if asJSON {
+				type jsonTreeNode struct {
+					ID       string         `json:"id"`
+					Title    string         `json:"title"`
+					Kind     string         `json:"kind"`
+					Status   string         `json:"status"`
+					DueOn    string         `json:"due_on,omitempty"`
+					Parent   string         `json:"parent,omitempty"`
+					Children []jsonTreeNode `json:"children,omitempty"`
+				}
+				var convert func(node shelf.TreeNode) jsonTreeNode
+				convert = func(node shelf.TreeNode) jsonTreeNode {
+					children := make([]jsonTreeNode, 0, len(node.Children))
+					for _, child := range node.Children {
+						children = append(children, convert(child))
+					}
+					return jsonTreeNode{
+						ID:       node.Task.ID,
+						Title:    node.Task.Title,
+						Kind:     string(node.Task.Kind),
+						Status:   string(node.Task.Status),
+						DueOn:    node.Task.DueOn,
+						Parent:   node.Task.Parent,
+						Children: children,
+					}
+				}
+
+				rows := make([]jsonTreeNode, 0, len(nodes))
+				for _, node := range nodes {
+					rows = append(rows, convert(node))
+				}
+				data, err := json.MarshalIndent(rows, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
 			for i, node := range nodes {
 				printTreeNode(node, "", i == len(nodes)-1, ctx.showID)
 			}
@@ -322,7 +394,11 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
-	cmd.Flags().StringVar(&status, "status", "", "Filter by status")
+	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
+	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
+	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
+	cmd.Flags().StringArrayVar(&notStats, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
 

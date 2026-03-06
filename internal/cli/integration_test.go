@@ -382,6 +382,53 @@ func TestCLIStatusShortcutCommands(t *testing.T) {
 	}
 }
 
+func TestCLITreeFiltersAndJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "ChildTodo", Kind: "todo", Status: "in_progress", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child todo failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "ChildMemoDone", Kind: "memo", Status: "done", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child memo done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "tree", "--root", root, "--kind", "todo", "--not-status", "done")
+	if err != nil {
+		t.Fatalf("tree filter failed: %v", err)
+	}
+	if !strings.Contains(out, "Parent") || !strings.Contains(out, "ChildTodo") {
+		t.Fatalf("expected todo nodes in filtered tree: %s", out)
+	}
+	if strings.Contains(out, "ChildMemoDone") {
+		t.Fatalf("done memo node should be filtered out: %s", out)
+	}
+
+	out, err = executeCLI(t, "tree", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("tree --json failed: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("failed to parse tree json output: %v output=%s", err, out)
+	}
+	if len(rows) == 0 {
+		t.Fatalf("expected json tree nodes, got empty: %s", out)
+	}
+
+	if _, err := executeCLI(t, "tree", "--root", root, "--kind", "unknown"); err == nil || !strings.Contains(err.Error(), "unknown kind") {
+		t.Fatalf("expected unknown kind error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "tree", "--root", root, "--status", "unknown"); err == nil || !strings.Contains(err.Error(), "unknown status") {
+		t.Fatalf("expected unknown status error, got: %v", err)
+	}
+}
+
 func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
