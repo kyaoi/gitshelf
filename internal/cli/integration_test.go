@@ -237,6 +237,56 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	}
 }
 
+func TestCLIAddSetAndShowDueOn(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	addOut, err := executeCLI(t, "add", "--root", root, "--title", "due task", "--due", "2026-04-01")
+	if err != nil {
+		t.Fatalf("add with due failed: %v", err)
+	}
+	id := extractIDFromAddOutput(addOut)
+	if id == "" {
+		t.Fatalf("failed to parse task id from add output: %s", addOut)
+	}
+
+	showOut, err := executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "2026-04-01"`) {
+		t.Fatalf("show should include due_on: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "2026-04-05"); err != nil {
+		t.Fatalf("set due failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set due failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "2026-04-05"`) {
+		t.Fatalf("show should include updated due_on: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--clear-due"); err != nil {
+		t.Fatalf("clear due failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after clear due failed: %v", err)
+	}
+	if strings.Contains(showOut, "due_on =") {
+		t.Fatalf("show should not include due_on after clear: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "2026-04-10", "--clear-due"); err == nil || !strings.Contains(err.Error(), "同時に指定できません") {
+		t.Fatalf("expected due/clear-due conflict error, got: %v", err)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
@@ -261,4 +311,14 @@ func executeCLI(t *testing.T, args ...string) (string, error) {
 		t.Fatalf("pipe read failed: %v", readErr)
 	}
 	return string(data), execErr
+}
+
+func extractIDFromAddOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "ID: ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "ID: "))
+		}
+	}
+	return ""
 }

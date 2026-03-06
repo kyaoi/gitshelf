@@ -19,6 +19,7 @@ type Task struct {
 	Title     string
 	Kind      Kind
 	Status    Status
+	DueOn     string
 	Parent    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -31,6 +32,7 @@ type taskFrontMatter struct {
 	Kind      string `toml:"kind"`
 	Status    string `toml:"status"`
 	State     string `toml:"state"`
+	DueOn     string `toml:"due_on,omitempty"`
 	Parent    string `toml:"parent,omitempty"`
 	CreatedAt string `toml:"created_at"`
 	UpdatedAt string `toml:"updated_at"`
@@ -89,6 +91,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		Title:     fm.Title,
 		Kind:      Kind(fm.Kind),
 		Status:    Status(status),
+		DueOn:     fm.DueOn,
 		Parent:    fm.Parent,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
@@ -111,6 +114,9 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 	buf.WriteString(fmt.Sprintf("title = %q\n", task.Title))
 	buf.WriteString(fmt.Sprintf("kind = %q\n", string(task.Kind)))
 	buf.WriteString(fmt.Sprintf("status = %q\n", string(task.Status)))
+	if task.DueOn != "" {
+		buf.WriteString(fmt.Sprintf("due_on = %q\n", task.DueOn))
+	}
 	if task.Parent != "" {
 		buf.WriteString(fmt.Sprintf("parent = %q\n", task.Parent))
 	}
@@ -139,6 +145,9 @@ func validateTaskRequiredFields(task Task) error {
 	case task.UpdatedAt.IsZero():
 		return errors.New("task updated_at is required")
 	default:
+		if _, err := NormalizeDueOn(task.DueOn); err != nil {
+			return err
+		}
 		return nil
 	}
 }

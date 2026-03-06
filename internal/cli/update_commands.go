@@ -14,6 +14,8 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 		title      string
 		kind       string
 		status     string
+		due        string
+		clearDue   bool
 		parent     string
 		body       string
 		appendBody string
@@ -41,6 +43,16 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				s := shelf.Status(status)
 				input.Status = &s
 			}
+			if cmd.Flags().Changed("due") && clearDue {
+				return errors.New("--due と --clear-due は同時に指定できません")
+			}
+			if cmd.Flags().Changed("due") {
+				input.DueOn = &due
+			}
+			if clearDue {
+				empty := ""
+				input.DueOn = &empty
+			}
 			if cmd.Flags().Changed("parent") {
 				input.Parent = &parent
 			}
@@ -51,7 +63,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				input.AppendBody = &appendBody
 			}
 
-			if input.Title == nil && input.Kind == nil && input.Status == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
+			if input.Title == nil && input.Kind == nil && input.Status == nil && input.DueOn == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
 				if interactive.IsTTY() {
 					cfg, err := shelf.LoadConfig(ctx.rootDir)
 					if err != nil {
@@ -72,7 +84,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 					s := shelf.Status(selected.Value)
 					input.Status = &s
 				} else {
-					return errors.New("更新対象がありません。--title/--kind/--status/--parent/--body/--append-body を指定してください")
+					return errors.New("更新対象がありません。--title/--kind/--status/--due/--clear-due/--parent/--body/--append-body を指定してください")
 				}
 			}
 
@@ -88,6 +100,8 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&kind, "kind", "", "New kind")
 	cmd.Flags().StringVar(&status, "status", "", "New status")
+	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD)")
+	cmd.Flags().BoolVar(&clearDue, "clear-due", false, "Clear due date")
 	cmd.Flags().StringVar(&parent, "parent", "", "New parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Replace body")
 	cmd.Flags().StringVar(&appendBody, "append-body", "", "Append text to body")

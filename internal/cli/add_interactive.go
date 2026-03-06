@@ -8,7 +8,7 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
-func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string) (shelf.AddTaskInput, error) {
+func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string, initialDue string) (shelf.AddTaskInput, error) {
 	if !interactive.IsTTY() {
 		return shelf.AddTaskInput{}, errors.New("非TTYでは対話入力できません。--title を指定してください")
 	}
@@ -56,6 +56,14 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		selectedStatus = statusSelected.Value
 	}
 
+	selectedDue := strings.TrimSpace(initialDue)
+	if selectedDue == "" {
+		selectedDue, err = interactive.PromptText("期限を入力してください (YYYY-MM-DD, 空で期限なし)")
+		if err != nil {
+			return shelf.AddTaskInput{}, err
+		}
+	}
+
 	taskStore := shelf.NewTaskStore(ctx.rootDir)
 	tasks, err := taskStore.List()
 	if err != nil {
@@ -72,6 +80,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		Title:  title,
 		Kind:   shelf.Kind(kindSelected.Value),
 		Status: shelf.Status(selectedStatus),
+		DueOn:  selectedDue,
 		Parent: parentSelected.Value,
 		Body:   body,
 	}, nil

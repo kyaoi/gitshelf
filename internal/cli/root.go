@@ -195,6 +195,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		title  string
 		kind   string
 		status string
+		due    string
 		parent string
 		body   string
 	)
@@ -205,7 +206,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var input shelf.AddTaskInput
 			if strings.TrimSpace(title) == "" {
-				interactiveInput, err := resolveAddInputInteractive(ctx, body, status)
+				interactiveInput, err := resolveAddInputInteractive(ctx, body, status, due)
 				if err != nil {
 					return err
 				}
@@ -215,6 +216,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 					Title:  title,
 					Kind:   shelf.Kind(kind),
 					Status: shelf.Status(status),
+					DueOn:  due,
 					Parent: parent,
 					Body:   body,
 				}
@@ -234,6 +236,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Task title")
 	cmd.Flags().StringVar(&kind, "kind", "", "Task kind")
 	cmd.Flags().StringVar(&status, "status", "", "Task status")
+	cmd.Flags().StringVar(&due, "due", "", "Task due date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Task body")
 	return cmd

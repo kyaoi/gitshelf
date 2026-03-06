@@ -15,6 +15,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		Title:     "月曜日にやること",
 		Kind:      Kind("todo"),
 		Status:    Status("open"),
+		DueOn:     "2026-03-10",
 		Parent:    "01JWEEKGOAL000000000000",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -37,11 +38,32 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	if parsed.ID != orig.ID || parsed.Title != orig.Title || parsed.Kind != orig.Kind || parsed.Status != orig.Status {
 		t.Fatalf("parsed task mismatch: %+v", parsed)
 	}
+	if parsed.DueOn != orig.DueOn {
+		t.Fatalf("parsed due_on mismatch: %+v", parsed)
+	}
 	if parsed.Parent != orig.Parent || parsed.Body != orig.Body {
 		t.Fatalf("parsed optional fields mismatch: %+v", parsed)
 	}
 	if !parsed.CreatedAt.Equal(orig.CreatedAt) || !parsed.UpdatedAt.Equal(orig.UpdatedAt) {
 		t.Fatalf("parsed timestamps mismatch: %+v", parsed)
+	}
+}
+
+func TestParseTaskMarkdownInvalidDueOn(t *testing.T) {
+	raw := `+++
+id = "01JABCDEF0123456789XYZ"
+title = "invalid due"
+kind = "todo"
+status = "open"
+due_on = "2026-99-99"
+created_at = "2026-03-05T12:34:56+09:00"
+updated_at = "2026-03-05T12:34:56+09:00"
++++
+
+body
+`
+	if _, err := ParseTaskMarkdown([]byte(raw)); err == nil || !strings.Contains(err.Error(), "invalid due_on") {
+		t.Fatalf("expected invalid due_on error, got: %v", err)
 	}
 }
 

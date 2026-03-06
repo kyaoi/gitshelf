@@ -64,3 +64,10 @@ func uiStatus(status shelf.Status) string {
 func uiLinkType(linkType shelf.LinkType) string {
 	return uiColor(string(linkType), "35")
 }
+
+func uiDue(dueOn string) string {
+	if dueOn == "" {
+		return uiMuted("-")
+	}
+	return uiColor(dueOn, "35")
+}

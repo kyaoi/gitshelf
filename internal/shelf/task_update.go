@@ -10,6 +10,7 @@ type SetTaskInput struct {
 	Title      *string
 	Kind       *Kind
 	Status     *Status
+	DueOn      *string
 	Parent     *string
 	Body       *string
 	AppendBody *string
@@ -47,6 +48,14 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 			return Task{}, err
 		}
 		task.Status = *input.Status
+	}
+
+	if input.DueOn != nil {
+		dueOn, err := NormalizeDueOn(*input.DueOn)
+		if err != nil {
+			return Task{}, err
+		}
+		task.DueOn = dueOn
 	}
 
 	if input.Parent != nil {

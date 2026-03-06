@@ -11,6 +11,7 @@ type AddTaskInput struct {
 	Title  string
 	Kind   Kind
 	Status Status
+	DueOn  string
 	Parent string
 	Body   string
 }
@@ -42,6 +43,11 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 		return Task{}, err
 	}
 
+	dueOn, err := NormalizeDueOn(input.DueOn)
+	if err != nil {
+		return Task{}, err
+	}
+
 	parentID := normalizeParent(input.Parent)
 	store := NewTaskStore(rootDir)
 	if parentID != "" {
@@ -56,6 +62,7 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 		Title:     title,
 		Kind:      kind,
 		Status:    status,
+		DueOn:     dueOn,
 		Parent:    parentID,
 		CreatedAt: now,
 		UpdatedAt: now,

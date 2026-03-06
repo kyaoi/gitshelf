@@ -61,7 +61,11 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if ctx.showID {
 					label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
 				}
-				fmt.Printf("%s  (%s/%s) parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), parentLabel)
+				dueText := ""
+				if task.DueOn != "" {
+					dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
+				}
+				fmt.Printf("%s  (%s/%s)%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, parentLabel)
 			}
 			return nil
 		},
@@ -98,6 +102,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("title = %q\n", task.Title)
 			fmt.Printf("kind = %q\n", task.Kind)
 			fmt.Printf("status = %q\n", task.Status)
+			if task.DueOn != "" {
+				fmt.Printf("due_on = %q\n", task.DueOn)
+			}
 			if task.Parent != "" {
 				fmt.Printf("parent = %q\n", task.Parent)
 			}
@@ -215,7 +222,11 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool)
 	if showID {
 		label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(node.Task.ID)), uiPrimary(node.Task.Title))
 	}
-	fmt.Printf("%s%s%s (%s/%s)\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status))
+	dueText := ""
+	if node.Task.DueOn != "" {
+		dueText = fmt.Sprintf(" due=%s", uiDue(node.Task.DueOn))
+	}
+	fmt.Printf("%s%s%s (%s/%s)%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText)
 	for i, child := range node.Children {
 		printTreeNode(child, nextPrefix, i == len(node.Children)-1, showID)
 	}
