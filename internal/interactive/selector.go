@@ -190,7 +190,7 @@ func render(cfg SelectConfig, options []Option, cursor int, search string, searc
 		prefix := "  "
 		label := options[i].Label
 		if i == cursor {
-			prefix = uiColor("> ", "1;36")
+			prefix = uiColor("> ", "1;38;5;45")
 			label = uiSelected(label)
 		}
 		b.WriteString(prefix + label + eol)

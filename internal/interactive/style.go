@@ -20,21 +20,21 @@ func uiColor(text string, code string) string {
 }
 
 func uiPrompt(text string) string {
-	return uiColor(text, "1;36")
+	return uiColor(text, "1;38;5;45")
 }
 
 func uiHelp(text string) string {
-	return uiColor(text, "2")
+	return uiColor(text, "38;5;244")
 }
 
 func uiSelected(text string) string {
-	return uiColor(text, "1;37")
+	return uiColor(text, "1;38;5;255")
 }
 
 func uiSearch(text string) string {
-	return uiColor(text, "33")
+	return uiColor(text, "38;5;220")
 }
 
 func uiPreviewHeader(text string) string {
-	return uiColor(text, "1;35")
+	return uiColor(text, "1;38;5;141")
 }
