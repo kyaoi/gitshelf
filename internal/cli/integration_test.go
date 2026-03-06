@@ -683,6 +683,14 @@ func TestCLIDepsCommand(t *testing.T) {
 		t.Fatalf("unexpected deps output: %s", out)
 	}
 
+	graphOut, err := executeCLI(t, "deps", "--root", root, a.ID, "--graph")
+	if err != nil {
+		t.Fatalf("deps --graph failed: %v", err)
+	}
+	if !strings.Contains(graphOut, "Prerequisites Graph:") || !strings.Contains(graphOut, "└─") {
+		t.Fatalf("unexpected deps graph output: %s", graphOut)
+	}
+
 	out, err = executeCLI(t, "deps", "--root", root, b.ID, "--transitive", "--json")
 	if err != nil {
 		t.Fatalf("deps --transitive --json failed: %v", err)
@@ -694,6 +702,17 @@ func TestCLIDepsCommand(t *testing.T) {
 	dependents, ok := payload["dependents"].([]any)
 	if !ok || len(dependents) == 0 {
 		t.Fatalf("expected transitive dependents in deps json output: %s", out)
+	}
+	graphPayloadOut, err := executeCLI(t, "deps", "--root", root, b.ID, "--graph", "--json")
+	if err != nil {
+		t.Fatalf("deps --graph --json failed: %v", err)
+	}
+	var graphPayload map[string]any
+	if err := json.Unmarshal([]byte(graphPayloadOut), &graphPayload); err != nil {
+		t.Fatalf("failed to parse deps graph json output: %v output=%s", err, graphPayloadOut)
+	}
+	if _, ok := graphPayload["prerequisites_graph"]; !ok {
+		t.Fatalf("expected prerequisites_graph in deps graph payload: %s", graphPayloadOut)
 	}
 }
 

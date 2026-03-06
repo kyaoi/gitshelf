@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 	var (
 		transitive bool
 		reverse    bool
+		graph      bool
 		asJSON     bool
 	)
 	cmd := &cobra.Command{
@@ -20,6 +22,7 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show prerequisites and dependents by depends_on links",
 		Example: "  shelf deps <id>\n" +
 			"  shelf deps <id> --transitive\n" +
+			"  shelf deps <id> --graph --transitive\n" +
 			"  shelf deps <id> --reverse --json",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -53,6 +56,22 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 					"prerequisites": prerequisites,
 					"dependents":    dependents,
 				}
+				if graph {
+					titleByIDPlain := make(map[string]string, len(titleByID))
+					for idKey, title := range titleByID {
+						titleByIDPlain[idKey] = title
+					}
+					maxDepth := 1
+					if transitive {
+						maxDepth = 0
+					}
+					prereqAdj, dependAdj, err := buildDependsAdjacency(ctx.rootDir, tasks)
+					if err != nil {
+						return err
+					}
+					payload["prerequisites_graph"] = renderDepGraphLines(id, prereqAdj, titleByIDPlain, ctx.showID, maxDepth)
+					payload["dependents_graph"] = renderDepGraphLines(id, dependAdj, titleByIDPlain, ctx.showID, maxDepth)
+				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
 					return err
@@ -81,11 +100,29 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if reverse {
-				printList("Dependents", dependents)
-				printList("Prerequisites", prerequisites)
+				if graph {
+					if err := printDepGraph(ctx.rootDir, "Dependents", id, tasks, titleByID, ctx.showID, transitive, false); err != nil {
+						return err
+					}
+					if err := printDepGraph(ctx.rootDir, "Prerequisites", id, tasks, titleByID, ctx.showID, transitive, true); err != nil {
+						return err
+					}
+				} else {
+					printList("Dependents", dependents)
+					printList("Prerequisites", prerequisites)
+				}
 			} else {
-				printList("Prerequisites", prerequisites)
-				printList("Dependents", dependents)
+				if graph {
+					if err := printDepGraph(ctx.rootDir, "Prerequisites", id, tasks, titleByID, ctx.showID, transitive, true); err != nil {
+						return err
+					}
+					if err := printDepGraph(ctx.rootDir, "Dependents", id, tasks, titleByID, ctx.showID, transitive, false); err != nil {
+						return err
+					}
+				} else {
+					printList("Prerequisites", prerequisites)
+					printList("Dependents", dependents)
+				}
 			}
 			fmt.Println("depends_on の向き: A depends_on B = AをやるにはBが先")
 			return nil
@@ -93,8 +130,118 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&transitive, "transitive", false, "Show transitive closure")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Print dependents first")
+	cmd.Flags().BoolVar(&graph, "graph", false, "Render dependency graph")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
+}
+
+func printDepGraph(rootDir string, heading string, taskID string, tasks []shelf.Task, titleByID map[string]string, showID bool, transitive bool, prereqDirection bool) error {
+	maxDepth := 1
+	if transitive {
+		maxDepth = 0
+	}
+	prereqAdj, dependAdj, err := buildDependsAdjacency(rootDir, tasks)
+	if err != nil {
+		return err
+	}
+	adj := dependAdj
+	if prereqDirection {
+		adj = prereqAdj
+	}
+	titleByIDPlain := make(map[string]string, len(titleByID))
+	for id, title := range titleByID {
+		titleByIDPlain[id] = title
+	}
+	fmt.Println(uiHeading(heading + " Graph:"))
+	lines := renderDepGraphLines(taskID, adj, titleByIDPlain, showID, maxDepth)
+	for _, line := range lines {
+		fmt.Println(line)
+	}
+	return nil
+}
+
+func buildDependsAdjacency(rootDir string, tasks []shelf.Task) (map[string][]string, map[string][]string, error) {
+	prereqAdj := make(map[string][]string, len(tasks))
+	dependAdj := make(map[string][]string, len(tasks))
+	for _, task := range tasks {
+		prereqAdj[task.ID] = []string{}
+		dependAdj[task.ID] = []string{}
+	}
+	edgeStore := shelf.NewEdgeStore(rootDir)
+	for _, task := range tasks {
+		edges, err := edgeStore.ListOutbound(task.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, edge := range edges {
+			if edge.Type != "depends_on" {
+				continue
+			}
+			prereqAdj[task.ID] = append(prereqAdj[task.ID], edge.To)
+			dependAdj[edge.To] = append(dependAdj[edge.To], task.ID)
+		}
+	}
+	for id := range prereqAdj {
+		slices.Sort(prereqAdj[id])
+		prereqAdj[id] = slices.Compact(prereqAdj[id])
+	}
+	for id := range dependAdj {
+		slices.Sort(dependAdj[id])
+		dependAdj[id] = slices.Compact(dependAdj[id])
+	}
+	return prereqAdj, dependAdj, nil
+}
+
+func renderDepGraphLines(rootID string, adjacency map[string][]string, titleByID map[string]string, showID bool, maxDepth int) []string {
+	lines := []string{depGraphLabel(rootID, titleByID, showID)}
+	children := adjacency[rootID]
+	if len(children) == 0 {
+		return append(lines, uiMuted("  (none)"))
+	}
+	visited := map[string]bool{rootID: true}
+	var visit func(parent string, prefix string, depth int)
+	visit = func(parent string, prefix string, depth int) {
+		children := adjacency[parent]
+		for i, child := range children {
+			isLast := i == len(children)-1
+			branch := "├─ "
+			nextPrefix := prefix + "│  "
+			if isLast {
+				branch = "└─ "
+				nextPrefix = prefix + "   "
+			}
+
+			label := depGraphLabel(child, titleByID, showID)
+			if visited[child] {
+				lines = append(lines, prefix+branch+label+uiMuted(" (cycle)"))
+				continue
+			}
+			lines = append(lines, prefix+branch+label)
+			if maxDepth > 0 && depth >= maxDepth {
+				continue
+			}
+			visited[child] = true
+			visit(child, nextPrefix, depth+1)
+			delete(visited, child)
+		}
+	}
+	visit(rootID, "", 1)
+	return lines
+}
+
+func depGraphLabel(id string, titleByID map[string]string, showID bool) string {
+	title := strings.TrimSpace(titleByID[id])
+	if title == "" {
+		if showID {
+			return uiShortID(shelf.ShortID(id))
+		}
+		return uiMuted("(missing)")
+	}
+	label := uiPrimary(title)
+	if showID {
+		return fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(id)), label)
+	}
+	return label
 }
 
 func listPrerequisites(rootDir string, id string, transitive bool) ([]string, error) {
