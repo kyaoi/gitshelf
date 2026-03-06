@@ -222,12 +222,25 @@ func validateEdgesForDoctor(rootDir string, cfg Config, tasks map[string]Task, r
 
 func applyDoctorFixes(rootDir string) (int, error) {
 	fixedCount := 0
+	cfg, err := LoadConfig(rootDir)
+	if err != nil {
+		return fixedCount, err
+	}
 
 	taskDir := TasksDir(rootDir)
 	taskEntries, err := os.ReadDir(taskDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fixedCount, fmt.Errorf("failed to read tasks directory %s: %w", taskDir, err)
 	}
+	knownTaskIDs := map[string]struct{}{}
+	for _, entry := range taskEntries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		knownTaskIDs[strings.TrimSuffix(entry.Name(), ".md")] = struct{}{}
+	}
+
+	taskStore := NewTaskStore(rootDir)
 	for _, entry := range taskEntries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
@@ -241,14 +254,24 @@ func applyDoctorFixes(rootDir string) (int, error) {
 		if err != nil {
 			continue
 		}
+		changed := false
+		if task.Parent != "" {
+			if _, ok := knownTaskIDs[task.Parent]; !ok {
+				task.Parent = ""
+				changed = true
+			}
+		}
 		normalized, err := FormatTaskMarkdown(task)
 		if err != nil {
 			continue
 		}
-		if bytes.Equal(data, normalized) {
+		if !bytes.Equal(data, normalized) {
+			changed = true
+		}
+		if !changed {
 			continue
 		}
-		if err := atomicWriteFile(path, normalized, 0o644); err != nil {
+		if err := taskStore.Update(task); err != nil {
 			return fixedCount, err
 		}
 		fixedCount++
@@ -263,7 +286,15 @@ func applyDoctorFixes(rootDir string) (int, error) {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".toml") {
 			continue
 		}
+		srcID := strings.TrimSuffix(entry.Name(), ".toml")
 		path := filepath.Join(edgeDir, entry.Name())
+		if _, ok := knownTaskIDs[srcID]; !ok {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fixedCount, err
+			}
+			fixedCount++
+			continue
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
@@ -272,7 +303,24 @@ func applyDoctorFixes(rootDir string) (int, error) {
 		if err != nil {
 			continue
 		}
-		normalized := FormatEdgesTOML(edges)
+		filtered := make([]Edge, 0, len(edges))
+		for _, edge := range edges {
+			if _, ok := knownTaskIDs[edge.To]; !ok {
+				continue
+			}
+			if err := cfg.ValidateLinkType(edge.Type); err != nil {
+				continue
+			}
+			filtered = append(filtered, edge)
+		}
+		normalized := FormatEdgesTOML(filtered)
+		if len(filtered) == 0 {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fixedCount, err
+			}
+			fixedCount++
+			continue
+		}
 		if bytes.Equal(data, normalized) {
 			continue
 		}

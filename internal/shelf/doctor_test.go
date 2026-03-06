@@ -156,3 +156,77 @@ type = "depends_on"
 		t.Fatalf("edge file should be deduplicated: %s", string(normalizedEdge))
 	}
 }
+
+func TestRunDoctorWithFixRepairsSafeDataIssues(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	a, err := AddTask(root, AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := AddTask(root, AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+
+	taskAPath := filepath.Join(TasksDir(root), a.ID+".md")
+	a.Parent = "MISSING_PARENT"
+	taskData, err := FormatTaskMarkdown(a)
+	if err != nil {
+		t.Fatalf("format task failed: %v", err)
+	}
+	if err := os.WriteFile(taskAPath, taskData, 0o644); err != nil {
+		t.Fatalf("write task failed: %v", err)
+	}
+
+	missingSrcEdgePath := filepath.Join(EdgesDir(root), "MISSING_SRC.toml")
+	if err := os.WriteFile(missingSrcEdgePath, []byte(`[[edge]]
+to = "`+a.ID+`"
+type = "depends_on"
+`), 0o644); err != nil {
+		t.Fatalf("write missing src edge failed: %v", err)
+	}
+	aEdgePath := filepath.Join(EdgesDir(root), a.ID+".toml")
+	if err := os.WriteFile(aEdgePath, []byte(`[[edge]]
+to = "MISSING_DST"
+type = "depends_on"
+
+[[edge]]
+to = "`+b.ID+`"
+type = "unknown_type"
+
+[[edge]]
+to = "`+b.ID+`"
+type = "depends_on"
+`), 0o644); err != nil {
+		t.Fatalf("write A edge failed: %v", err)
+	}
+
+	report, fixed, err := RunDoctorWithFix(root)
+	if err != nil {
+		t.Fatalf("doctor with fix should pass: report=%+v err=%v", report, err)
+	}
+	if fixed == 0 {
+		t.Fatalf("expected fixed > 0")
+	}
+
+	updatedA, err := NewTaskStore(root).Get(a.ID)
+	if err != nil {
+		t.Fatalf("load fixed A failed: %v", err)
+	}
+	if updatedA.Parent != "" {
+		t.Fatalf("expected parent to be cleared, got: %q", updatedA.Parent)
+	}
+	if _, err := os.Stat(missingSrcEdgePath); !os.IsNotExist(err) {
+		t.Fatalf("missing source edge file should be removed")
+	}
+	edges, err := NewEdgeStore(root).ListOutbound(a.ID)
+	if err != nil {
+		t.Fatalf("list outbound failed: %v", err)
+	}
+	if len(edges) != 1 || edges[0].To != b.ID || edges[0].Type != "depends_on" {
+		t.Fatalf("expected only valid edge to remain, got: %+v", edges)
+	}
+}
