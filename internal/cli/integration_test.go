@@ -1344,6 +1344,16 @@ func TestCLIExportImportRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCLICompletionCommands(t *testing.T) {
+	out, err := executeCLI(t, "completion", "bash")
+	if err != nil {
+		t.Fatalf("completion bash failed: %v", err)
+	}
+	if !strings.Contains(out, "shelf") {
+		t.Fatalf("unexpected completion output: %s", out)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

@@ -29,7 +29,7 @@ func NewRootCommand(version string) *cobra.Command {
 		SilenceErrors: false,
 		Version:       version,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Name() == "init" {
+			if cmd.Name() == "init" || isCompletionCommand(cmd) {
 				return nil
 			}
 
@@ -55,6 +55,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&ctx.showID, "show-id", "i", false, "Show task IDs in list/tree/interactive labels")
 
 	cmd.AddCommand(newInitCommand(ctx))
+	cmd.AddCommand(newCompletionCommand())
 	cmd.AddCommand(newAddCommand(ctx))
 	cmd.AddCommand(newLsCommand(ctx))
 	cmd.AddCommand(newViewCommand(ctx))
@@ -84,6 +85,15 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newDoctorCommand(ctx))
 
 	return cmd
+}
+
+func isCompletionCommand(cmd *cobra.Command) bool {
+	for current := cmd; current != nil; current = current.Parent() {
+		if current.Name() == "completion" {
+			return true
+		}
+	}
+	return false
 }
 
 func newInitCommand(ctx *commandContext) *cobra.Command {
