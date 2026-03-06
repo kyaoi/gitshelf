@@ -955,6 +955,87 @@ func TestCLIArchiveAndArchivedFilters(t *testing.T) {
 	_ = active
 }
 
+func TestCLIDoneRecurringAndReopen(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	today := time.Now().Local().Format("2006-01-02")
+	rec, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "recurring create",
+		DueOn:       today,
+		RepeatEvery: "1w",
+	})
+	if err != nil {
+		t.Fatalf("add recurring task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "done", "--root", root, rec.ID); err == nil || !strings.Contains(err.Error(), "--recurring-action") {
+		t.Fatalf("expected recurring-action required error, got: %v", err)
+	}
+
+	if _, err := executeCLI(t, "done", "--root", root, rec.ID, "--recurring-action", "create"); err != nil {
+		t.Fatalf("done recurring create failed: %v", err)
+	}
+	updated, err := shelf.EnsureTaskExists(root, rec.ID)
+	if err != nil {
+		t.Fatalf("get updated task failed: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Fatalf("expected original recurring task done, got: %s", updated.Status)
+	}
+	all, err := shelf.NewTaskStore(root).List()
+	if err != nil {
+		t.Fatalf("list tasks failed: %v", err)
+	}
+	foundNext := false
+	for _, task := range all {
+		if task.ID == rec.ID {
+			continue
+		}
+		if task.Title == rec.Title && task.RepeatEvery == "1w" && task.Status == "open" {
+			foundNext = true
+		}
+	}
+	if !foundNext {
+		t.Fatalf("expected next recurring task to be created: %+v", all)
+	}
+
+	rec2, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "recurring reopen",
+		DueOn:       today,
+		RepeatEvery: "1d",
+	})
+	if err != nil {
+		t.Fatalf("add recurring reopen task failed: %v", err)
+	}
+	if _, err := executeCLI(t, "done", "--root", root, rec2.ID, "--recurring-action", "reopen"); err != nil {
+		t.Fatalf("done recurring reopen failed: %v", err)
+	}
+	updated2, err := shelf.EnsureTaskExists(root, rec2.ID)
+	if err != nil {
+		t.Fatalf("get updated2 failed: %v", err)
+	}
+	if updated2.Status != "open" {
+		t.Fatalf("expected reopened status open, got: %s", updated2.Status)
+	}
+	if updated2.DueOn == today {
+		t.Fatalf("expected due_on to advance on reopen, got: %s", updated2.DueOn)
+	}
+
+	if _, err := executeCLI(t, "reopen", "--root", root, rec.ID); err != nil {
+		t.Fatalf("reopen command failed: %v", err)
+	}
+	reopened, err := shelf.EnsureTaskExists(root, rec.ID)
+	if err != nil {
+		t.Fatalf("get reopened failed: %v", err)
+	}
+	if reopened.Status != "open" {
+		t.Fatalf("expected reopen command to set open, got: %s", reopened.Status)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

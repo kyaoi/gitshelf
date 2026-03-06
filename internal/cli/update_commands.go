@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -401,7 +402,99 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newDoneCommand(ctx *commandContext) *cobra.Command {
-	return newStatusShortcutCommand(ctx, "done", "Shortcut to set --status done", "done", "done にするタスクを選択", "Done")
+	var recurringAction string
+	cmd := &cobra.Command{
+		Use:     "done <id>",
+		Short:   "Shortcut to set --status done (with recurring support)",
+		Example: "  shelf done 01ABCDEFG...\n  shelf done --recurring-action create",
+		Args:    cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			id, err := selectTaskIDIfMissing(ctx, args, "done にするタスクを選択", func(task shelf.Task) bool {
+				return task.Status != shelf.Status("done")
+			}, true)
+			if err != nil {
+				return err
+			}
+
+			task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
+			if err != nil {
+				return err
+			}
+			if task.RepeatEvery == "" {
+				next := shelf.Status("done")
+				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					Status: &next,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Done: [%s] %s\n", shelf.ShortID(updated.ID), updated.Title)
+				return nil
+			}
+
+			action, err := resolveRecurringAction(recurringAction)
+			if err != nil {
+				return err
+			}
+			if action == "" {
+				if !interactive.IsTTY() {
+					return errors.New("non-TTY では recurring task の done に --recurring-action create|reopen が必要です")
+				}
+				selected, err := selectEnumOption("Recurring task の done 後の動作を選択", []interactive.Option{
+					{Value: "create", Label: "create next task"},
+					{Value: "reopen", Label: "reopen same task"},
+				})
+				if err != nil {
+					return err
+				}
+				action = selected.Value
+			}
+
+			nextDue, err := shelf.AdvanceDueByRepeat(task.DueOn, task.RepeatEvery, time.Now().Local())
+			if err != nil {
+				return err
+			}
+
+			switch action {
+			case "create":
+				doneStatus := shelf.Status("done")
+				if _, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					Status: &doneStatus,
+				}); err != nil {
+					return err
+				}
+				nextTask, err := shelf.AddTask(ctx.rootDir, shelf.AddTaskInput{
+					Title:       task.Title,
+					Kind:        task.Kind,
+					Status:      shelf.Status("open"),
+					DueOn:       nextDue,
+					RepeatEvery: task.RepeatEvery,
+					Parent:      task.Parent,
+					Body:        task.Body,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Done + Created next: [%s] -> [%s] due=%s\n", shelf.ShortID(task.ID), shelf.ShortID(nextTask.ID), nextTask.DueOn)
+				return nil
+			case "reopen":
+				openStatus := shelf.Status("open")
+				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					Status: &openStatus,
+					DueOn:  &nextDue,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Reopened recurring: [%s] %s due=%s\n", shelf.ShortID(updated.ID), updated.Title, updated.DueOn)
+				return nil
+			default:
+				return fmt.Errorf("invalid recurring action: %s", action)
+			}
+		},
+	}
+	cmd.Flags().StringVar(&recurringAction, "recurring-action", "", "Action for recurring task: create|reopen")
+	return cmd
 }
 
 func newStartCommand(ctx *commandContext) *cobra.Command {
@@ -414,6 +507,10 @@ func newBlockCommand(ctx *commandContext) *cobra.Command {
 
 func newCancelCommand(ctx *commandContext) *cobra.Command {
 	return newStatusShortcutCommand(ctx, "cancel", "Shortcut to set --status cancelled", "cancelled", "cancelled にするタスクを選択", "Cancelled")
+}
+
+func newReopenCommand(ctx *commandContext) *cobra.Command {
+	return newStatusShortcutCommand(ctx, "reopen", "Shortcut to set --status open", "open", "open に戻すタスクを選択", "Reopened")
 }
 
 func newStatusShortcutCommand(ctx *commandContext, use string, short string, targetStatus string, prompt string, actionLabel string) *cobra.Command {
@@ -442,4 +539,17 @@ func newStatusShortcutCommand(ctx *commandContext, use string, short string, tar
 		},
 	}
 	return cmd
+}
+
+func resolveRecurringAction(value string) (string, error) {
+	action := strings.TrimSpace(value)
+	if action == "" {
+		return "", nil
+	}
+	switch action {
+	case "create", "reopen":
+		return action, nil
+	default:
+		return "", fmt.Errorf("invalid --recurring-action: %s (allowed: create|reopen)", value)
+	}
 }
