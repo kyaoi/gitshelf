@@ -114,6 +114,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 	currentStatus := task.Status
 	currentDue := task.DueOn
 	currentParent := task.Parent
+	currentBody := task.Body
 	changed := false
 
 	for {
@@ -125,12 +126,20 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 		if strings.TrimSpace(dueLabel) == "" {
 			dueLabel = "(none)"
 		}
+		bodyLabel := strings.TrimSpace(currentBody)
+		if bodyLabel == "" {
+			bodyLabel = "(empty)"
+		} else {
+			bodyLabel = strings.SplitN(bodyLabel, "\n", 2)[0]
+		}
 		options := []interactive.Option{
 			{Value: "title", Label: fmt.Sprintf("Title: %s", currentTitle)},
 			{Value: "kind", Label: fmt.Sprintf("Kind: %s", currentKind)},
 			{Value: "status", Label: fmt.Sprintf("Status: %s", currentStatus)},
 			{Value: "due", Label: fmt.Sprintf("Due: %s", dueLabel)},
 			{Value: "parent", Label: fmt.Sprintf("Parent: %s", parentLabel)},
+			{Value: "body_replace", Label: fmt.Sprintf("Body (replace): %s", bodyLabel)},
+			{Value: "body_append", Label: "Body (append)"},
 			{Value: "save", Label: "Save changes"},
 			{Value: "cancel", Label: "Cancel"},
 		}
@@ -201,17 +210,114 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			currentParent = parent
 			input.Parent = &parent
 			changed = true
+		case "body_replace":
+			body, err := interactive.PromptText("Body を入力してください（全置換）")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			currentBody = body
+			input.Body = &body
+			input.AppendBody = nil
+			changed = true
+		case "body_append":
+			appendix, err := interactive.PromptText("Body への追記を入力してください")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			if appendix == "" {
+				continue
+			}
+			combined := appendix
+			if input.AppendBody != nil && *input.AppendBody != "" {
+				combined = *input.AppendBody + "\n" + appendix
+			}
+			input.AppendBody = &combined
+			if currentBody != "" && !strings.HasSuffix(currentBody, "\n") {
+				currentBody += "\n"
+			}
+			currentBody += appendix
+			changed = true
 		case "save":
 			if !changed {
 				return shelf.SetTaskInput{}, errors.New("更新対象がありません")
 			}
-			return input, nil
+			preview := buildSetChangePreview(task, input)
+			confirm, err := interactive.SelectWithConfig(interactive.SelectConfig{
+				Prompt: "変更内容を確認してください",
+				Options: []interactive.Option{
+					{Value: "apply", Label: "Apply changes", Preview: preview},
+					{Value: "back", Label: "Back to edit", Preview: preview},
+					{Value: "cancel", Label: "Cancel", Preview: preview},
+				},
+				ShowPreview:       true,
+				MaxRows:           10,
+				HelpText:          selectorHelpText,
+				SearchPlaceholder: "確認",
+			})
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			switch confirm.Value {
+			case "apply":
+				return input, nil
+			case "back":
+				continue
+			case "cancel":
+				return shelf.SetTaskInput{}, interactive.ErrCanceled
+			default:
+				return shelf.SetTaskInput{}, fmt.Errorf("未知の選択肢です: %s", confirm.Value)
+			}
 		case "cancel":
 			return shelf.SetTaskInput{}, interactive.ErrCanceled
 		default:
 			return shelf.SetTaskInput{}, fmt.Errorf("未知の選択肢です: %s", selected.Value)
 		}
 	}
+}
+
+func buildSetChangePreview(orig shelf.Task, input shelf.SetTaskInput) string {
+	lines := make([]string, 0, 8)
+	if input.Title != nil {
+		lines = append(lines, fmt.Sprintf("Title: %q -> %q", orig.Title, strings.TrimSpace(*input.Title)))
+	}
+	if input.Kind != nil {
+		lines = append(lines, fmt.Sprintf("Kind: %q -> %q", orig.Kind, *input.Kind))
+	}
+	if input.Status != nil {
+		lines = append(lines, fmt.Sprintf("Status: %q -> %q", orig.Status, *input.Status))
+	}
+	if input.DueOn != nil {
+		before := orig.DueOn
+		if strings.TrimSpace(before) == "" {
+			before = "(none)"
+		}
+		after := strings.TrimSpace(*input.DueOn)
+		if after == "" {
+			after = "(none)"
+		}
+		lines = append(lines, fmt.Sprintf("Due: %q -> %q", before, after))
+	}
+	if input.Parent != nil {
+		before := orig.Parent
+		if strings.TrimSpace(before) == "" {
+			before = "root"
+		}
+		after := strings.TrimSpace(*input.Parent)
+		if after == "" {
+			after = "root"
+		}
+		lines = append(lines, fmt.Sprintf("Parent: %q -> %q", before, after))
+	}
+	if input.Body != nil {
+		lines = append(lines, "Body: replace")
+	}
+	if input.AppendBody != nil {
+		lines = append(lines, fmt.Sprintf("Body: append %d chars", len(*input.AppendBody)))
+	}
+	if len(lines) == 0 {
+		return "(no changes)"
+	}
+	return strings.Join(lines, "\n")
 }
 
 func newMvCommand(ctx *commandContext) *cobra.Command {
