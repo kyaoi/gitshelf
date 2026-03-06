@@ -401,6 +401,53 @@ func TestCLIBoardRequiresTTY(t *testing.T) {
 	}
 }
 
+func TestCLIEstimateSetAndShow(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "EstimateMe"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	out, err := executeCLI(t, "estimate", "--root", root, task.ID, "--set", "2h", "--spent", "30m")
+	if err != nil {
+		t.Fatalf("estimate failed: %v", err)
+	}
+	if !strings.Contains(out, "estimate=2h") || !strings.Contains(out, "spent=30m") {
+		t.Fatalf("unexpected estimate output: %s", out)
+	}
+}
+
+func TestCLITrackStopAddsElapsedTime(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TrackMe"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	startedAt := time.Now().Local().Add(-95 * time.Minute).Round(time.Second).Format(time.RFC3339)
+	if _, err := shelf.SetTask(root, task.ID, shelf.SetTaskInput{TimerStart: &startedAt}); err != nil {
+		t.Fatalf("set timer start failed: %v", err)
+	}
+	out, err := executeCLI(t, "track", "--root", root, "stop", task.ID)
+	if err != nil {
+		t.Fatalf("track stop failed: %v", err)
+	}
+	if !strings.Contains(out, "Timer stopped:") || !strings.Contains(out, "total=") {
+		t.Fatalf("unexpected track stop output: %s", out)
+	}
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("ensure task failed: %v", err)
+	}
+	if updated.SpentMin < 90 || updated.TimerStart != "" {
+		t.Fatalf("track stop should add elapsed time and clear timer: %+v", updated)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

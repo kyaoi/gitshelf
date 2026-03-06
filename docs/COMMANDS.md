@@ -129,6 +129,29 @@ Kanban-style TUI for status columns.
   - `r`: reload
   - `q`: quit
 
+## shelf estimate
+
+Show or update estimate/spent work metadata.
+
+Flags:
+
+- `--set <duration>` (set estimate, e.g. `2h30m`)
+- `--spent <duration>` (set spent)
+- `--add-spent <duration>` (increment spent)
+- `--clear-estimate`
+- `--clear-spent`
+- `--json`
+
+## shelf track
+
+Timer commands.
+
+Subcommands:
+
+- `shelf track start <id>`
+- `shelf track stop <id>`
+- `shelf track show [id] [--json]`
+
 ## shelf ls
 
 Flat task list.

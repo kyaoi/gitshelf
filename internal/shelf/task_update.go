@@ -13,6 +13,9 @@ type SetTaskInput struct {
 	Tags        *[]string
 	AddTags     []string
 	RemoveTags  []string
+	EstimateMin *int
+	SpentMin    *int
+	TimerStart  *string
 	DueOn       *string
 	RepeatEvery *string
 	ArchivedAt  *string
@@ -84,6 +87,25 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 		if err := SaveConfig(rootDir, cfg); err != nil {
 			return Task{}, err
 		}
+	}
+	if input.EstimateMin != nil {
+		if *input.EstimateMin < 0 {
+			return Task{}, fmt.Errorf("estimate_minutes must be >= 0")
+		}
+		task.EstimateMin = *input.EstimateMin
+	}
+	if input.SpentMin != nil {
+		if *input.SpentMin < 0 {
+			return Task{}, fmt.Errorf("spent_minutes must be >= 0")
+		}
+		task.SpentMin = *input.SpentMin
+	}
+	if input.TimerStart != nil {
+		timerStart, err := normalizeTimerStartedAt(*input.TimerStart)
+		if err != nil {
+			return Task{}, err
+		}
+		task.TimerStart = timerStart
 	}
 
 	if input.DueOn != nil {

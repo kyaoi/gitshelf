@@ -111,6 +111,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					Kind        string   `json:"kind"`
 					Status      string   `json:"status"`
 					Tags        []string `json:"tags,omitempty"`
+					EstimateMin int      `json:"estimate_minutes,omitempty"`
+					SpentMin    int      `json:"spent_minutes,omitempty"`
+					TimerStart  string   `json:"timer_started_at,omitempty"`
 					DueOn       string   `json:"due_on,omitempty"`
 					RepeatEvery string   `json:"repeat_every,omitempty"`
 					ArchivedAt  string   `json:"archived_at,omitempty"`
@@ -129,6 +132,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						Tags:        task.Tags,
+						EstimateMin: task.EstimateMin,
+						SpentMin:    task.SpentMin,
+						TimerStart:  task.TimerStart,
 						DueOn:       task.DueOn,
 						RepeatEvery: task.RepeatEvery,
 						ArchivedAt:  task.ArchivedAt,
@@ -207,7 +213,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					if task.RepeatEvery != "" {
 						repeatText = task.RepeatEvery
 					}
-					fmt.Printf("%s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+					fmt.Printf("%s kind=%s status=%s tags=%s estimate=%s spent=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
 					continue
 				}
 				fmt.Printf("%s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
@@ -463,6 +469,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					Kind        string         `json:"kind"`
 					Status      string         `json:"status"`
 					Tags        []string       `json:"tags,omitempty"`
+					EstimateMin int            `json:"estimate_minutes,omitempty"`
+					SpentMin    int            `json:"spent_minutes,omitempty"`
+					TimerStart  string         `json:"timer_started_at,omitempty"`
 					DueOn       string         `json:"due_on,omitempty"`
 					RepeatEvery string         `json:"repeat_every,omitempty"`
 					ArchivedAt  string         `json:"archived_at,omitempty"`
@@ -481,6 +490,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(node.Task.Kind),
 						Status:      string(node.Task.Status),
 						Tags:        node.Task.Tags,
+						EstimateMin: node.Task.EstimateMin,
+						SpentMin:    node.Task.SpentMin,
+						TimerStart:  node.Task.TimerStart,
 						DueOn:       node.Task.DueOn,
 						RepeatEvery: node.Task.RepeatEvery,
 						ArchivedAt:  node.Task.ArchivedAt,
@@ -494,17 +506,20 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				}
 
 				taskPayload := map[string]any{
-					"id":           task.ID,
-					"title":        task.Title,
-					"kind":         string(task.Kind),
-					"status":       string(task.Status),
-					"tags":         task.Tags,
-					"due_on":       task.DueOn,
-					"repeat_every": task.RepeatEvery,
-					"archived_at":  task.ArchivedAt,
-					"parent":       task.Parent,
-					"created_at":   task.CreatedAt.Format(time.RFC3339),
-					"updated_at":   task.UpdatedAt.Format(time.RFC3339),
+					"id":               task.ID,
+					"title":            task.Title,
+					"kind":             string(task.Kind),
+					"status":           string(task.Status),
+					"tags":             task.Tags,
+					"estimate_minutes": task.EstimateMin,
+					"spent_minutes":    task.SpentMin,
+					"timer_started_at": task.TimerStart,
+					"due_on":           task.DueOn,
+					"repeat_every":     task.RepeatEvery,
+					"archived_at":      task.ArchivedAt,
+					"parent":           task.Parent,
+					"created_at":       task.CreatedAt.Format(time.RFC3339),
+					"updated_at":       task.UpdatedAt.Format(time.RFC3339),
 				}
 				if !noBody {
 					taskPayload["body"] = task.Body
@@ -537,6 +552,15 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					fmt.Printf(", %q", task.Tags[i])
 				}
 				fmt.Println("]")
+			}
+			if task.EstimateMin > 0 {
+				fmt.Printf("estimate_minutes = %d\n", task.EstimateMin)
+			}
+			if task.SpentMin > 0 {
+				fmt.Printf("spent_minutes = %d\n", task.SpentMin)
+			}
+			if strings.TrimSpace(task.TimerStart) != "" {
+				fmt.Printf("timer_started_at = %q\n", task.TimerStart)
 			}
 			if task.DueOn != "" {
 				fmt.Printf("due_on = %q\n", task.DueOn)

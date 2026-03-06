@@ -33,6 +33,9 @@ go build -o shelf ./cmd/shelf
 ./shelf template apply weekly-plan --parent root
 ./shelf calendar
 ./shelf board
+./shelf estimate <task-id> --set 2h --spent 30m
+./shelf track start <task-id>
+./shelf track stop <task-id>
 
 # List and inspect
 ./shelf ls
@@ -89,6 +92,8 @@ go build -o shelf ./cmd/shelf
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
 - `shelf calendar [--root <dir>] [--start <date> --days N --status ... --json]`
 - `shelf board [--root <dir>] [--show-id]`
+- `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
+- `shelf track start|stop|show [--root <dir>] ...`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
@@ -268,6 +273,9 @@ kind = "todo"
 status = "open"
 tags = ["backend", "urgent"] # optional
 due_on = "2026-03-31" # optional
+estimate_minutes = 120 # optional
+spent_minutes = 30 # optional
+timer_started_at = "2026-03-31T11:22:33+09:00" # optional
 repeat_every = "1w" # optional
 archived_at = "2026-03-31T11:22:33+09:00" # optional
 parent = "01..." # optional
@@ -280,7 +288,7 @@ Body text...
 
 Task files are split into:
 
-- front matter: structured metadata (`title`, `kind`, `status`, `tags`, `due_on`, `parent`, timestamps)
+- front matter: structured metadata (`title`, `kind`, `status`, `tags`, `estimate/spent/timer`, `due_on`, `parent`, timestamps)
 - body: freeform notes (`details`, `supplements`, `progress logs`, `ideas`, `references`)
 
 `shelf show <id>` displays both metadata and body so the task context stays in one place.

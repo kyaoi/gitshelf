@@ -72,6 +72,9 @@ limit = 20
   - `kind`
   - `status`
   - `tags` (optional list)
+  - `estimate_minutes` (optional int)
+  - `spent_minutes` (optional int)
+  - `timer_started_at` (optional RFC3339)
   - `created_at`
   - `updated_at`
 - Optional:
@@ -99,12 +102,15 @@ Key order is stable:
 3. `kind`
 4. `status`
 5. `tags` (if present)
-6. `due_on` (if present)
-7. `repeat_every` (if present)
-8. `archived_at` (if present)
-9. `parent` (if present)
-10. `created_at`
-11. `updated_at`
+6. `estimate_minutes` (if present)
+7. `spent_minutes` (if present)
+8. `timer_started_at` (if present)
+9. `due_on` (if present)
+10. `repeat_every` (if present)
+11. `archived_at` (if present)
+12. `parent` (if present)
+13. `created_at`
+14. `updated_at`
 
 Timestamps use RFC3339.
 
@@ -140,6 +146,8 @@ Reusable subtree snapshot.
 - `status` must exist in config `statuses`
 - each `tag` must exist in config `tags`
 - `due_on` must match `YYYY-MM-DD` when present
+- `estimate_minutes` / `spent_minutes` must be `>= 0`
+- `timer_started_at` must be RFC3339 when present
 - `repeat_every` must match `<N>d|<N>w|<N>m|<N>y` when present
 - `archived_at` must be RFC3339 when present
 - when `parent` exists:

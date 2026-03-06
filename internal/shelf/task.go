@@ -20,6 +20,9 @@ type Task struct {
 	Kind        Kind
 	Status      Status
 	Tags        []string
+	EstimateMin int
+	SpentMin    int
+	TimerStart  string
 	DueOn       string
 	RepeatEvery string
 	ArchivedAt  string
@@ -36,6 +39,9 @@ type taskFrontMatter struct {
 	Status      string   `toml:"status"`
 	State       string   `toml:"state"`
 	Tags        []string `toml:"tags"`
+	EstimateMin int      `toml:"estimate_minutes"`
+	SpentMin    int      `toml:"spent_minutes"`
+	TimerStart  string   `toml:"timer_started_at"`
 	DueOn       string   `toml:"due_on,omitempty"`
 	RepeatEvery string   `toml:"repeat_every,omitempty"`
 	ArchivedAt  string   `toml:"archived_at,omitempty"`
@@ -94,6 +100,10 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	timerStart, err := normalizeTimerStartedAt(fm.TimerStart)
+	if err != nil {
+		return Task{}, err
+	}
 
 	body := ""
 	if end+1 < len(lines) {
@@ -110,6 +120,9 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		Kind:        Kind(fm.Kind),
 		Status:      Status(status),
 		Tags:        NormalizeTags(fm.Tags),
+		EstimateMin: fm.EstimateMin,
+		SpentMin:    fm.SpentMin,
+		TimerStart:  timerStart,
 		DueOn:       dueOn,
 		RepeatEvery: repeatEvery,
 		ArchivedAt:  archivedAt,
@@ -145,6 +158,15 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 			buf.WriteString(fmt.Sprintf("%q", tag))
 		}
 		buf.WriteString("]\n")
+	}
+	if task.EstimateMin > 0 {
+		buf.WriteString(fmt.Sprintf("estimate_minutes = %d\n", task.EstimateMin))
+	}
+	if task.SpentMin > 0 {
+		buf.WriteString(fmt.Sprintf("spent_minutes = %d\n", task.SpentMin))
+	}
+	if strings.TrimSpace(task.TimerStart) != "" {
+		buf.WriteString(fmt.Sprintf("timer_started_at = %q\n", task.TimerStart))
 	}
 	if task.DueOn != "" {
 		buf.WriteString(fmt.Sprintf("due_on = %q\n", task.DueOn))
@@ -184,6 +206,15 @@ func validateTaskRequiredFields(task Task) error {
 		return errors.New("task updated_at is required")
 	default:
 		task.Tags = NormalizeTags(task.Tags)
+		if task.EstimateMin < 0 {
+			return errors.New("estimate_minutes must be >= 0")
+		}
+		if task.SpentMin < 0 {
+			return errors.New("spent_minutes must be >= 0")
+		}
+		if _, err := normalizeTimerStartedAt(task.TimerStart); err != nil {
+			return err
+		}
 		if _, err := NormalizeDueOn(task.DueOn); err != nil {
 			return err
 		}
@@ -205,6 +236,18 @@ func normalizeArchivedAt(value string) (string, error) {
 	parsed, err := time.Parse(time.RFC3339, v)
 	if err != nil {
 		return "", fmt.Errorf("invalid archived_at: %w", err)
+	}
+	return parsed.Format(time.RFC3339), nil
+}
+
+func normalizeTimerStartedAt(value string) (string, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return "", nil
+	}
+	parsed, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return "", fmt.Errorf("invalid timer_started_at: %w", err)
 	}
 	return parsed.Format(time.RFC3339), nil
 }
