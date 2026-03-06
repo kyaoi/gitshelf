@@ -371,6 +371,26 @@ func TestCLITemplateSaveAndApply(t *testing.T) {
 	}
 }
 
+func TestCLICalendarShowsWeekTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "MonTask", Kind: "todo", Status: "open", DueOn: "2026-03-09"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TueTask", Kind: "todo", Status: "blocked", DueOn: "2026-03-10"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	out, err := executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09")
+	if err != nil {
+		t.Fatalf("calendar failed: %v", err)
+	}
+	if !strings.Contains(out, "Week of 2026-03-09") || !strings.Contains(out, "MonTask") || !strings.Contains(out, "TueTask") {
+		t.Fatalf("unexpected calendar output: %s", out)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -31,6 +31,7 @@ go build -o shelf ./cmd/shelf
 ./shelf triage --auto done
 ./shelf template save weekly-plan <task-id>
 ./shelf template apply weekly-plan --parent root
+./shelf calendar
 
 # List and inspect
 ./shelf ls
@@ -85,6 +86,7 @@ go build -o shelf ./cmd/shelf
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
+- `shelf calendar [--root <dir>] [--start <date> --days N --status ... --json]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`

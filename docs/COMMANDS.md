@@ -102,6 +102,20 @@ Subcommands:
 `template save` stores the selected subtree under `.shelf/templates/<name>.json`.
 `template apply` recreates tasks in preorder and restores parent-child structure.
 
+## shelf calendar
+
+Weekly due-date view.
+
+- default start: current week Monday
+- default statuses: `open`, `in_progress`, `blocked`
+
+Flags:
+
+- `--start <YYYY-MM-DD|today|tomorrow>`
+- `--days <n>` (default: `7`)
+- `--status <status>` (repeatable)
+- `--json`
+
 ## shelf ls
 
 Flat task list.
