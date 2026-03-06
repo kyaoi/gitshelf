@@ -9,6 +9,14 @@
 - Tree: represented by each task's `parent`
 - Extra relations: represented by links (`depends_on`, `related`)
 
+## Documentation
+
+- CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
+- Detailed command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
+- Storage and invariants: [`docs/STORAGE.md`](docs/STORAGE.md)
+- Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
+- Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
+
 ## Install
 
 ```bash
