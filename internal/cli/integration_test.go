@@ -321,6 +321,18 @@ func TestCLIAddAndSetDueKeywords(t *testing.T) {
 	if !strings.Contains(showOut, `due_on = "`+wantToday+`"`) {
 		t.Fatalf("show should contain normalized today due_on: %s", showOut)
 	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "+2d"); err != nil {
+		t.Fatalf("set due +2d failed: %v", err)
+	}
+	wantPlus2 := time.Now().Local().AddDate(0, 0, 2).Format("2006-01-02")
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set +2d failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+wantPlus2+`"`) {
+		t.Fatalf("show should contain normalized +2d due_on: %s", showOut)
+	}
 }
 
 func TestCLIAddAndSetRepeatEvery(t *testing.T) {
