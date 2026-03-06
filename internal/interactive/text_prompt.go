@@ -36,23 +36,36 @@ func PromptText(prompt string) (string, error) {
 			return "", fmt.Errorf("failed to read key input: %w", err)
 		}
 
-		switch b {
-		case 3:
+		done, canceled, next := applyTextPromptByte(value, b)
+		if canceled {
 			return "", ErrCanceled
-		case 13, 10:
-			return strings.TrimSpace(value), nil
-		case 27:
-			return "", ErrCanceled
-		case 8, 127:
-			if len(value) > 0 {
-				_, size := utf8.DecodeLastRuneInString(value)
-				value = value[:len(value)-size]
-			}
-		default:
-			if b >= 32 {
-				value += string(b)
-			}
 		}
+		if done {
+			return strings.TrimSpace(next), nil
+		}
+		value = next
+	}
+}
+
+func applyTextPromptByte(value string, b byte) (done bool, canceled bool, next string) {
+	switch b {
+	case 3:
+		return false, true, value
+	case 13, 10:
+		return true, false, value
+	case 27:
+		return false, true, value
+	case 8, 127:
+		if len(value) == 0 {
+			return false, false, value
+		}
+		_, size := utf8.DecodeLastRuneInString(value)
+		return false, false, value[:len(value)-size]
+	default:
+		if b >= 32 {
+			return false, false, value + string(b)
+		}
+		return false, false, value
 	}
 }
 
@@ -68,4 +81,3 @@ func renderTextPrompt(prompt string, value string) {
 	b.WriteString(eol)
 	fmt.Fprint(os.Stdout, b.String())
 }
-

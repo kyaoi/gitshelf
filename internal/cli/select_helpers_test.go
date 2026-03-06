@@ -138,3 +138,21 @@ func TestBuildTaskSelectionOptionsWithIDAndPreview(t *testing.T) {
 		t.Fatalf("unexpected preview: %q", options[0].Preview)
 	}
 }
+
+func TestBuildTaskSelectionOptionsPreviewFallbackForEmptyBody(t *testing.T) {
+	now := time.Now().UTC().Round(time.Second)
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", Body: "   ", CreatedAt: now, UpdatedAt: now},
+	}
+	options := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        false,
+		IncludeOrphan: true,
+	})
+	if len(options) != 1 {
+		t.Fatalf("unexpected options: %+v", options)
+	}
+	if options[0].Preview != "(empty body)" {
+		t.Fatalf("unexpected preview fallback: %q", options[0].Preview)
+	}
+}

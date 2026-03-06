@@ -202,6 +202,41 @@ func TestCLITreeLsAndShowHideIDsAndShowHierarchy(t *testing.T) {
 	}
 }
 
+func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	rootHelp, err := executeCLI(t, "--help")
+	if err != nil {
+		t.Fatalf("root help failed: %v", err)
+	}
+	if strings.Contains(rootHelp, "preview-body") {
+		t.Fatalf("root help should not include preview-body: %s", rootHelp)
+	}
+
+	treeHelp, err := executeCLI(t, "tree", "--help")
+	if err != nil {
+		t.Fatalf("tree help failed: %v", err)
+	}
+	if strings.Contains(treeHelp, "preview-body") {
+		t.Fatalf("tree help should not include preview-body: %s", treeHelp)
+	}
+
+	addHelp, err := executeCLI(t, "add", "--help")
+	if err != nil {
+		t.Fatalf("add help failed: %v", err)
+	}
+	if strings.Contains(addHelp, "preview-body") {
+		t.Fatalf("add help should not include preview-body: %s", addHelp)
+	}
+
+	if _, err := executeCLI(t, "tree", "--root", root, "--preview-body"); err == nil || !strings.Contains(err.Error(), "unknown flag") {
+		t.Fatalf("expected unknown flag error for preview-body, got: %v", err)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
