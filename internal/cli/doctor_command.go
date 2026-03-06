@@ -168,6 +168,8 @@ func buildDoctorAdvice(issue shelf.DoctorIssue) string {
 		return "対応する edge file を削除するか、source task を復元してください"
 	case strings.Contains(msg, "duplicate edge found"):
 		return "`shelf doctor --fix` で重複 edge を正規化できます"
+	case strings.Contains(msg, "invalid github_url"), strings.Contains(msg, "github_url is not canonical"):
+		return "`shelf github unlink` / `shelf github link` で正しい GitHub issue / pull request URL に付け替えてください"
 	case strings.Contains(msg, "todo task has no due_on"):
 		return "`shelf set <id> --due today` や `snooze --to` で期限を設定してください"
 	case strings.Contains(msg, "invalid toml"), strings.Contains(msg, "failed to parse"), strings.Contains(msg, "failed to read file"):

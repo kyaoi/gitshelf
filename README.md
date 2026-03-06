@@ -37,6 +37,8 @@ go build -o shelf ./cmd/shelf
 ./shelf track start <task-id>
 ./shelf track stop <task-id>
 ./shelf notify --command 'notify-send gitshelf "$SHELF_TASK_TITLE"'
+./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
+./shelf sync github <task-id>
 
 # List and inspect
 ./shelf ls
@@ -96,6 +98,8 @@ go build -o shelf ./cmd/shelf
 - `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
 - `shelf track start|stop|show [--root <dir>] ...`
 - `shelf notify [--root <dir>] [--command <shell> --dry-run]`
+- `shelf github link|unlink|show [--root <dir>] ...`
+- `shelf sync github [id] [--root <dir>] [--all]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
@@ -150,7 +154,19 @@ Color output:
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
 - `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
 - `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
+- `github_urls`: optional list of linked GitHub issue / pull request URLs
 - CLI input for due also accepts `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon..sun`, `next-mon..next-sun`, `in N days` and stores normalized date
+
+## GitHub Sync
+
+- `shelf github link <id> --url <issue-or-pr-url>` stores a canonical GitHub URL on the task
+- `shelf github unlink <id> --url <issue-or-pr-url>` removes one linked URL
+- `shelf github show <id> [--json]` prints linked URLs
+- `shelf sync github <id>` or `shelf sync github --all` fetches GitHub issue state and updates:
+  - `title` from GitHub title
+  - `status` from GitHub state (`open` -> `open`, `closed` -> `done`)
+- GitHub API base can be overridden with `GITSHELF_GITHUB_API_URL`
+- `GITHUB_TOKEN` is used automatically when present
 
 ## Link Types
 

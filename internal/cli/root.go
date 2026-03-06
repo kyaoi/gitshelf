@@ -65,6 +65,8 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newEstimateCommand(ctx))
 	cmd.AddCommand(newTrackCommand(ctx))
 	cmd.AddCommand(newNotifyCommand(ctx))
+	cmd.AddCommand(newGitHubCommand(ctx))
+	cmd.AddCommand(newSyncCommand(ctx))
 	cmd.AddCommand(newLsCommand(ctx))
 	cmd.AddCommand(newViewCommand(ctx))
 	cmd.AddCommand(newPresetCommand(ctx))

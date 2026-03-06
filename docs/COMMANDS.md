@@ -170,6 +170,42 @@ Flags:
 - `--command <shell>`
 - `--dry-run`
 
+## shelf github
+
+Manage GitHub links attached to tasks.
+
+Subcommands:
+
+- `shelf github link <id> --url <issue-or-pr-url>`
+- `shelf github unlink <id> --url <issue-or-pr-url>`
+- `shelf github show <id> [--json]`
+
+Supported URLs:
+
+- `https://github.com/<owner>/<repo>/issues/<number>`
+- `https://github.com/<owner>/<repo>/pull/<number>`
+
+URLs are stored in canonical form without query string or fragment.
+
+## shelf sync github
+
+Synchronize linked task metadata from GitHub.
+
+- `shelf sync github <id>`
+- `shelf sync github --all`
+
+Behavior:
+
+- fetches the first linked GitHub URL for each selected task
+- updates task `title` from the GitHub title
+- maps GitHub `state=open` to task `status=open`
+- maps GitHub `state=closed` to task `status=done`
+
+Environment:
+
+- `GITHUB_TOKEN`: optional bearer token
+- `GITSHELF_GITHUB_API_URL`: optional API base override (default `https://api.github.com`)
+
 ## shelf ls
 
 Flat task list.

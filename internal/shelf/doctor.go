@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -63,6 +65,20 @@ func RunDoctorWithOptions(rootDir string, opts DoctorOptions) (DoctorReport, err
 		for _, tag := range NormalizeTags(task.Tags) {
 			if err := cfg.ValidateTag(tag); err != nil {
 				report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
+			}
+		}
+		for _, rawURL := range task.GitHubURLs {
+			normalizedURL, err := normalizeGitHubURLForDoctor(rawURL)
+			if err != nil {
+				report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
+				continue
+			}
+			if rawURL != normalizedURL {
+				report.Issues = append(report.Issues, DoctorIssue{
+					Path:    path,
+					TaskID:  id,
+					Message: fmt.Sprintf("github_url is not canonical: %s", rawURL),
+				})
 			}
 		}
 		if task.Parent != "" {
@@ -242,6 +258,28 @@ func validateEdgesForDoctor(rootDir string, cfg Config, tasks map[string]Task, r
 		}
 	}
 	return nil
+}
+
+func normalizeGitHubURLForDoctor(value string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil {
+		return "", fmt.Errorf("invalid github_url: %w", err)
+	}
+	if !strings.EqualFold(parsed.Host, "github.com") {
+		return "", fmt.Errorf("invalid github_url: GitHub URL is required")
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 4 {
+		return "", fmt.Errorf("invalid github_url: unsupported GitHub URL: %s", value)
+	}
+	if parts[2] != "issues" && parts[2] != "pull" {
+		return "", fmt.Errorf("invalid github_url: unsupported GitHub URL: %s", value)
+	}
+	number, err := strconv.Atoi(parts[3])
+	if err != nil || number <= 0 {
+		return "", fmt.Errorf("invalid github_url: %s", value)
+	}
+	return "https://github.com/" + strings.Join(parts, "/"), nil
 }
 
 func applyDoctorFixes(rootDir string) (int, error) {

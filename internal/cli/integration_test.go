@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -472,6 +474,104 @@ func TestCLINotifyRunsCommandForDueTasks(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "DueTask") {
 		t.Fatalf("notify command did not receive task title: %s", string(data))
+	}
+}
+
+func TestCLIGitHubLinkShowAndTaskShowOutput(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "GitHubTask"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	rawURL := "https://github.com/acme/roadmap/issues/42?utm=campaign#details"
+	if _, err := executeCLI(t, "github", "--root", root, "link", task.ID, "--url", rawURL); err != nil {
+		t.Fatalf("github link failed: %v", err)
+	}
+
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("ensure task failed: %v", err)
+	}
+	if len(updated.GitHubURLs) != 1 || updated.GitHubURLs[0] != "https://github.com/acme/roadmap/issues/42" {
+		t.Fatalf("unexpected github urls: %+v", updated.GitHubURLs)
+	}
+
+	out, err := executeCLI(t, "github", "--root", root, "show", task.ID)
+	if err != nil {
+		t.Fatalf("github show failed: %v", err)
+	}
+	if !strings.Contains(out, "https://github.com/acme/roadmap/issues/42") {
+		t.Fatalf("unexpected github show output: %s", out)
+	}
+
+	showOut, err := executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(showOut, `github_urls = ["https://github.com/acme/roadmap/issues/42"]`) {
+		t.Fatalf("show should include github_urls: %s", showOut)
+	}
+
+	showJSON, err := executeCLI(t, "show", "--root", root, task.ID, "--json")
+	if err != nil {
+		t.Fatalf("show --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(showJSON), &payload); err != nil {
+		t.Fatalf("invalid show json: %v output=%s", err, showJSON)
+	}
+	taskPayload, ok := payload["task"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing task payload: %v", payload)
+	}
+	urls, ok := taskPayload["github_urls"].([]any)
+	if !ok || len(urls) != 1 || urls[0].(string) != "https://github.com/acme/roadmap/issues/42" {
+		t.Fatalf("unexpected github_urls in show json: %#v", taskPayload["github_urls"])
+	}
+}
+
+func TestCLISyncGitHubUpdatesTaskMetadata(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "OldTitle", Status: "open"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	if _, err := executeCLI(t, "github", "--root", root, "link", task.ID, "--url", "https://github.com/acme/roadmap/issues/42"); err != nil {
+		t.Fatalf("github link failed: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/roadmap/issues/42" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"title":"Synced title","state":"closed","html_url":"https://github.com/acme/roadmap/issues/42"}`)
+	}))
+	defer server.Close()
+	t.Setenv("GITSHELF_GITHUB_API_URL", server.URL)
+
+	out, err := executeCLI(t, "sync", "--root", root, "github", task.ID)
+	if err != nil {
+		t.Fatalf("sync github failed: %v", err)
+	}
+	if !strings.Contains(out, "GitHub synced: 1") {
+		t.Fatalf("unexpected sync output: %s", out)
+	}
+
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("ensure task failed: %v", err)
+	}
+	if updated.Title != "Synced title" || updated.Status != "done" {
+		t.Fatalf("sync should update title/status: %+v", updated)
 	}
 }
 

@@ -20,6 +20,7 @@ type Task struct {
 	Kind        Kind
 	Status      Status
 	Tags        []string
+	GitHubURLs  []string
 	EstimateMin int
 	SpentMin    int
 	TimerStart  string
@@ -39,6 +40,7 @@ type taskFrontMatter struct {
 	Status      string   `toml:"status"`
 	State       string   `toml:"state"`
 	Tags        []string `toml:"tags"`
+	GitHubURLs  []string `toml:"github_urls"`
 	EstimateMin int      `toml:"estimate_minutes"`
 	SpentMin    int      `toml:"spent_minutes"`
 	TimerStart  string   `toml:"timer_started_at"`
@@ -120,6 +122,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		Kind:        Kind(fm.Kind),
 		Status:      Status(status),
 		Tags:        NormalizeTags(fm.Tags),
+		GitHubURLs:  normalizeStringList(fm.GitHubURLs),
 		EstimateMin: fm.EstimateMin,
 		SpentMin:    fm.SpentMin,
 		TimerStart:  timerStart,
@@ -156,6 +159,16 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 				buf.WriteString(", ")
 			}
 			buf.WriteString(fmt.Sprintf("%q", tag))
+		}
+		buf.WriteString("]\n")
+	}
+	if len(task.GitHubURLs) > 0 {
+		buf.WriteString("github_urls = [")
+		for i, url := range task.GitHubURLs {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(fmt.Sprintf("%q", url))
 		}
 		buf.WriteString("]\n")
 	}
@@ -206,6 +219,7 @@ func validateTaskRequiredFields(task Task) error {
 		return errors.New("task updated_at is required")
 	default:
 		task.Tags = NormalizeTags(task.Tags)
+		task.GitHubURLs = normalizeStringList(task.GitHubURLs)
 		if task.EstimateMin < 0 {
 			return errors.New("estimate_minutes must be >= 0")
 		}

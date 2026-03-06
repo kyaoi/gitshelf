@@ -16,6 +16,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		Kind:        Kind("todo"),
 		Status:      Status("open"),
 		Tags:        []string{"backend", "urgent"},
+		GitHubURLs:  []string{"https://github.com/acme/roadmap/issues/12"},
 		EstimateMin: 90,
 		SpentMin:    30,
 		TimerStart:  "2026-03-05T13:00:00+09:00",
@@ -46,6 +47,9 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	}
 	if len(parsed.Tags) != 2 || parsed.Tags[0] != "backend" || parsed.Tags[1] != "urgent" {
 		t.Fatalf("parsed tags mismatch: %+v", parsed.Tags)
+	}
+	if len(parsed.GitHubURLs) != 1 || parsed.GitHubURLs[0] != orig.GitHubURLs[0] {
+		t.Fatalf("parsed github urls mismatch: %+v", parsed.GitHubURLs)
 	}
 	if parsed.EstimateMin != 90 || parsed.SpentMin != 30 || parsed.TimerStart != "2026-03-05T13:00:00+09:00" {
 		t.Fatalf("parsed worklog mismatch: %+v", parsed)

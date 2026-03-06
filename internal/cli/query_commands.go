@@ -111,6 +111,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					Kind        string   `json:"kind"`
 					Status      string   `json:"status"`
 					Tags        []string `json:"tags,omitempty"`
+					GitHubURLs  []string `json:"github_urls,omitempty"`
 					EstimateMin int      `json:"estimate_minutes,omitempty"`
 					SpentMin    int      `json:"spent_minutes,omitempty"`
 					TimerStart  string   `json:"timer_started_at,omitempty"`
@@ -132,6 +133,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						Tags:        task.Tags,
+						GitHubURLs:  task.GitHubURLs,
 						EstimateMin: task.EstimateMin,
 						SpentMin:    task.SpentMin,
 						TimerStart:  task.TimerStart,
@@ -213,7 +215,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					if task.RepeatEvery != "" {
 						repeatText = task.RepeatEvery
 					}
-					fmt.Printf("%s kind=%s status=%s tags=%s estimate=%s spent=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+					fmt.Printf("%s kind=%s status=%s tags=%s github=%d estimate=%s spent=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), len(task.GitHubURLs), shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
 					continue
 				}
 				fmt.Printf("%s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
@@ -469,6 +471,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					Kind        string         `json:"kind"`
 					Status      string         `json:"status"`
 					Tags        []string       `json:"tags,omitempty"`
+					GitHubURLs  []string       `json:"github_urls,omitempty"`
 					EstimateMin int            `json:"estimate_minutes,omitempty"`
 					SpentMin    int            `json:"spent_minutes,omitempty"`
 					TimerStart  string         `json:"timer_started_at,omitempty"`
@@ -490,6 +493,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(node.Task.Kind),
 						Status:      string(node.Task.Status),
 						Tags:        node.Task.Tags,
+						GitHubURLs:  node.Task.GitHubURLs,
 						EstimateMin: node.Task.EstimateMin,
 						SpentMin:    node.Task.SpentMin,
 						TimerStart:  node.Task.TimerStart,
@@ -511,6 +515,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					"kind":             string(task.Kind),
 					"status":           string(task.Status),
 					"tags":             task.Tags,
+					"github_urls":      task.GitHubURLs,
 					"estimate_minutes": task.EstimateMin,
 					"spent_minutes":    task.SpentMin,
 					"timer_started_at": task.TimerStart,
@@ -550,6 +555,13 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				fmt.Printf("tags = [%q", task.Tags[0])
 				for i := 1; i < len(task.Tags); i++ {
 					fmt.Printf(", %q", task.Tags[i])
+				}
+				fmt.Println("]")
+			}
+			if len(task.GitHubURLs) > 0 {
+				fmt.Printf("github_urls = [%q", task.GitHubURLs[0])
+				for i := 1; i < len(task.GitHubURLs); i++ {
+					fmt.Printf(", %q", task.GitHubURLs[i])
 				}
 				fmt.Println("]")
 			}
@@ -755,6 +767,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 					Kind        string         `json:"kind"`
 					Status      string         `json:"status"`
 					Tags        []string       `json:"tags,omitempty"`
+					GitHubURLs  []string       `json:"github_urls,omitempty"`
 					DueOn       string         `json:"due_on,omitempty"`
 					RepeatEvery string         `json:"repeat_every,omitempty"`
 					ArchivedAt  string         `json:"archived_at,omitempty"`
@@ -773,6 +786,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(node.Task.Kind),
 						Status:      string(node.Task.Status),
 						Tags:        node.Task.Tags,
+						GitHubURLs:  node.Task.GitHubURLs,
 						DueOn:       node.Task.DueOn,
 						RepeatEvery: node.Task.RepeatEvery,
 						ArchivedAt:  node.Task.ArchivedAt,
