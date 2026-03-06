@@ -16,6 +16,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		statuses        []string
 		notKinds        []string
 		notStatuses     []string
+		presetName      string
 		view            string
 		includeArchived bool
 		onlyArchived    bool
@@ -40,10 +41,18 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "ls")
+			if err != nil {
+				return err
+			}
+			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
+			format = applyPresetString(format, cmd.Flags().Changed("format"), outputPreset.Format)
+			limit = applyPresetInt(limit, cmd.Flags().Changed("limit"), outputPreset.Limit)
+
 			if err := validateFormat(format, []string{"compact", "detail", "kanban"}); err != nil {
 				return err
 			}
-			preset, err := resolveTaskView(ctx.rootDir, view)
+			viewPreset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
 			}
@@ -65,7 +74,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Limit:           limit,
 				Search:          search,
 			}
-			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
+			filter = mergeTaskFilterWithView(filter, viewPreset, map[string]bool{
 				"ready":           cmd.Flags().Changed("ready"),
 				"blocked-by-deps": cmd.Flags().Changed("blocked-by-deps"),
 				"due-before":      cmd.Flags().Changed("due-before"),
@@ -200,6 +209,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for ls")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
@@ -219,6 +229,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
+		presetName      string
 		view            string
 		includeArchived bool
 		onlyArchived    bool
@@ -232,7 +243,13 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf next\n" +
 			"  shelf next --limit 20\n" +
 			"  shelf next --view active",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "next")
+			if err != nil {
+				return err
+			}
+			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
+			limit = applyPresetInt(limit, cmd.Flags().Changed("limit"), outputPreset.Limit)
 			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
 				return err
@@ -340,6 +357,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for next")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
@@ -587,6 +605,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	var (
 		from            string
 		maxDepth        int
+		presetName      string
 		view            string
 		includeArchived bool
 		onlyArchived    bool
@@ -604,7 +623,14 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf tree\n" +
 			"  shelf tree --kind todo --not-status done\n" +
 			"  shelf tree --from root --max-depth 2 --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "tree")
+			if err != nil {
+				return err
+			}
+			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
+			format = applyPresetString(format, cmd.Flags().Changed("format"), outputPreset.Format)
+
 			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
 				return err
 			}
@@ -713,6 +739,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
+	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for tree")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")

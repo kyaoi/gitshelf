@@ -29,6 +29,12 @@ func TestConfigRoundTrip(t *testing.T) {
 	cfg.Views["active"] = TaskView{
 		NotStatuses: []Status{"done", "cancelled"},
 	}
+	cfg.OutputPresets["focus"] = OutputPreset{
+		Command: "ls",
+		Format:  "detail",
+		View:    "active",
+		Limit:   10,
+	}
 	data := FormatConfigTOML(cfg)
 
 	parsed, err := ParseConfigTOML(data)
@@ -44,6 +50,9 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 	if _, ok := parsed.Views["active"]; !ok {
 		t.Fatalf("parsed views mismatch: %+v", parsed.Views)
+	}
+	if _, ok := parsed.OutputPresets["focus"]; !ok {
+		t.Fatalf("parsed output presets mismatch: %+v", parsed.OutputPresets)
 	}
 }
 
@@ -129,5 +138,16 @@ func TestConfigValidationRejectsUnknownStatusInView(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected validation error for unknown view status")
+	}
+}
+
+func TestConfigValidationOutputPreset(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.OutputPresets["bad"] = OutputPreset{
+		Command: "next",
+		Format:  "detail",
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "next does not support format") {
+		t.Fatalf("expected invalid output preset format error, got: %v", err)
 	}
 }

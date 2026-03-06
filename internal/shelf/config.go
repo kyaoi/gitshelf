@@ -18,6 +18,7 @@ type Config struct {
 	DefaultKind   Kind
 	DefaultStatus Status
 	Views         map[string]TaskView
+	OutputPresets map[string]OutputPreset
 }
 
 type TaskView struct {
@@ -36,6 +37,13 @@ type TaskView struct {
 	Limit       int
 }
 
+type OutputPreset struct {
+	Command string `toml:"command"`
+	Format  string `toml:"format"`
+	View    string `toml:"view"`
+	Limit   int    `toml:"limit"`
+}
+
 type configFile struct {
 	Kinds              []string `toml:"kinds"`
 	Statuses           []string `toml:"statuses"`
@@ -45,6 +53,7 @@ type configFile struct {
 	DefaultStatus      string   `toml:"default_status"`
 	LegacyDefaultState string   `toml:"default_state"`
 	Views              map[string]configView
+	OutputPresets      map[string]configOutputPreset `toml:"output_presets"`
 }
 
 type configView struct {
@@ -63,6 +72,13 @@ type configView struct {
 	Limit       int      `toml:"limit"`
 }
 
+type configOutputPreset struct {
+	Command string `toml:"command"`
+	Format  string `toml:"format"`
+	View    string `toml:"view"`
+	Limit   int    `toml:"limit"`
+}
+
 func DefaultConfig() Config {
 	return Config{
 		Kinds:         []Kind{"todo", "idea", "memo"},
@@ -71,6 +87,7 @@ func DefaultConfig() Config {
 		DefaultKind:   Kind("todo"),
 		DefaultStatus: Status("open"),
 		Views:         map[string]TaskView{},
+		OutputPresets: map[string]OutputPreset{},
 	}
 }
 
@@ -119,6 +136,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(defaultStatus),
 		Views:         map[string]TaskView{},
+		OutputPresets: map[string]OutputPreset{},
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -158,6 +176,14 @@ func ParseConfigTOML(data []byte) (Config, error) {
 			view.NotStatuses[i] = Status(strings.TrimSpace(status))
 		}
 		cfg.Views[strings.TrimSpace(name)] = view
+	}
+	for name, rawPreset := range f.OutputPresets {
+		cfg.OutputPresets[strings.TrimSpace(name)] = OutputPreset{
+			Command: strings.TrimSpace(rawPreset.Command),
+			Format:  strings.TrimSpace(rawPreset.Format),
+			View:    strings.TrimSpace(rawPreset.View),
+			Limit:   rawPreset.Limit,
+		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -266,6 +292,28 @@ func FormatConfigTOML(cfg Config) []byte {
 			}
 		}
 	}
+	if len(cfg.OutputPresets) > 0 {
+		names := make([]string, 0, len(cfg.OutputPresets))
+		for name := range cfg.OutputPresets {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			preset := cfg.OutputPresets[name]
+			buf.WriteString("\n")
+			buf.WriteString(fmt.Sprintf("[output_presets.%q]\n", name))
+			buf.WriteString(fmt.Sprintf("command = %q\n", preset.Command))
+			if preset.Format != "" {
+				buf.WriteString(fmt.Sprintf("format = %q\n", preset.Format))
+			}
+			if preset.View != "" {
+				buf.WriteString(fmt.Sprintf("view = %q\n", preset.View))
+			}
+			if preset.Limit > 0 {
+				buf.WriteString(fmt.Sprintf("limit = %d\n", preset.Limit))
+			}
+		}
+	}
 	return buf.Bytes()
 }
 
@@ -336,6 +384,45 @@ func (c Config) Validate() error {
 		}
 		if view.Limit < 0 {
 			return fmt.Errorf("views.%s.limit must be >= 0", name)
+		}
+	}
+	for name, preset := range c.OutputPresets {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("output preset name is required")
+		}
+		command := strings.TrimSpace(preset.Command)
+		switch command {
+		case "ls", "tree", "next", "agenda", "today":
+		default:
+			return fmt.Errorf("output_presets.%s.command: unsupported command %q", name, preset.Command)
+		}
+		if strings.TrimSpace(preset.Format) != "" {
+			switch command {
+			case "ls":
+				if preset.Format != "compact" && preset.Format != "detail" && preset.Format != "kanban" {
+					return fmt.Errorf("output_presets.%s.format: invalid format for ls", name)
+				}
+			case "tree":
+				if preset.Format != "compact" && preset.Format != "detail" {
+					return fmt.Errorf("output_presets.%s.format: invalid format for tree", name)
+				}
+			case "agenda", "today":
+				if preset.Format != "compact" && preset.Format != "detail" {
+					return fmt.Errorf("output_presets.%s.format: invalid format for %s", name, command)
+				}
+			case "next":
+				return fmt.Errorf("output_presets.%s.format: next does not support format", name)
+			}
+		}
+		if preset.View != "" {
+			if _, ok := c.Views[preset.View]; !ok {
+				if preset.View != "active" && preset.View != "ready" && preset.View != "blocked" && preset.View != "overdue" {
+					return fmt.Errorf("output_presets.%s.view: unknown view %q", name, preset.View)
+				}
+			}
+		}
+		if preset.Limit < 0 {
+			return fmt.Errorf("output_presets.%s.limit must be >= 0", name)
 		}
 	}
 	return nil

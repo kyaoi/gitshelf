@@ -942,6 +942,45 @@ func TestCLIViewManageCommands(t *testing.T) {
 	}
 }
 
+func TestCLIPresetManageAndApply(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "open-task", Status: "open"}); err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "done-task", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "preset", "--root", root, "set", "ls_focus", "--command", "ls", "--view", "active", "--format", "detail", "--limit", "1"); err != nil {
+		t.Fatalf("preset set failed: %v", err)
+	}
+	showOut, err := executeCLI(t, "preset", "--root", root, "show", "ls_focus")
+	if err != nil {
+		t.Fatalf("preset show failed: %v", err)
+	}
+	if !strings.Contains(showOut, "command: ls") || !strings.Contains(showOut, "format: detail") {
+		t.Fatalf("unexpected preset show output: %s", showOut)
+	}
+
+	lsOut, err := executeCLI(t, "ls", "--root", root, "--preset", "ls_focus")
+	if err != nil {
+		t.Fatalf("ls --preset failed: %v", err)
+	}
+	if !strings.Contains(lsOut, "kind=") || strings.Contains(lsOut, "done-task") {
+		t.Fatalf("unexpected ls preset output: %s", lsOut)
+	}
+
+	if _, err := executeCLI(t, "today", "--root", root, "--preset", "ls_focus"); err == nil || !strings.Contains(err.Error(), "not today") {
+		t.Fatalf("expected preset command mismatch error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "preset", "--root", root, "delete", "ls_focus"); err != nil {
+		t.Fatalf("preset delete failed: %v", err)
+	}
+}
+
 func TestCLIAgendaAndSnooze(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -21,6 +21,7 @@ type agendaBuckets struct {
 
 func newAgendaCommand(ctx *commandContext) *cobra.Command {
 	var (
+		presetName      string
 		view            string
 		includeArchived bool
 		onlyArchived    bool
@@ -40,6 +41,13 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 			"  shelf agenda --days 14\n" +
 			"  shelf agenda --view active --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "agenda")
+			if err != nil {
+				return err
+			}
+			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
+			format = applyPresetString(format, cmd.Flags().Changed("format"), outputPreset.Format)
+
 			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
 				return err
 			}
@@ -124,6 +132,7 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for agenda")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in or config view")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
