@@ -640,6 +640,138 @@ func TestCLIReviewShowsInboxDueBlockedAndReadySections(t *testing.T) {
 	}
 }
 
+func TestCLIDepsAndLinksSuggestCandidates(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	target, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Implement API",
+		Kind:   "todo",
+		Status: "open",
+		Tags:   []string{"backend"},
+		DueOn:  "2026-03-10",
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add target failed: %v", err)
+	}
+	depGood, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Design API",
+		Kind:   "todo",
+		Status: "done",
+		Tags:   []string{"backend"},
+		DueOn:  "2026-03-08",
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add depGood failed: %v", err)
+	}
+	depExisting, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Existing dep",
+		Kind:   "todo",
+		Status: "open",
+		Tags:   []string{"backend"},
+		DueOn:  "2026-03-07",
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add depExisting failed: %v", err)
+	}
+	depCycle, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Cycle dep",
+		Kind:   "todo",
+		Status: "open",
+		Tags:   []string{"backend"},
+		DueOn:  "2026-03-09",
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add depCycle failed: %v", err)
+	}
+	relatedGood, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "API notes",
+		Kind:   "memo",
+		Status: "open",
+		Tags:   []string{"backend"},
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add relatedGood failed: %v", err)
+	}
+	relatedExisting, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Already related",
+		Kind:   "memo",
+		Status: "open",
+		Tags:   []string{"backend"},
+		Parent: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("add relatedExisting failed: %v", err)
+	}
+	targetURLs := []string{"https://github.com/acme/app/issues/10"}
+	if _, err := shelf.SetTask(root, target.ID, shelf.SetTaskInput{GitHubURLs: &targetURLs}); err != nil {
+		t.Fatalf("set target github urls failed: %v", err)
+	}
+	relatedURLs := []string{"https://github.com/acme/app/pull/25"}
+	if _, err := shelf.SetTask(root, relatedGood.ID, shelf.SetTaskInput{GitHubURLs: &relatedURLs}); err != nil {
+		t.Fatalf("set related github urls failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, target.ID, depExisting.ID, "depends_on"); err != nil {
+		t.Fatalf("link existing dependency failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, depCycle.ID, target.ID, "depends_on"); err != nil {
+		t.Fatalf("link cycle dependency failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, target.ID, relatedExisting.ID, "related"); err != nil {
+		t.Fatalf("link existing related failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "deps", "--root", root, target.ID, "--suggest", "--limit", "10")
+	if err != nil {
+		t.Fatalf("deps --suggest failed: %v", err)
+	}
+	if !strings.Contains(out, depGood.Title) {
+		t.Fatalf("deps --suggest should include best candidate: %s", out)
+	}
+	if strings.Contains(out, depExisting.Title) || strings.Contains(out, depCycle.Title) {
+		t.Fatalf("deps --suggest should skip existing and cycle candidates: %s", out)
+	}
+
+	jsonOut, err := executeCLI(t, "links", "--root", root, target.ID, "--suggest", "--limit", "10", "--json")
+	if err != nil {
+		t.Fatalf("links --suggest --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("invalid links suggestion json: %v output=%s", err, jsonOut)
+	}
+	suggestions, ok := payload["suggestions"].([]any)
+	if !ok || len(suggestions) == 0 {
+		t.Fatalf("expected link suggestions, got: %#v", payload["suggestions"])
+	}
+	foundRelatedGood := false
+	for _, raw := range suggestions {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["title"] == relatedGood.Title {
+			foundRelatedGood = true
+		}
+		if item["title"] == relatedExisting.Title {
+			t.Fatalf("existing related link should not be suggested: %#v", suggestions)
+		}
+	}
+	if !foundRelatedGood {
+		t.Fatalf("expected related suggestion for %q, got: %#v", relatedGood.Title, suggestions)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

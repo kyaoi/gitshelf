@@ -105,6 +105,8 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 func newLinksCommand(ctx *commandContext) *cobra.Command {
 	var (
 		transitive bool
+		suggest    bool
+		limit      int
 		asJSON     bool
 	)
 
@@ -113,12 +115,37 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show outbound and inbound links",
 		Example: "  shelf links <id>\n" +
 			"  shelf links <id> --transitive\n" +
+			"  shelf links <id> --suggest\n" +
 			"  shelf links <id> --json",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, true)
 			if err != nil {
 				return err
+			}
+			if suggest {
+				if transitive {
+					return fmt.Errorf("--suggest は --transitive と同時に使えません")
+				}
+				suggestions, err := shelf.SuggestRelated(ctx.rootDir, id, limit)
+				if err != nil {
+					return err
+				}
+				if asJSON {
+					payload := map[string]any{
+						"id":          id,
+						"suggestions": suggestions,
+					}
+					data, err := json.MarshalIndent(payload, "", "  ")
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(data))
+					return nil
+				}
+				fmt.Println(uiHeading("Suggested related links:"))
+				printLinkSuggestions(ctx, suggestions)
+				return nil
 			}
 			byID, err := loadTaskMap(ctx.rootDir)
 			if err != nil {
@@ -185,8 +212,32 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&transitive, "transitive", false, "Show transitive depends_on closure")
+	cmd.Flags().BoolVar(&suggest, "suggest", false, "Suggest candidate related links")
+	cmd.Flags().IntVar(&limit, "limit", 5, "Maximum number of suggestions")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
+}
+
+func printLinkSuggestions(ctx *commandContext, suggestions []shelf.LinkSuggestion) {
+	if len(suggestions) == 0 {
+		fmt.Println(uiMuted("  (none)"))
+		return
+	}
+	for _, item := range suggestions {
+		label := uiPrimary(item.Title)
+		if ctx.showID {
+			label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(item.TaskID)), uiPrimary(item.Title))
+		}
+		dueText := uiMuted("-")
+		if item.DueOn != "" {
+			dueText = uiDue(item.DueOn)
+		}
+		reasonText := ""
+		if len(item.Reasons) > 0 {
+			reasonText = " reasons=" + uiMuted(strings.Join(item.Reasons, "; "))
+		}
+		fmt.Printf("  %s (%s/%s) score=%d due=%s%s\n", label, uiKind(item.Kind), uiStatus(item.Status), item.Score, dueText, reasonText)
+	}
 }
 
 func loadTaskMap(rootDir string) (map[string]shelf.Task, error) {

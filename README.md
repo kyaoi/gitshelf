@@ -124,8 +124,8 @@ go build -o shelf ./cmd/shelf
 - `shelf reopen <id> [--root <dir>]`
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
-- `shelf links <id> [--root <dir>] [--transitive --json]`
-- `shelf deps <id> [--root <dir>] [--transitive --reverse --graph --json]`
+- `shelf links <id> [--root <dir>] [--transitive --suggest --limit N --json]`
+- `shelf deps <id> [--root <dir>] [--transitive --reverse --graph --suggest --limit N --json]`
 - `shelf export [--root <dir>] [--out <path>|-]`
 - `shelf import [--root <dir>] [--in <path>|- --validate-only --dry-run --merge --replace]`
 - `shelf undo [--root <dir>]`

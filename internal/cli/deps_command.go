@@ -15,6 +15,8 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 		transitive bool
 		reverse    bool
 		graph      bool
+		suggest    bool
+		limit      int
 		asJSON     bool
 	)
 	cmd := &cobra.Command{
@@ -23,12 +25,38 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf deps <id>\n" +
 			"  shelf deps <id> --transitive\n" +
 			"  shelf deps <id> --graph --transitive\n" +
+			"  shelf deps <id> --suggest\n" +
 			"  shelf deps <id> --reverse --json",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "依存関係を表示するタスクを選択", nil, true)
 			if err != nil {
 				return err
+			}
+			if suggest {
+				if transitive || reverse || graph {
+					return fmt.Errorf("--suggest は --transitive / --reverse / --graph と同時に使えません")
+				}
+				suggestions, err := shelf.SuggestDependsOn(ctx.rootDir, id, limit)
+				if err != nil {
+					return err
+				}
+				if asJSON {
+					payload := map[string]any{
+						"id":          id,
+						"suggestions": suggestions,
+					}
+					data, err := json.MarshalIndent(payload, "", "  ")
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(data))
+					return nil
+				}
+				fmt.Println(uiHeading("Suggested prerequisites:"))
+				printLinkSuggestions(ctx, suggestions)
+				fmt.Println("depends_on の向き: A depends_on B = AをやるにはBが先")
+				return nil
 			}
 			taskStore := shelf.NewTaskStore(ctx.rootDir)
 			tasks, err := taskStore.List()
@@ -131,6 +159,8 @@ func newDepsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&transitive, "transitive", false, "Show transitive closure")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Print dependents first")
 	cmd.Flags().BoolVar(&graph, "graph", false, "Render dependency graph")
+	cmd.Flags().BoolVar(&suggest, "suggest", false, "Suggest candidate depends_on links")
+	cmd.Flags().IntVar(&limit, "limit", 5, "Maximum number of suggestions")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }

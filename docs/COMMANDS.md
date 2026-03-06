@@ -529,6 +529,8 @@ Show links of a task:
 Flags:
 
 - `--transitive` (show recursive `depends_on` closure)
+- `--suggest` (show candidate `related` links instead of current links)
+- `--limit <n>` (maximum suggestions, default `5`)
 - `--json`
 
 ## shelf deps <id>
@@ -540,6 +542,8 @@ Flags:
 - `--transitive` (recursive closure)
 - `--reverse` (print dependents first)
 - `--graph` (render ASCII graph)
+- `--suggest` (show candidate `depends_on` links instead of current graph/list)
+- `--limit <n>` (maximum suggestions, default `5`)
 - `--json`
 
 ## shelf export
