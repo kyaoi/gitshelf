@@ -21,9 +21,10 @@ type snapshotMeta struct {
 }
 
 type actionLogEntry struct {
-	Action    string `json:"action"`
-	Event     string `json:"event"`
-	CreatedAt string `json:"created_at"`
+	Action     string `json:"action"`
+	Event      string `json:"event"`
+	SnapshotID string `json:"snapshot_id,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type historyIndex struct {
@@ -101,9 +102,10 @@ func prepareUndoSnapshot(rootDir string, action string) error {
 		return err
 	}
 	return appendActionLog(rootDir, actionLogEntry{
-		Action:    action,
-		Event:     "apply",
-		CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+		Action:     action,
+		Event:      "apply",
+		SnapshotID: meta.ID,
+		CreatedAt:  time.Now().Local().Round(time.Second).Format(time.RFC3339),
 	})
 }
 
@@ -141,9 +143,10 @@ func restoreUndoSnapshots(rootDir string, steps int) (snapshotMeta, error) {
 			return snapshotMeta{}, err
 		}
 		if err := appendActionLog(rootDir, actionLogEntry{
-			Action:    target.Action,
-			Event:     "undo",
-			CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+			Action:     target.Action,
+			Event:      "undo",
+			SnapshotID: target.ID,
+			CreatedAt:  time.Now().Local().Round(time.Second).Format(time.RFC3339),
 		}); err != nil {
 			return snapshotMeta{}, err
 		}
@@ -190,9 +193,10 @@ func restoreRedoSnapshots(rootDir string, steps int) (snapshotMeta, error) {
 			return snapshotMeta{}, err
 		}
 		if err := appendActionLog(rootDir, actionLogEntry{
-			Action:    target.Action,
-			Event:     "redo",
-			CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+			Action:     target.Action,
+			Event:      "redo",
+			SnapshotID: target.ID,
+			CreatedAt:  time.Now().Local().Round(time.Second).Format(time.RFC3339),
 		}); err != nil {
 			return snapshotMeta{}, err
 		}

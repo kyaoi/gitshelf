@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -1088,6 +1089,34 @@ func TestCLIPresetManageAndApply(t *testing.T) {
 	}
 }
 
+func TestCLIViewAndPresetMutationsAreUndoable(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "view", "--root", root, "set", "tmp_view", "--status", "open"); err != nil {
+		t.Fatalf("view set failed: %v", err)
+	}
+	if _, err := executeCLI(t, "preset", "--root", root, "set", "tmp_preset", "--command", "ls", "--view", "active"); err != nil {
+		t.Fatalf("preset set failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo preset set failed: %v", err)
+	}
+	if _, err := executeCLI(t, "preset", "--root", root, "show", "tmp_preset"); err == nil || !strings.Contains(err.Error(), "unknown output preset") {
+		t.Fatalf("preset should be removed after undo: %v", err)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo view set failed: %v", err)
+	}
+	if _, err := executeCLI(t, "view", "--root", root, "show", "tmp_view"); err == nil || !strings.Contains(err.Error(), "unknown view") {
+		t.Fatalf("view should be removed after undo: %v", err)
+	}
+}
+
 func TestCLIAgendaAndSnooze(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
@@ -1598,6 +1627,29 @@ func TestCLIHistoryCommand(t *testing.T) {
 	}
 	if entries[0]["event"] != "redo" {
 		t.Fatalf("expected newest history event to be redo, got: %v", entries[0]["event"])
+	}
+	if strings.TrimSpace(fmt.Sprintf("%v", entries[0]["snapshot_id"])) == "" || fmt.Sprintf("%v", entries[0]["snapshot_id"]) == "<nil>" {
+		t.Fatalf("expected snapshot_id in history output: %s", out)
+	}
+
+	showOut, err := executeCLI(t, "history", "--root", root, "show", "1")
+	if err != nil {
+		t.Fatalf("history show failed: %v", err)
+	}
+	if !strings.Contains(showOut, "event:") || !strings.Contains(showOut, "snapshot_id:") {
+		t.Fatalf("unexpected history show output: %s", showOut)
+	}
+
+	showJSON, err := executeCLI(t, "history", "--root", root, "show", "1", "--json")
+	if err != nil {
+		t.Fatalf("history show --json failed: %v", err)
+	}
+	var showPayload map[string]any
+	if err := json.Unmarshal([]byte(showJSON), &showPayload); err != nil {
+		t.Fatalf("failed to parse history show json output: %v output=%s", err, showJSON)
+	}
+	if _, ok := showPayload["entry"]; !ok {
+		t.Fatalf("history show json should include entry: %s", showJSON)
 	}
 }
 
