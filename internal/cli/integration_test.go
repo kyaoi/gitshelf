@@ -1285,6 +1285,65 @@ func TestCLIExplainCommand(t *testing.T) {
 	}
 }
 
+func TestCLIExportImportRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	a, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "export-a", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add a failed: %v", err)
+	}
+	b, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "export-b", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add b failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	exportPath := filepath.Join(root, "backup.json")
+	if _, err := executeCLI(t, "export", "--root", root, "--out", exportPath); err != nil {
+		t.Fatalf("export failed: %v", err)
+	}
+	data, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatalf("failed to read export file: %v", err)
+	}
+	var exported map[string]any
+	if err := json.Unmarshal(data, &exported); err != nil {
+		t.Fatalf("invalid exported json: %v", err)
+	}
+	if version, ok := exported["version"].(float64); !ok || int(version) != 1 {
+		t.Fatalf("unexpected export version: %v", exported["version"])
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, a.ID, "--status", "done"); err != nil {
+		t.Fatalf("set status failed: %v", err)
+	}
+	if _, err := executeCLI(t, "unlink", "--root", root, "--from", a.ID, "--to", b.ID, "--type", "depends_on"); err != nil {
+		t.Fatalf("unlink failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "import", "--root", root, "--in", exportPath); err != nil {
+		t.Fatalf("import failed: %v", err)
+	}
+	a2, err := shelf.EnsureTaskExists(root, a.ID)
+	if err != nil {
+		t.Fatalf("load restored task failed: %v", err)
+	}
+	if a2.Status != "open" {
+		t.Fatalf("expected restored status open, got: %s", a2.Status)
+	}
+	outbound, _, err := shelf.ListLinks(root, a.ID)
+	if err != nil {
+		t.Fatalf("list links failed: %v", err)
+	}
+	if len(outbound) != 1 || outbound[0].To != b.ID || outbound[0].Type != "depends_on" {
+		t.Fatalf("expected depends_on edge restored, got: %+v", outbound)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
