@@ -1501,6 +1501,45 @@ func TestCLIUndoRedoWithSteps(t *testing.T) {
 	}
 }
 
+func TestCLIHistoryCommand(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	addOut, err := executeCLI(t, "add", "--root", root, "--title", "history task")
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	id := extractIDFromAddOutput(addOut)
+	if id == "" {
+		t.Fatalf("failed to parse task id from add output: %s", addOut)
+	}
+	if _, err := executeCLI(t, "set", "--root", root, id, "--status", "in_progress"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo failed: %v", err)
+	}
+	if _, err := executeCLI(t, "redo", "--root", root); err != nil {
+		t.Fatalf("redo failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "history", "--root", root, "--limit", "4", "--json")
+	if err != nil {
+		t.Fatalf("history --json failed: %v", err)
+	}
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
+		t.Fatalf("failed to parse history json output: %v output=%s", err, out)
+	}
+	if len(entries) == 0 {
+		t.Fatalf("expected history entries, got empty: %s", out)
+	}
+	if entries[0]["event"] != "redo" {
+		t.Fatalf("expected newest history event to be redo, got: %v", entries[0]["event"])
+	}
+}
+
 func TestCLIExplainCommand(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

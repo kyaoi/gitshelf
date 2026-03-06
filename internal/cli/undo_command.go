@@ -20,6 +20,12 @@ type snapshotMeta struct {
 	CreatedAt string `json:"created_at"`
 }
 
+type actionLogEntry struct {
+	Action    string `json:"action"`
+	Event     string `json:"event"`
+	CreatedAt string `json:"created_at"`
+}
+
 type historyIndex struct {
 	Undo []snapshotMeta `json:"undo"`
 	Redo []snapshotMeta `json:"redo"`
@@ -91,7 +97,14 @@ func prepareUndoSnapshot(rootDir string, action string) error {
 		}
 	}
 	idx.Redo = nil
-	return saveHistoryIndex(rootDir, idx)
+	if err := saveHistoryIndex(rootDir, idx); err != nil {
+		return err
+	}
+	return appendActionLog(rootDir, actionLogEntry{
+		Action:    action,
+		Event:     "apply",
+		CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+	})
 }
 
 func restoreUndoSnapshots(rootDir string, steps int) (snapshotMeta, error) {
@@ -125,6 +138,13 @@ func restoreUndoSnapshots(rootDir string, steps int) (snapshotMeta, error) {
 			return snapshotMeta{}, err
 		}
 		if err := removeSnapshotDir(rootDir, target.ID); err != nil {
+			return snapshotMeta{}, err
+		}
+		if err := appendActionLog(rootDir, actionLogEntry{
+			Action:    target.Action,
+			Event:     "undo",
+			CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+		}); err != nil {
 			return snapshotMeta{}, err
 		}
 		last = target
@@ -169,6 +189,13 @@ func restoreRedoSnapshots(rootDir string, steps int) (snapshotMeta, error) {
 		if err := removeSnapshotDir(rootDir, target.ID); err != nil {
 			return snapshotMeta{}, err
 		}
+		if err := appendActionLog(rootDir, actionLogEntry{
+			Action:    target.Action,
+			Event:     "redo",
+			CreatedAt: time.Now().Local().Round(time.Second).Format(time.RFC3339),
+		}); err != nil {
+			return snapshotMeta{}, err
+		}
 		last = target
 	}
 
@@ -188,6 +215,10 @@ func snapshotsDir(rootDir string) string {
 
 func historyIndexPath(rootDir string) string {
 	return filepath.Join(historyDir(rootDir), "index.json")
+}
+
+func historyLogPath(rootDir string) string {
+	return filepath.Join(historyDir(rootDir), "actions.log")
 }
 
 func loadHistoryIndex(rootDir string) (historyIndex, error) {
@@ -219,6 +250,25 @@ func saveHistoryIndex(rootDir string, idx historyIndex) error {
 		return err
 	}
 	return os.WriteFile(historyIndexPath(rootDir), data, 0o644)
+}
+
+func appendActionLog(rootDir string, entry actionLogEntry) error {
+	if err := os.MkdirAll(historyDir(rootDir), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(historyLogPath(rootDir), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		return err
+	}
+	return nil
 }
 
 func captureSnapshot(rootDir string, action string) (snapshotMeta, error) {
