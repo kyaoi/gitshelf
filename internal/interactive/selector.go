@@ -136,36 +136,40 @@ func Select(prompt string, options []Option) (Option, error) {
 func render(prompt string, options []Option, cursor int, search string, searchMode bool) {
 	var b strings.Builder
 	b.WriteString("\r\033[H\033[2J")
-	b.WriteString(prompt)
+	b.WriteString(uiPrompt(prompt))
 	b.WriteString(eol)
-	b.WriteString("j/k: 移動  Enter: 決定  /: 検索  q/Esc/Ctrl+C: キャンセル")
+	b.WriteString(uiHelp("j/k: 移動  Enter: 決定  /: 検索  q/Esc/Ctrl+C: キャンセル"))
 	b.WriteString(eol)
 
 	if searchMode {
-		b.WriteString(fmt.Sprintf("検索: %s_%s", search, eol))
+		b.WriteString(uiSearch(fmt.Sprintf("検索: %s_", search)))
+		b.WriteString(eol)
 	} else if search != "" {
-		b.WriteString(fmt.Sprintf("検索: %s%s", search, eol))
+		b.WriteString(uiSearch(fmt.Sprintf("検索: %s", search)))
+		b.WriteString(eol)
 	} else {
-		b.WriteString("検索: (なし)")
+		b.WriteString(uiHelp("検索: (なし)"))
 		b.WriteString(eol)
 	}
 
 	max := min(len(options), 15)
 	for i := 0; i < max; i++ {
 		prefix := "  "
+		label := options[i].Label
 		if i == cursor {
-			prefix = "> "
+			prefix = uiColor("> ", "1;36")
+			label = uiSelected(label)
 		}
-		b.WriteString(prefix + options[i].Label + eol)
+		b.WriteString(prefix + label + eol)
 	}
 	if len(options) == 0 {
-		b.WriteString("(候補なし)")
+		b.WriteString(uiHelp("(候補なし)"))
 		b.WriteString(eol)
 	} else if cursor >= 0 && cursor < len(options) {
 		preview := strings.TrimSpace(options[cursor].Preview)
 		if preview != "" {
 			b.WriteString(eol)
-			b.WriteString("----- preview -----")
+			b.WriteString(uiPreviewHeader("----- preview -----"))
 			b.WriteString(eol)
 			lines := strings.Split(preview, "\n")
 			maxPreviewLines := min(len(lines), 8)

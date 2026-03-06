@@ -9,6 +9,9 @@
 - `init` is the only command that does not require existing `.shelf/`.
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors.
 - `--preview-body`, `-p`: show selected task body preview in interactive task selectors.
+- Colorized output is enabled by default on TTY.
+- Set `NO_COLOR=1` to disable color output.
+- Set `CLICOLOR_FORCE=1` to force color output.
 
 ## shelf init
 

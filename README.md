@@ -67,6 +67,12 @@ Global display flags:
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors
 - `--preview-body`, `-p`: show selected task body preview in interactive selectors
 
+Color output:
+
+- TTY output is colorized by default for readability.
+- `NO_COLOR=1` disables color.
+- `CLICOLOR_FORCE=1` forces color even when output is not a TTY.
+
 ## Kind and Status
 
 - `kind`: task category (`todo`, `idea`, `memo`, ...)

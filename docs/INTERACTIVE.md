@@ -43,6 +43,8 @@ Task candidate line format:
 - Default: task selectors hide IDs and prefer hierarchical labels.
 - `--show-id` / `-i`: include short IDs in selector labels.
 - `--preview-body` / `-p`: show selected task body preview pane.
+- Selected row, prompt, help line, and preview header are colorized on TTY.
+- `NO_COLOR=1` disables colors (`CLICOLOR_FORCE=1` overrides non-TTY detection).
 
 ## add Interactive Flow
 

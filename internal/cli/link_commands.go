@@ -32,7 +32,7 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 			if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
 				return err
 			}
-			fmt.Printf("Linked: [%s] --%s--> [%s]\n", shelf.ShortID(from), kind, shelf.ShortID(to))
+			fmt.Printf("Linked: %s --%s--> %s\n", uiShortID(shelf.ShortID(from)), uiLinkType(shelf.LinkType(kind)), uiShortID(shelf.ShortID(to)))
 			return nil
 		},
 	}
@@ -68,7 +68,7 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 			if !removed {
 				return errors.New("指定リンクは存在しません")
 			}
-			fmt.Printf("Unlinked: [%s] --%s--> [%s]\n", shelf.ShortID(from), kind, shelf.ShortID(to))
+			fmt.Printf("Unlinked: %s --%s--> %s\n", uiShortID(shelf.ShortID(from)), uiLinkType(shelf.LinkType(kind)), uiShortID(shelf.ShortID(to)))
 			return nil
 		},
 	}
@@ -94,20 +94,20 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 
-			fmt.Println("Outbound:")
+			fmt.Println(uiHeading("Outbound:"))
 			if len(outbound) == 0 {
-				fmt.Println("  (none)")
+				fmt.Println(uiMuted("  (none)"))
 			}
 			for _, edge := range outbound {
-				fmt.Printf("  [%s] --%s--> [%s]\n", shelf.ShortID(id), edge.Type, shelf.ShortID(edge.To))
+				fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(id)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(edge.To)))
 			}
 
-			fmt.Println("Inbound:")
+			fmt.Println(uiHeading("Inbound:"))
 			if len(inbound) == 0 {
-				fmt.Println("  (none)")
+				fmt.Println(uiMuted("  (none)"))
 			}
 			for _, edge := range inbound {
-				fmt.Printf("  [%s] --%s--> [%s]\n", shelf.ShortID(edge.From), edge.Type, shelf.ShortID(id))
+				fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(edge.From)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(id)))
 			}
 
 			fmt.Println("depends_on の向き: A depends_on B = AをやるにはBが先")
