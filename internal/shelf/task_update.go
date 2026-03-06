@@ -10,6 +10,9 @@ type SetTaskInput struct {
 	Title       *string
 	Kind        *Kind
 	Status      *Status
+	Tags        *[]string
+	AddTags     []string
+	RemoveTags  []string
 	DueOn       *string
 	RepeatEvery *string
 	ArchivedAt  *string
@@ -50,6 +53,37 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 			return Task{}, err
 		}
 		task.Status = *input.Status
+	}
+	if input.Tags != nil {
+		task.Tags = NormalizeTags(*input.Tags)
+	}
+	if len(input.AddTags) > 0 {
+		for _, tag := range NormalizeTags(input.AddTags) {
+			if containsAnyTag(task.Tags, []string{tag}) {
+				continue
+			}
+			task.Tags = append(task.Tags, tag)
+		}
+		task.Tags = NormalizeTags(task.Tags)
+	}
+	if len(input.RemoveTags) > 0 {
+		removeSet := map[string]struct{}{}
+		for _, tag := range NormalizeTags(input.RemoveTags) {
+			removeSet[tag] = struct{}{}
+		}
+		filtered := make([]string, 0, len(task.Tags))
+		for _, tag := range task.Tags {
+			if _, drop := removeSet[tag]; drop {
+				continue
+			}
+			filtered = append(filtered, tag)
+		}
+		task.Tags = filtered
+	}
+	if cfg.AppendMissingTags(task.Tags) {
+		if err := SaveConfig(rootDir, cfg); err != nil {
+			return Task{}, err
+		}
 	}
 
 	if input.DueOn != nil {

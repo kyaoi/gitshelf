@@ -227,6 +227,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		title       string
 		kind        string
 		status      string
+		tags        []string
 		due         string
 		repeatEvery string
 		parent      string
@@ -237,12 +238,12 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		Use:   "add",
 		Short: "Add a new task",
 		Example: "  shelf add --title \"Weekly Goal\"\n" +
-			"  shelf add --title \"Write report\" --kind todo --status in_progress --due 2026-03-31\n" +
+			"  shelf add --title \"Write report\" --kind todo --status in_progress --tag backend --due 2026-03-31\n" +
 			"  shelf add --title \"Research note\" --kind memo --parent root",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var input shelf.AddTaskInput
 			if strings.TrimSpace(title) == "" {
-				interactiveInput, err := resolveAddInputInteractive(ctx, body, status, due, repeatEvery)
+				interactiveInput, err := resolveAddInputInteractive(ctx, body, status, due, repeatEvery, parseTagFlagValues(tags))
 				if err != nil {
 					return err
 				}
@@ -252,6 +253,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 					Title:       title,
 					Kind:        shelf.Kind(kind),
 					Status:      shelf.Status(status),
+					Tags:        parseTagFlagValues(tags),
 					DueOn:       due,
 					RepeatEvery: repeatEvery,
 					Parent:      parent,
@@ -278,6 +280,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Task title")
 	cmd.Flags().StringVar(&kind, "kind", "", "Task kind")
 	cmd.Flags().StringVar(&status, "status", "", "Task status")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Task tag (repeatable, free input)")
 	cmd.Flags().StringVar(&due, "due", "", "Task due date (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent task ID or root")

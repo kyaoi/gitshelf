@@ -133,6 +133,7 @@ func newExplainCommand(ctx *commandContext) *cobra.Command {
 						"title":        task.Title,
 						"kind":         task.Kind,
 						"status":       task.Status,
+						"tags":         task.Tags,
 						"due_on":       task.DueOn,
 						"repeat_every": task.RepeatEvery,
 						"archived_at":  task.ArchivedAt,
@@ -163,6 +164,7 @@ func newExplainCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			fmt.Printf("Task: %s (%s/%s)\n", uiPrimary(task.Title), uiKind(task.Kind), uiStatus(task.Status))
+			fmt.Printf("tags: %s\n", formatTagSummary(task.Tags))
 			if task.DueOn != "" {
 				fmt.Printf("due_on: %s\n", uiDue(task.DueOn))
 			} else {
@@ -233,11 +235,17 @@ func explainTaskByFilter(task shelf.Task, filter shelf.TaskFilter, readiness she
 	if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, task.Status) {
 		reasons = append(reasons, fmt.Sprintf("status %q is not in include statuses", task.Status))
 	}
+	if len(filter.Tags) > 0 && !shelfContainsAnyTag(task.Tags, filter.Tags) {
+		reasons = append(reasons, "task tags are not in include tags")
+	}
 	if slices.Contains(filter.NotKinds, task.Kind) {
 		reasons = append(reasons, fmt.Sprintf("kind %q is excluded", task.Kind))
 	}
 	if slices.Contains(filter.NotStatuses, task.Status) {
 		reasons = append(reasons, fmt.Sprintf("status %q is excluded", task.Status))
+	}
+	if shelfContainsAnyTag(task.Tags, filter.NotTags) {
+		reasons = append(reasons, "task tags are excluded")
 	}
 
 	if filter.ReadyOnly && !readiness.Ready {
@@ -300,4 +308,20 @@ func explainTaskByFilter(task shelf.Task, filter shelf.TaskFilter, readiness she
 		Match:   len(reasons) == 0,
 		Reasons: reasons,
 	}, nil
+}
+
+func shelfContainsAnyTag(taskTags []string, filterTags []string) bool {
+	if len(taskTags) == 0 || len(filterTags) == 0 {
+		return false
+	}
+	tagSet := map[string]struct{}{}
+	for _, tag := range taskTags {
+		tagSet[tag] = struct{}{}
+	}
+	for _, filterTag := range filterTags {
+		if _, ok := tagSet[filterTag]; ok {
+			return true
+		}
+	}
+	return false
 }

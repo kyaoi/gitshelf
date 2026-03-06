@@ -12,8 +12,10 @@ import (
 type TaskFilter struct {
 	Kinds           []Kind
 	Statuses        []Status
+	Tags            []string
 	NotKinds        []Kind
 	NotStatuses     []Status
+	NotTags         []string
 	IncludeArchived bool
 	OnlyArchived    bool
 	ReadyOnly       bool
@@ -34,6 +36,8 @@ type TaskReadiness struct {
 }
 
 func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
+	filter.Tags = NormalizeTags(filter.Tags)
+	filter.NotTags = NormalizeTags(filter.NotTags)
 	if err := validateTaskFilter(rootDir, filter); err != nil {
 		return nil, err
 	}
@@ -79,10 +83,16 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 		if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, task.Status) {
 			continue
 		}
+		if len(filter.Tags) > 0 && !containsAnyTag(task.Tags, filter.Tags) {
+			continue
+		}
 		if slices.Contains(filter.NotKinds, task.Kind) {
 			continue
 		}
 		if slices.Contains(filter.NotStatuses, task.Status) {
+			continue
+		}
+		if containsAnyTag(task.Tags, filter.NotTags) {
 			continue
 		}
 		if filter.ReadyOnly && !readiness[task.ID].Ready {
@@ -242,8 +252,20 @@ func validateTaskFilter(rootDir string, filter TaskFilter) error {
 			return err
 		}
 	}
+	filter.Tags = NormalizeTags(filter.Tags)
+	for _, tag := range filter.Tags {
+		if err := cfg.ValidateTag(tag); err != nil {
+			return err
+		}
+	}
 	for _, status := range filter.NotStatuses {
 		if err := cfg.ValidateStatus(status); err != nil {
+			return err
+		}
+	}
+	filter.NotTags = NormalizeTags(filter.NotTags)
+	for _, tag := range filter.NotTags {
+		if err := cfg.ValidateTag(tag); err != nil {
 			return err
 		}
 	}

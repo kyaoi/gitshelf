@@ -16,6 +16,9 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 		title       string
 		kind        string
 		status      string
+		tags        []string
+		untags      []string
+		clearTags   bool
 		due         string
 		clearDue    bool
 		repeatEvery string
@@ -29,6 +32,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 		Use:   "set <id>",
 		Short: "Update task fields",
 		Example: "  shelf set 01ABCDEFG... --status blocked\n" +
+			"  shelf set 01ABCDEFG... --tag backend --untag wip\n" +
 			"  shelf set 01ABCDEFG... --due 2026-03-31\n" +
 			"  shelf set 01ABCDEFG... --clear-due",
 		Args: cobra.MaximumNArgs(1),
@@ -49,6 +53,16 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 			if cmd.Flags().Changed("status") {
 				s := shelf.Status(status)
 				input.Status = &s
+			}
+			if cmd.Flags().Changed("tag") {
+				input.AddTags = parseTagFlagValues(tags)
+			}
+			if cmd.Flags().Changed("untag") {
+				input.RemoveTags = parseTagFlagValues(untags)
+			}
+			if clearTags {
+				empty := []string{}
+				input.Tags = &empty
 			}
 			if cmd.Flags().Changed("due") && clearDue {
 				return errors.New("--due と --clear-due は同時に指定できません")
@@ -80,7 +94,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				input.AppendBody = &appendBody
 			}
 
-			if input.Title == nil && input.Kind == nil && input.Status == nil && input.DueOn == nil && input.RepeatEvery == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
+			if input.Title == nil && input.Kind == nil && input.Status == nil && input.Tags == nil && len(input.AddTags) == 0 && len(input.RemoveTags) == 0 && input.DueOn == nil && input.RepeatEvery == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
 				if interactive.IsTTY() {
 					task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
 					if err != nil {
@@ -96,7 +110,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 					}
 					input = interactiveInput
 				} else {
-					return errors.New("更新対象がありません。--title/--kind/--status/--due/--clear-due/--repeat-every/--clear-repeat/--parent/--body/--append-body を指定してください")
+					return errors.New("更新対象がありません。--title/--kind/--status/--tag/--untag/--clear-tags/--due/--clear-due/--repeat-every/--clear-repeat/--parent/--body/--append-body を指定してください")
 				}
 			}
 
@@ -117,6 +131,9 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&kind, "kind", "", "New kind")
 	cmd.Flags().StringVar(&status, "status", "", "New status")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Add tag (repeatable)")
+	cmd.Flags().StringArrayVar(&untags, "untag", nil, "Remove tag (repeatable)")
+	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "Clear all tags")
 	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	cmd.Flags().BoolVar(&clearDue, "clear-due", false, "Clear due date")
 	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
@@ -132,6 +149,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 	currentTitle := task.Title
 	currentKind := task.Kind
 	currentStatus := task.Status
+	currentTags := shelf.NormalizeTags(task.Tags)
 	currentDue := task.DueOn
 	currentRepeatEvery := task.RepeatEvery
 	currentParent := task.Parent
@@ -161,6 +179,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			{Value: "title", Label: fmt.Sprintf("Title: %s", currentTitle)},
 			{Value: "kind", Label: fmt.Sprintf("Kind: %s", currentKind)},
 			{Value: "status", Label: fmt.Sprintf("Status: %s", currentStatus)},
+			{Value: "tags", Label: fmt.Sprintf("Tags: %s", formatTagSummary(currentTags))},
 			{Value: "due", Label: fmt.Sprintf("Due: %s", dueLabel)},
 			{Value: "repeat", Label: fmt.Sprintf("Repeat: %s", repeatLabel)},
 			{Value: "parent", Label: fmt.Sprintf("Parent: %s", parentLabel)},
@@ -219,6 +238,17 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			status := shelf.Status(selectedStatus.Value)
 			currentStatus = status
 			input.Status = &status
+			changed = true
+		case "tags":
+			selectedTags, err := selectTagsInteractive("Tags を選択してください", cfg.Tags, currentTags)
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			currentTags = selectedTags
+			tagsCopy := append([]string{}, selectedTags...)
+			input.Tags = &tagsCopy
+			input.AddTags = nil
+			input.RemoveTags = nil
 			changed = true
 		case "due":
 			due, err := interactive.PromptText("期限を入力してください (YYYY-MM-DD, 空でクリア)")
@@ -319,6 +349,15 @@ func buildSetChangePreview(orig shelf.Task, input shelf.SetTaskInput) string {
 	}
 	if input.Status != nil {
 		lines = append(lines, fmt.Sprintf("Status: %q -> %q", orig.Status, *input.Status))
+	}
+	if input.Tags != nil {
+		lines = append(lines, fmt.Sprintf("Tags: %q -> %q", formatTagSummary(orig.Tags), formatTagSummary(*input.Tags)))
+	}
+	if len(input.AddTags) > 0 {
+		lines = append(lines, fmt.Sprintf("Tags: add %q", strings.Join(input.AddTags, ", ")))
+	}
+	if len(input.RemoveTags) > 0 {
+		lines = append(lines, fmt.Sprintf("Tags: remove %q", strings.Join(input.RemoveTags, ", ")))
 	}
 	if input.DueOn != nil {
 		before := orig.DueOn

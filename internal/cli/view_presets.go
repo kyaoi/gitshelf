@@ -23,8 +23,10 @@ func resolveTaskView(rootDir string, name string) (shelf.TaskFilter, error) {
 		return shelf.TaskFilter{
 			Kinds:       custom.Kinds,
 			Statuses:    custom.Statuses,
+			Tags:        custom.Tags,
 			NotKinds:    custom.NotKinds,
 			NotStatuses: custom.NotStatuses,
+			NotTags:     custom.NotTags,
 			ReadyOnly:   custom.ReadyOnly,
 			DepsBlocked: custom.DepsBlocked,
 			DueBefore:   custom.DueBefore,
@@ -74,8 +76,14 @@ func mergeTaskFilterWithView(base shelf.TaskFilter, preset shelf.TaskFilter, cha
 	if len(filter.NotKinds) == 0 && len(preset.NotKinds) > 0 {
 		filter.NotKinds = preset.NotKinds
 	}
+	if len(filter.Tags) == 0 && len(preset.Tags) > 0 {
+		filter.Tags = preset.Tags
+	}
 	if len(filter.NotStatuses) == 0 && len(preset.NotStatuses) > 0 {
 		filter.NotStatuses = preset.NotStatuses
+	}
+	if len(filter.NotTags) == 0 && len(preset.NotTags) > 0 {
+		filter.NotTags = preset.NotTags
 	}
 
 	if !changed["ready"] {
@@ -120,11 +128,17 @@ func treeOptionsFromFilter(base shelf.TreeOptions, filter shelf.TaskFilter) (she
 	if len(opts.Statuses) == 0 && len(filter.Statuses) > 0 {
 		opts.Statuses = filter.Statuses
 	}
+	if len(opts.Tags) == 0 && len(filter.Tags) > 0 {
+		opts.Tags = filter.Tags
+	}
 	if len(opts.NotKinds) == 0 && len(filter.NotKinds) > 0 {
 		opts.NotKinds = filter.NotKinds
 	}
 	if len(opts.NotStatuses) == 0 && len(filter.NotStatuses) > 0 {
 		opts.NotStatuses = filter.NotStatuses
+	}
+	if len(opts.NotTags) == 0 && len(filter.NotTags) > 0 {
+		opts.NotTags = filter.NotTags
 	}
 	return opts, nil
 }

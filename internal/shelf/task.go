@@ -19,6 +19,7 @@ type Task struct {
 	Title       string
 	Kind        Kind
 	Status      Status
+	Tags        []string
 	DueOn       string
 	RepeatEvery string
 	ArchivedAt  string
@@ -29,17 +30,18 @@ type Task struct {
 }
 
 type taskFrontMatter struct {
-	ID          string `toml:"id"`
-	Title       string `toml:"title"`
-	Kind        string `toml:"kind"`
-	Status      string `toml:"status"`
-	State       string `toml:"state"`
-	DueOn       string `toml:"due_on,omitempty"`
-	RepeatEvery string `toml:"repeat_every,omitempty"`
-	ArchivedAt  string `toml:"archived_at,omitempty"`
-	Parent      string `toml:"parent,omitempty"`
-	CreatedAt   string `toml:"created_at"`
-	UpdatedAt   string `toml:"updated_at"`
+	ID          string   `toml:"id"`
+	Title       string   `toml:"title"`
+	Kind        string   `toml:"kind"`
+	Status      string   `toml:"status"`
+	State       string   `toml:"state"`
+	Tags        []string `toml:"tags"`
+	DueOn       string   `toml:"due_on,omitempty"`
+	RepeatEvery string   `toml:"repeat_every,omitempty"`
+	ArchivedAt  string   `toml:"archived_at,omitempty"`
+	Parent      string   `toml:"parent,omitempty"`
+	CreatedAt   string   `toml:"created_at"`
+	UpdatedAt   string   `toml:"updated_at"`
 }
 
 const frontMatterDelimiter = "+++"
@@ -107,6 +109,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		Title:       fm.Title,
 		Kind:        Kind(fm.Kind),
 		Status:      Status(status),
+		Tags:        NormalizeTags(fm.Tags),
 		DueOn:       dueOn,
 		RepeatEvery: repeatEvery,
 		ArchivedAt:  archivedAt,
@@ -125,6 +128,7 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 	if err := validateTaskRequiredFields(task); err != nil {
 		return nil, err
 	}
+	task.Tags = NormalizeTags(task.Tags)
 
 	var buf bytes.Buffer
 	buf.WriteString(frontMatterDelimiter + "\n")
@@ -132,6 +136,16 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 	buf.WriteString(fmt.Sprintf("title = %q\n", task.Title))
 	buf.WriteString(fmt.Sprintf("kind = %q\n", string(task.Kind)))
 	buf.WriteString(fmt.Sprintf("status = %q\n", string(task.Status)))
+	if len(task.Tags) > 0 {
+		buf.WriteString("tags = [")
+		for i, tag := range task.Tags {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(fmt.Sprintf("%q", tag))
+		}
+		buf.WriteString("]\n")
+	}
 	if task.DueOn != "" {
 		buf.WriteString(fmt.Sprintf("due_on = %q\n", task.DueOn))
 	}
@@ -169,6 +183,7 @@ func validateTaskRequiredFields(task Task) error {
 	case task.UpdatedAt.IsZero():
 		return errors.New("task updated_at is required")
 	default:
+		task.Tags = NormalizeTags(task.Tags)
 		if _, err := NormalizeDueOn(task.DueOn); err != nil {
 			return err
 		}

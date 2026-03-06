@@ -12,8 +12,10 @@ type TreeOptions struct {
 	Status          Status
 	Kinds           []Kind
 	Statuses        []Status
+	Tags            []string
 	NotKinds        []Kind
 	NotStatuses     []Status
+	NotTags         []string
 	IncludeArchived bool
 	OnlyArchived    bool
 	MaxDepth        int
@@ -123,6 +125,12 @@ func matchesTreeFilters(task Task, options TreeOptions) bool {
 		return false
 	}
 	if slices.Contains(options.NotStatuses, task.Status) {
+		return false
+	}
+	if len(options.Tags) > 0 && !containsAnyTag(task.Tags, options.Tags) {
+		return false
+	}
+	if containsAnyTag(task.Tags, options.NotTags) {
 		return false
 	}
 	return true

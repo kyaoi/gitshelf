@@ -8,7 +8,7 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
-func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string, initialDue string, initialRepeatEvery string) (shelf.AddTaskInput, error) {
+func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string, initialDue string, initialRepeatEvery string, initialTags []string) (shelf.AddTaskInput, error) {
 	if !interactive.IsTTY() {
 		return shelf.AddTaskInput{}, errors.New("非TTYでは対話入力できません。--title を指定してください")
 	}
@@ -21,6 +21,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 	title := ""
 	kind := cfg.DefaultKind
 	status := cfg.DefaultStatus
+	tags := shelf.NormalizeTags(initialTags)
 	due := strings.TrimSpace(initialDue)
 	repeatEvery := strings.TrimSpace(initialRepeatEvery)
 	parent := "root"
@@ -68,10 +69,11 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			{Value: "title", Label: "Title: " + titleLabel},
 			{Value: "kind", Label: "Kind: " + string(kind)},
 			{Value: "status", Label: "Status: " + string(status)},
+			{Value: "tags", Label: "Tags: " + formatTagSummary(tags)},
 			{Value: "due", Label: "Due: " + dueLabel},
 			{Value: "repeat", Label: "Repeat: " + repeatLabel},
 			{Value: "parent", Label: "Parent: " + parentLabel},
-			{Value: "save", Label: "Create task", Preview: buildAddSummary(title, kind, status, dueLabel, repeatLabel, parentLabel)},
+			{Value: "save", Label: "Create task", Preview: buildAddSummary(title, kind, status, tags, dueLabel, repeatLabel, parentLabel)},
 			{Value: "cancel", Label: "Cancel"},
 		}
 		selected, err := selectEnumOption("内容を確認してください", options)
@@ -101,6 +103,12 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				return shelf.AddTaskInput{}, err
 			}
 			status = shelf.Status(statusSelected.Value)
+		case "tags":
+			selectedTags, err := selectTagsInteractive("Tags を選択してください", cfg.Tags, tags)
+			if err != nil {
+				return shelf.AddTaskInput{}, err
+			}
+			tags = selectedTags
 		case "due":
 			dueSelected, err := selectEnumOption("期限を選択してください", []interactive.Option{
 				{Value: "none", Label: "(none)", SearchText: "none"},
@@ -147,6 +155,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				Title:       title,
 				Kind:        kind,
 				Status:      status,
+				Tags:        tags,
 				DueOn:       due,
 				RepeatEvery: repeatEvery,
 				Parent:      parent,
@@ -184,11 +193,12 @@ func enumOptionsFromStatuses(values []shelf.Status) []interactive.Option {
 	return options
 }
 
-func buildAddSummary(title string, kind shelf.Kind, status shelf.Status, due string, repeat string, parent string) string {
+func buildAddSummary(title string, kind shelf.Kind, status shelf.Status, tags []string, due string, repeat string, parent string) string {
 	return strings.Join([]string{
 		"Title: " + title,
 		"Kind: " + string(kind),
 		"Status: " + string(status),
+		"Tags: " + formatTagSummary(tags),
 		"Due: " + due,
 		"Repeat: " + repeat,
 		"Parent: " + parent,

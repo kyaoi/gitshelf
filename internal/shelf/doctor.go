@@ -60,6 +60,11 @@ func RunDoctorWithOptions(rootDir string, opts DoctorOptions) (DoctorReport, err
 		if err := cfg.ValidateStatus(task.Status); err != nil {
 			report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
 		}
+		for _, tag := range NormalizeTags(task.Tags) {
+			if err := cfg.ValidateTag(tag); err != nil {
+				report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: err.Error()})
+			}
+		}
 		if task.Parent != "" {
 			if _, ok := tasks[task.Parent]; !ok {
 				report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: fmt.Sprintf("parent does not exist: %s", task.Parent)})

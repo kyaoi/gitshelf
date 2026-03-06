@@ -106,8 +106,10 @@ func newViewShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("name: %s\n", name)
 			fmt.Printf("kind: %v\n", filter.Kinds)
 			fmt.Printf("status: %v\n", filter.Statuses)
+			fmt.Printf("tag: %v\n", filter.Tags)
 			fmt.Printf("not-kind: %v\n", filter.NotKinds)
 			fmt.Printf("not-status: %v\n", filter.NotStatuses)
+			fmt.Printf("not-tag: %v\n", filter.NotTags)
 			fmt.Printf("ready: %t\n", filter.ReadyOnly)
 			fmt.Printf("blocked-by-deps: %t\n", filter.DepsBlocked)
 			fmt.Printf("due-before: %s\n", filter.DueBefore)
@@ -128,8 +130,10 @@ func newViewSetCommand(ctx *commandContext) *cobra.Command {
 	var (
 		kinds       []string
 		statuses    []string
+		tags        []string
 		notKinds    []string
 		notStatuses []string
+		notTags     []string
 		ready       bool
 		depsBlocked bool
 		dueBefore   string
@@ -157,8 +161,10 @@ func newViewSetCommand(ctx *commandContext) *cobra.Command {
 			}
 			if !cmd.Flags().Changed("kind") &&
 				!cmd.Flags().Changed("status") &&
+				!cmd.Flags().Changed("tag") &&
 				!cmd.Flags().Changed("not-kind") &&
 				!cmd.Flags().Changed("not-status") &&
+				!cmd.Flags().Changed("not-tag") &&
 				!cmd.Flags().Changed("ready") &&
 				!cmd.Flags().Changed("blocked-by-deps") &&
 				!cmd.Flags().Changed("due-before") &&
@@ -178,8 +184,10 @@ func newViewSetCommand(ctx *commandContext) *cobra.Command {
 			cfg.Views[name] = shelf.TaskView{
 				Kinds:       toKinds(kinds),
 				Statuses:    toStatuses(statuses),
+				Tags:        parseTagFlagValues(tags),
 				NotKinds:    toKinds(notKinds),
 				NotStatuses: toStatuses(notStatuses),
+				NotTags:     parseTagFlagValues(notTags),
 				ReadyOnly:   ready,
 				DepsBlocked: depsBlocked,
 				DueBefore:   strings.TrimSpace(dueBefore),
@@ -205,8 +213,10 @@ func newViewSetCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Include tag (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -407,8 +417,10 @@ func resolveViewAsTaskView(rootDir string, name string) (shelf.TaskView, error) 
 	return shelf.TaskView{
 		Kinds:       filter.Kinds,
 		Statuses:    filter.Statuses,
+		Tags:        filter.Tags,
 		NotKinds:    filter.NotKinds,
 		NotStatuses: filter.NotStatuses,
+		NotTags:     filter.NotTags,
 		ReadyOnly:   filter.ReadyOnly,
 		DepsBlocked: filter.DepsBlocked,
 		DueBefore:   filter.DueBefore,
@@ -429,11 +441,17 @@ func overlayTaskView(base shelf.TaskView, next shelf.TaskView) shelf.TaskView {
 	if len(next.Statuses) > 0 {
 		out.Statuses = next.Statuses
 	}
+	if len(next.Tags) > 0 {
+		out.Tags = next.Tags
+	}
 	if len(next.NotKinds) > 0 {
 		out.NotKinds = next.NotKinds
 	}
 	if len(next.NotStatuses) > 0 {
 		out.NotStatuses = next.NotStatuses
+	}
+	if len(next.NotTags) > 0 {
+		out.NotTags = next.NotTags
 	}
 	out.ReadyOnly = out.ReadyOnly || next.ReadyOnly
 	out.DepsBlocked = out.DepsBlocked || next.DepsBlocked
@@ -461,8 +479,10 @@ func unionTaskView(base shelf.TaskView, next shelf.TaskView) shelf.TaskView {
 	out := shelf.TaskView{
 		Kinds:       uniqueKinds(append(slicesCloneKinds(base.Kinds), next.Kinds...)),
 		Statuses:    uniqueStatuses(append(slicesCloneStatuses(base.Statuses), next.Statuses...)),
+		Tags:        uniqueStrings(append(slicesCloneStrings(base.Tags), next.Tags...)),
 		NotKinds:    uniqueKinds(append(slicesCloneKinds(base.NotKinds), next.NotKinds...)),
 		NotStatuses: uniqueStatuses(append(slicesCloneStatuses(base.NotStatuses), next.NotStatuses...)),
+		NotTags:     uniqueStrings(append(slicesCloneStrings(base.NotTags), next.NotTags...)),
 		ReadyOnly:   base.ReadyOnly || next.ReadyOnly,
 		DepsBlocked: base.DepsBlocked || next.DepsBlocked,
 		Overdue:     base.Overdue || next.Overdue,
@@ -510,6 +530,12 @@ func slicesCloneStatuses(values []shelf.Status) []shelf.Status {
 	return out
 }
 
+func slicesCloneStrings(values []string) []string {
+	out := make([]string, len(values))
+	copy(out, values)
+	return out
+}
+
 func uniqueKinds(values []shelf.Kind) []shelf.Kind {
 	seen := map[shelf.Kind]struct{}{}
 	out := make([]shelf.Kind, 0, len(values))
@@ -527,6 +553,22 @@ func uniqueStatuses(values []shelf.Status) []shelf.Status {
 	seen := map[shelf.Status]struct{}{}
 	out := make([]shelf.Status, 0, len(values))
 	for _, v := range values {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+func uniqueStrings(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
 		if _, ok := seen[v]; ok {
 			continue
 		}

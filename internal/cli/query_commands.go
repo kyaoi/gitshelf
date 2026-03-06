@@ -14,8 +14,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	var (
 		kinds           []string
 		statuses        []string
+		tags            []string
 		notKinds        []string
 		notStatuses     []string
+		notTags         []string
 		presetName      string
 		view            string
 		includeArchived bool
@@ -38,6 +40,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		Short: "List tasks",
 		Example: "  shelf ls\n" +
 			"  shelf ls --kind todo --status open --status in_progress\n" +
+			"  shelf ls --tag backend --not-tag wip\n" +
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -60,8 +63,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			filter := shelf.TaskFilter{
 				Kinds:           toKinds(kinds),
 				Statuses:        toStatuses(statuses),
+				Tags:            parseTagFlagValues(tags),
 				NotKinds:        toKinds(notKinds),
 				NotStatuses:     toStatuses(notStatuses),
+				NotTags:         parseTagFlagValues(notTags),
 				IncludeArchived: includeArchived,
 				OnlyArchived:    onlyArchived,
 				ReadyOnly:       ready,
@@ -101,15 +106,16 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 			if asJSON {
 				type lsItem struct {
-					ID          string `json:"id"`
-					Title       string `json:"title"`
-					Kind        string `json:"kind"`
-					Status      string `json:"status"`
-					DueOn       string `json:"due_on,omitempty"`
-					RepeatEvery string `json:"repeat_every,omitempty"`
-					ArchivedAt  string `json:"archived_at,omitempty"`
-					Parent      string `json:"parent,omitempty"`
-					ParentTitle string `json:"parent_title,omitempty"`
+					ID          string   `json:"id"`
+					Title       string   `json:"title"`
+					Kind        string   `json:"kind"`
+					Status      string   `json:"status"`
+					Tags        []string `json:"tags,omitempty"`
+					DueOn       string   `json:"due_on,omitempty"`
+					RepeatEvery string   `json:"repeat_every,omitempty"`
+					ArchivedAt  string   `json:"archived_at,omitempty"`
+					Parent      string   `json:"parent,omitempty"`
+					ParentTitle string   `json:"parent_title,omitempty"`
 				}
 				items := make([]lsItem, 0, len(tasks))
 				for _, task := range tasks {
@@ -122,6 +128,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						Title:       task.Title,
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
+						Tags:        task.Tags,
 						DueOn:       task.DueOn,
 						RepeatEvery: task.RepeatEvery,
 						ArchivedAt:  task.ArchivedAt,
@@ -187,6 +194,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if task.DueOn != "" {
 					dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
 				}
+				tagText := ""
+				if len(task.Tags) > 0 {
+					tagText = fmt.Sprintf(" tags=%s", strings.Join(task.Tags, ","))
+				}
 				archivedText := ""
 				if task.ArchivedAt != "" {
 					archivedText = " " + uiMuted("[archived]")
@@ -196,10 +207,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					if task.RepeatEvery != "" {
 						repeatText = task.RepeatEvery
 					}
-					fmt.Printf("%s kind=%s status=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+					fmt.Printf("%s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
 					continue
 				}
-				fmt.Printf("%s  (%s/%s)%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, archivedText, parentLabel)
+				fmt.Printf("%s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
 			}
 			return nil
 		},
@@ -207,8 +218,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Include tag (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
 	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for ls")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
@@ -449,6 +462,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					Title       string         `json:"title"`
 					Kind        string         `json:"kind"`
 					Status      string         `json:"status"`
+					Tags        []string       `json:"tags,omitempty"`
 					DueOn       string         `json:"due_on,omitempty"`
 					RepeatEvery string         `json:"repeat_every,omitempty"`
 					ArchivedAt  string         `json:"archived_at,omitempty"`
@@ -466,6 +480,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 						Title:       node.Task.Title,
 						Kind:        string(node.Task.Kind),
 						Status:      string(node.Task.Status),
+						Tags:        node.Task.Tags,
 						DueOn:       node.Task.DueOn,
 						RepeatEvery: node.Task.RepeatEvery,
 						ArchivedAt:  node.Task.ArchivedAt,
@@ -478,11 +493,12 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 					subtreePayload = append(subtreePayload, convert(node))
 				}
 
-				taskPayload := map[string]string{
+				taskPayload := map[string]any{
 					"id":           task.ID,
 					"title":        task.Title,
 					"kind":         string(task.Kind),
 					"status":       string(task.Status),
+					"tags":         task.Tags,
 					"due_on":       task.DueOn,
 					"repeat_every": task.RepeatEvery,
 					"archived_at":  task.ArchivedAt,
@@ -515,6 +531,13 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("title = %q\n", task.Title)
 			fmt.Printf("kind = %q\n", task.Kind)
 			fmt.Printf("status = %q\n", task.Status)
+			if len(task.Tags) > 0 {
+				fmt.Printf("tags = [%q", task.Tags[0])
+				for i := 1; i < len(task.Tags); i++ {
+					fmt.Printf(", %q", task.Tags[i])
+				}
+				fmt.Println("]")
+			}
 			if task.DueOn != "" {
 				fmt.Printf("due_on = %q\n", task.DueOn)
 			}
@@ -612,8 +635,10 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		format          string
 		kinds           []string
 		statuses        []string
+		tags            []string
 		notKinds        []string
 		notStats        []string
+		notTags         []string
 		asJSON          bool
 	)
 
@@ -621,7 +646,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		Use:   "tree",
 		Short: "Show task tree",
 		Example: "  shelf tree\n" +
-			"  shelf tree --kind todo --not-status done\n" +
+			"  shelf tree --kind todo --not-status done --tag backend\n" +
 			"  shelf tree --from root --max-depth 2 --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "tree")
@@ -658,6 +683,16 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 					return err
 				}
 			}
+			for _, tag := range parseTagFlagValues(tags) {
+				if err := cfg.ValidateTag(tag); err != nil {
+					return err
+				}
+			}
+			for _, tag := range parseTagFlagValues(notTags) {
+				if err := cfg.ValidateTag(tag); err != nil {
+					return err
+				}
+			}
 
 			fromID := ""
 			if strings.TrimSpace(from) != "" && !strings.EqualFold(from, "root") {
@@ -667,8 +702,10 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 				FromID:          fromID,
 				Kinds:           toKinds(kinds),
 				Statuses:        toStatuses(statuses),
+				Tags:            parseTagFlagValues(tags),
 				NotKinds:        toKinds(notKinds),
 				NotStatuses:     toStatuses(notStats),
+				NotTags:         parseTagFlagValues(notTags),
 				IncludeArchived: includeArchived,
 				OnlyArchived:    onlyArchived,
 				MaxDepth:        maxDepth,
@@ -693,6 +730,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 					Title       string         `json:"title"`
 					Kind        string         `json:"kind"`
 					Status      string         `json:"status"`
+					Tags        []string       `json:"tags,omitempty"`
 					DueOn       string         `json:"due_on,omitempty"`
 					RepeatEvery string         `json:"repeat_every,omitempty"`
 					ArchivedAt  string         `json:"archived_at,omitempty"`
@@ -710,6 +748,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 						Title:       node.Task.Title,
 						Kind:        string(node.Task.Kind),
 						Status:      string(node.Task.Status),
+						Tags:        node.Task.Tags,
 						DueOn:       node.Task.DueOn,
 						RepeatEvery: node.Task.RepeatEvery,
 						ArchivedAt:  node.Task.ArchivedAt,
@@ -746,8 +785,10 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Include tag (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStats, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -771,14 +812,18 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool, showID bool,
 	if node.Task.DueOn != "" {
 		dueText = fmt.Sprintf(" due=%s", uiDue(node.Task.DueOn))
 	}
+	tagText := ""
+	if len(node.Task.Tags) > 0 {
+		tagText = fmt.Sprintf(" tags=%s", strings.Join(node.Task.Tags, ","))
+	}
 	if format == "detail" {
 		repeatText := "-"
 		if node.Task.RepeatEvery != "" {
 			repeatText = node.Task.RepeatEvery
 		}
-		fmt.Printf("%s%s%s kind=%s status=%s due=%s repeat=%s archived_at=%q\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), uiDue(node.Task.DueOn), repeatText, node.Task.ArchivedAt)
+		fmt.Printf("%s%s%s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), formatTagSummary(node.Task.Tags), uiDue(node.Task.DueOn), repeatText, node.Task.ArchivedAt)
 	} else {
-		fmt.Printf("%s%s%s (%s/%s)%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText)
+		fmt.Printf("%s%s%s (%s/%s)%s%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText, tagText)
 	}
 	for i, child := range node.Children {
 		printTreeNode(child, nextPrefix, i == len(node.Children)-1, showID, format)

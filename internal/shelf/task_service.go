@@ -11,6 +11,7 @@ type AddTaskInput struct {
 	Title       string
 	Kind        Kind
 	Status      Status
+	Tags        []string
 	DueOn       string
 	RepeatEvery string
 	Parent      string
@@ -43,6 +44,12 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 	if err := cfg.ValidateStatus(status); err != nil {
 		return Task{}, err
 	}
+	tags := NormalizeTags(input.Tags)
+	if cfg.AppendMissingTags(tags) {
+		if err := SaveConfig(rootDir, cfg); err != nil {
+			return Task{}, err
+		}
+	}
 
 	dueOn, err := NormalizeDueOn(input.DueOn)
 	if err != nil {
@@ -67,6 +74,7 @@ func AddTask(rootDir string, input AddTaskInput) (Task, error) {
 		Title:       title,
 		Kind:        kind,
 		Status:      status,
+		Tags:        tags,
 		DueOn:       dueOn,
 		RepeatEvery: repeatEvery,
 		ArchivedAt:  "",

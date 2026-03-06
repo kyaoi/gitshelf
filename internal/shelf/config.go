@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Kinds         []Kind
 	Statuses      []Status
+	Tags          []string
 	LinkTypes     []LinkType
 	DefaultKind   Kind
 	DefaultStatus Status
@@ -24,8 +25,10 @@ type Config struct {
 type TaskView struct {
 	Kinds       []Kind
 	Statuses    []Status
+	Tags        []string
 	NotKinds    []Kind
 	NotStatuses []Status
+	NotTags     []string
 	ReadyOnly   bool
 	DepsBlocked bool
 	DueBefore   string
@@ -47,6 +50,7 @@ type OutputPreset struct {
 type configFile struct {
 	Kinds              []string `toml:"kinds"`
 	Statuses           []string `toml:"statuses"`
+	Tags               []string `toml:"tags"`
 	LegacyStates       []string `toml:"states"`
 	LinkTypes          []string `toml:"link_types"`
 	DefaultKind        string   `toml:"default_kind"`
@@ -59,8 +63,10 @@ type configFile struct {
 type configView struct {
 	Kinds       []string `toml:"kinds"`
 	Statuses    []string `toml:"statuses"`
+	Tags        []string `toml:"tags"`
 	NotKinds    []string `toml:"not_kinds"`
 	NotStatuses []string `toml:"not_statuses"`
+	NotTags     []string `toml:"not_tags"`
 	ReadyOnly   bool     `toml:"ready"`
 	DepsBlocked bool     `toml:"blocked_by_deps"`
 	DueBefore   string   `toml:"due_before"`
@@ -83,6 +89,7 @@ func DefaultConfig() Config {
 	return Config{
 		Kinds:         []Kind{"todo", "idea", "memo"},
 		Statuses:      []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:          []string{},
 		LinkTypes:     []LinkType{"depends_on", "related"},
 		DefaultKind:   Kind("todo"),
 		DefaultStatus: Status("open"),
@@ -132,6 +139,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	cfg := Config{
 		Kinds:         make([]Kind, len(f.Kinds)),
 		Statuses:      make([]Status, len(statuses)),
+		Tags:          make([]string, len(f.Tags)),
 		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(defaultStatus),
@@ -144,6 +152,9 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	for i, status := range statuses {
 		cfg.Statuses[i] = Status(strings.TrimSpace(status))
 	}
+	for i, tag := range f.Tags {
+		cfg.Tags[i] = strings.TrimSpace(tag)
+	}
 	for i, linkType := range f.LinkTypes {
 		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
 	}
@@ -151,8 +162,10 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		view := TaskView{
 			Kinds:       make([]Kind, len(rawView.Kinds)),
 			Statuses:    make([]Status, len(rawView.Statuses)),
+			Tags:        make([]string, len(rawView.Tags)),
 			NotKinds:    make([]Kind, len(rawView.NotKinds)),
 			NotStatuses: make([]Status, len(rawView.NotStatuses)),
+			NotTags:     make([]string, len(rawView.NotTags)),
 			ReadyOnly:   rawView.ReadyOnly,
 			DepsBlocked: rawView.DepsBlocked,
 			DueBefore:   strings.TrimSpace(rawView.DueBefore),
@@ -169,11 +182,17 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		for i, status := range rawView.Statuses {
 			view.Statuses[i] = Status(strings.TrimSpace(status))
 		}
+		for i, tag := range rawView.Tags {
+			view.Tags[i] = strings.TrimSpace(tag)
+		}
 		for i, kind := range rawView.NotKinds {
 			view.NotKinds[i] = Kind(strings.TrimSpace(kind))
 		}
 		for i, status := range rawView.NotStatuses {
 			view.NotStatuses[i] = Status(strings.TrimSpace(status))
+		}
+		for i, tag := range rawView.NotTags {
+			view.NotTags[i] = strings.TrimSpace(tag)
 		}
 		cfg.Views[strings.TrimSpace(name)] = view
 	}
@@ -209,6 +228,15 @@ func FormatConfigTOML(cfg Config) []byte {
 			buf.WriteString(", ")
 		}
 		buf.WriteString(fmt.Sprintf("%q", status))
+	}
+	buf.WriteString("]\n")
+
+	buf.WriteString("tags = [")
+	for i, tag := range cfg.Tags {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", tag))
 	}
 	buf.WriteString("]\n")
 
@@ -261,8 +289,23 @@ func FormatConfigTOML(cfg Config) []byte {
 			}
 			writeKinds("kinds", view.Kinds)
 			writeStatuses("statuses", view.Statuses)
+			writeTags := func(key string, values []string) {
+				if len(values) == 0 {
+					return
+				}
+				buf.WriteString(key + " = [")
+				for i, value := range values {
+					if i > 0 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(fmt.Sprintf("%q", value))
+				}
+				buf.WriteString("]\n")
+			}
+			writeTags("tags", view.Tags)
 			writeKinds("not_kinds", view.NotKinds)
 			writeStatuses("not_statuses", view.NotStatuses)
+			writeTags("not_tags", view.NotTags)
 			if view.ReadyOnly {
 				buf.WriteString("ready = true\n")
 			}
@@ -333,6 +376,9 @@ func (c Config) Validate() error {
 	if err := validateUniqueStatuses(c.Statuses); err != nil {
 		return err
 	}
+	if err := validateUniqueTags(c.Tags); err != nil {
+		return err
+	}
 	if err := validateUniqueLinkTypes(c.LinkTypes); err != nil {
 		return err
 	}
@@ -361,9 +407,19 @@ func (c Config) Validate() error {
 				return fmt.Errorf("views.%s.statuses: %w", name, err)
 			}
 		}
+		for _, tag := range view.Tags {
+			if err := c.ValidateTag(tag); err != nil {
+				return fmt.Errorf("views.%s.tags: %w", name, err)
+			}
+		}
 		for _, status := range view.NotStatuses {
 			if err := c.ValidateStatus(status); err != nil {
 				return fmt.Errorf("views.%s.not_statuses: %w", name, err)
+			}
+		}
+		for _, tag := range view.NotTags {
+			if err := c.ValidateTag(tag); err != nil {
+				return fmt.Errorf("views.%s.not_tags: %w", name, err)
 			}
 		}
 		if view.ReadyOnly && view.DepsBlocked {
@@ -448,6 +504,17 @@ func (c Config) ValidateStatus(status Status) error {
 	return fmt.Errorf("unknown status: %s", status)
 }
 
+func (c Config) ValidateTag(tag string) error {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return fmt.Errorf("tag is required")
+	}
+	if slices.Contains(c.Tags, tag) {
+		return nil
+	}
+	return fmt.Errorf("unknown tag: %s", tag)
+}
+
 func (c Config) ValidateLinkType(linkType LinkType) error {
 	if strings.TrimSpace(string(linkType)) == "" {
 		return fmt.Errorf("link type is required")
@@ -456,6 +523,22 @@ func (c Config) ValidateLinkType(linkType LinkType) error {
 		return nil
 	}
 	return fmt.Errorf("unknown link type: %s", linkType)
+}
+
+func (c *Config) AppendMissingTags(tags []string) bool {
+	candidate := NormalizeTags(tags)
+	if len(candidate) == 0 {
+		return false
+	}
+	changed := false
+	for _, tag := range candidate {
+		if slices.Contains(c.Tags, tag) {
+			continue
+		}
+		c.Tags = append(c.Tags, tag)
+		changed = true
+	}
+	return changed
 }
 
 func validateUniqueKinds(values []Kind) error {
@@ -480,6 +563,20 @@ func validateUniqueStatuses(values []Status) error {
 		}
 		if _, ok := seen[value]; ok {
 			return fmt.Errorf("statuses contains duplicate value: %s", value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateUniqueTags(values []string) error {
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("tags must not include empty value")
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("tags contains duplicate value: %s", value)
 		}
 		seen[value] = struct{}{}
 	}
