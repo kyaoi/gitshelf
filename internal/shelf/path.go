@@ -14,6 +14,10 @@ func EdgesDir(rootDir string) string {
 	return filepath.Join(ShelfDir(rootDir), "edges")
 }
 
+func TemplatesDir(rootDir string) string {
+	return filepath.Join(ShelfDir(rootDir), "templates")
+}
+
 func ConfigPath(rootDir string) string {
 	return filepath.Join(ShelfDir(rootDir), "config.toml")
 }

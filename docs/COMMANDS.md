@@ -87,6 +87,21 @@ Flags:
 
 If `--auto` is omitted in non-TTY, command fails.
 
+## shelf template
+
+Save and expand reusable task trees.
+
+Subcommands:
+
+- `shelf template list|ls [--json]`
+- `shelf template save <name> <id>`
+- `shelf template show <name> [--json]`
+- `shelf template apply <name> [--parent <id|root> --title-prefix <str>]`
+- `shelf template delete|rm <name>`
+
+`template save` stores the selected subtree under `.shelf/templates/<name>.json`.
+`template apply` recreates tasks in preorder and restores parent-child structure.
+
 ## shelf ls
 
 Flat task list.

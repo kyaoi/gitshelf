@@ -16,7 +16,7 @@ func TestInitializeCreatesShelfLayout(t *testing.T) {
 		t.Fatal("expected config to be created")
 	}
 
-	for _, p := range []string{ShelfDir(root), TasksDir(root), EdgesDir(root), ConfigPath(root)} {
+	for _, p := range []string{ShelfDir(root), TasksDir(root), EdgesDir(root), TemplatesDir(root), ConfigPath(root)} {
 		if _, err := os.Stat(p); err != nil {
 			t.Fatalf("path does not exist: %s (%v)", p, err)
 		}

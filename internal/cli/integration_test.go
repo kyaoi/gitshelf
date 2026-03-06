@@ -328,6 +328,49 @@ func TestCLITriageRequiresAutoOnNonTTY(t *testing.T) {
 	}
 }
 
+func TestCLITemplateSaveAndApply(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TemplateRoot", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TemplateChild", Kind: "memo", Status: "open", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "template", "--root", root, "save", "sample", parent.ID); err != nil {
+		t.Fatalf("template save failed: %v", err)
+	}
+	if _, err := executeCLI(t, "template", "--root", root, "apply", "sample", "--title-prefix", "Copy: "); err != nil {
+		t.Fatalf("template apply failed: %v", err)
+	}
+
+	tasks, err := shelf.NewTaskStore(root).List()
+	if err != nil {
+		t.Fatalf("list tasks failed: %v", err)
+	}
+	foundRoot := false
+	foundChild := false
+	var copiedRoot shelf.Task
+	for _, task := range tasks {
+		if task.Title == "Copy: TemplateRoot" {
+			foundRoot = true
+			copiedRoot = task
+		}
+	}
+	for _, task := range tasks {
+		if task.Title == "Copy: TemplateChild" && task.Parent == copiedRoot.ID {
+			foundChild = true
+		}
+	}
+	if !foundRoot || !foundChild {
+		t.Fatalf("expected copied template tree, got %+v", tasks)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

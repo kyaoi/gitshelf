@@ -29,6 +29,8 @@ go build -o shelf ./cmd/shelf
 ./shelf add --title "Monday Plan" --parent root
 ./shelf capture "Call vendor"
 ./shelf triage --auto done
+./shelf template save weekly-plan <task-id>
+./shelf template apply weekly-plan --parent root
 
 # List and inspect
 ./shelf ls
@@ -82,6 +84,7 @@ go build -o shelf ./cmd/shelf
 - `shelf add [--root <dir>] [--title ... --kind ... --status ... --tag ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
+- `shelf template list|save|show|apply|delete [--root <dir>] ...`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
@@ -242,6 +245,8 @@ Resolution order for commands:
     <id>.md
   edges/
     <src_id>.toml
+  templates/
+    <name>.json
   .write.lock
   history/
     index.json

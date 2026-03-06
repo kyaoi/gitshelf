@@ -16,8 +16,9 @@ func Initialize(rootDir string, force bool) (InitResult, error) {
 	shelfDir := ShelfDir(rootDir)
 	tasksDir := TasksDir(rootDir)
 	edgesDir := EdgesDir(rootDir)
+	templatesDir := TemplatesDir(rootDir)
 
-	for _, dir := range []string{shelfDir, tasksDir, edgesDir} {
+	for _, dir := range []string{shelfDir, tasksDir, edgesDir, templatesDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return InitResult{}, fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}

@@ -10,6 +10,8 @@
     <id>.md
   edges/
     <src_id>.toml
+  templates/
+    <name>.json
   history/
     index.json
     actions.log
@@ -119,6 +121,14 @@ Edge output is stable sorted by:
 2. `type` ascending
 
 Duplicate `(to, type)` is removed on write.
+
+## Template File (`.shelf/templates/<name>.json`)
+
+Reusable subtree snapshot.
+
+- stored as JSON
+- contains template-local task keys plus `parent_key`
+- `template apply` expands tasks in preorder and rewrites parent references to created task IDs
 
 ## Invariants
 
