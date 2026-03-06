@@ -12,14 +12,16 @@ import (
 
 func newSetCommand(ctx *commandContext) *cobra.Command {
 	var (
-		title      string
-		kind       string
-		status     string
-		due        string
-		clearDue   bool
-		parent     string
-		body       string
-		appendBody string
+		title       string
+		kind        string
+		status      string
+		due         string
+		clearDue    bool
+		repeatEvery string
+		clearRepeat bool
+		parent      string
+		body        string
+		appendBody  string
 	)
 
 	cmd := &cobra.Command{
@@ -57,6 +59,16 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				empty := ""
 				input.DueOn = &empty
 			}
+			if cmd.Flags().Changed("repeat-every") && clearRepeat {
+				return errors.New("--repeat-every と --clear-repeat は同時に指定できません")
+			}
+			if cmd.Flags().Changed("repeat-every") {
+				input.RepeatEvery = &repeatEvery
+			}
+			if clearRepeat {
+				empty := ""
+				input.RepeatEvery = &empty
+			}
 			if cmd.Flags().Changed("parent") {
 				input.Parent = &parent
 			}
@@ -67,7 +79,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				input.AppendBody = &appendBody
 			}
 
-			if input.Title == nil && input.Kind == nil && input.Status == nil && input.DueOn == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
+			if input.Title == nil && input.Kind == nil && input.Status == nil && input.DueOn == nil && input.RepeatEvery == nil && input.Parent == nil && input.Body == nil && input.AppendBody == nil {
 				if interactive.IsTTY() {
 					task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
 					if err != nil {
@@ -83,7 +95,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 					}
 					input = interactiveInput
 				} else {
-					return errors.New("更新対象がありません。--title/--kind/--status/--due/--clear-due/--parent/--body/--append-body を指定してください")
+					return errors.New("更新対象がありません。--title/--kind/--status/--due/--clear-due/--repeat-every/--clear-repeat/--parent/--body/--append-body を指定してください")
 				}
 			}
 
@@ -101,6 +113,8 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&status, "status", "", "New status")
 	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD)")
 	cmd.Flags().BoolVar(&clearDue, "clear-due", false, "Clear due date")
+	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
+	cmd.Flags().BoolVar(&clearRepeat, "clear-repeat", false, "Clear repeat interval")
 	cmd.Flags().StringVar(&parent, "parent", "", "New parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Replace body")
 	cmd.Flags().StringVar(&appendBody, "append-body", "", "Append text to body")
@@ -113,6 +127,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 	currentKind := task.Kind
 	currentStatus := task.Status
 	currentDue := task.DueOn
+	currentRepeatEvery := task.RepeatEvery
 	currentParent := task.Parent
 	currentBody := task.Body
 	changed := false
@@ -126,6 +141,10 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 		if strings.TrimSpace(dueLabel) == "" {
 			dueLabel = "(none)"
 		}
+		repeatLabel := currentRepeatEvery
+		if strings.TrimSpace(repeatLabel) == "" {
+			repeatLabel = "(none)"
+		}
 		bodyLabel := strings.TrimSpace(currentBody)
 		if bodyLabel == "" {
 			bodyLabel = "(empty)"
@@ -137,6 +156,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			{Value: "kind", Label: fmt.Sprintf("Kind: %s", currentKind)},
 			{Value: "status", Label: fmt.Sprintf("Status: %s", currentStatus)},
 			{Value: "due", Label: fmt.Sprintf("Due: %s", dueLabel)},
+			{Value: "repeat", Label: fmt.Sprintf("Repeat: %s", repeatLabel)},
 			{Value: "parent", Label: fmt.Sprintf("Parent: %s", parentLabel)},
 			{Value: "body_replace", Label: fmt.Sprintf("Body (replace): %s", bodyLabel)},
 			{Value: "body_append", Label: "Body (append)"},
@@ -201,6 +221,14 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			}
 			currentDue = due
 			input.DueOn = &due
+			changed = true
+		case "repeat":
+			repeatEvery, err := interactive.PromptText("繰り返し間隔を入力してください (<N>d|<N>w|<N>m|<N>y, 空でクリア)")
+			if err != nil {
+				return shelf.SetTaskInput{}, err
+			}
+			currentRepeatEvery = repeatEvery
+			input.RepeatEvery = &repeatEvery
 			changed = true
 		case "parent":
 			parent, err := selectParentIfMissing(ctx, id, "")
@@ -296,6 +324,17 @@ func buildSetChangePreview(orig shelf.Task, input shelf.SetTaskInput) string {
 			after = "(none)"
 		}
 		lines = append(lines, fmt.Sprintf("Due: %q -> %q", before, after))
+	}
+	if input.RepeatEvery != nil {
+		before := orig.RepeatEvery
+		if strings.TrimSpace(before) == "" {
+			before = "(none)"
+		}
+		after := strings.TrimSpace(*input.RepeatEvery)
+		if after == "" {
+			after = "(none)"
+		}
+		lines = append(lines, fmt.Sprintf("Repeat: %q -> %q", before, after))
 	}
 	if input.Parent != nil {
 		before := orig.Parent

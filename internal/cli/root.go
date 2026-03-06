@@ -203,12 +203,13 @@ func newStubCommand(name string) *cobra.Command {
 
 func newAddCommand(ctx *commandContext) *cobra.Command {
 	var (
-		title  string
-		kind   string
-		status string
-		due    string
-		parent string
-		body   string
+		title       string
+		kind        string
+		status      string
+		due         string
+		repeatEvery string
+		parent      string
+		body        string
 	)
 
 	cmd := &cobra.Command{
@@ -220,19 +221,20 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var input shelf.AddTaskInput
 			if strings.TrimSpace(title) == "" {
-				interactiveInput, err := resolveAddInputInteractive(ctx, body, status, due)
+				interactiveInput, err := resolveAddInputInteractive(ctx, body, status, due, repeatEvery)
 				if err != nil {
 					return err
 				}
 				input = interactiveInput
 			} else {
 				input = shelf.AddTaskInput{
-					Title:  title,
-					Kind:   shelf.Kind(kind),
-					Status: shelf.Status(status),
-					DueOn:  due,
-					Parent: parent,
-					Body:   body,
+					Title:       title,
+					Kind:        shelf.Kind(kind),
+					Status:      shelf.Status(status),
+					DueOn:       due,
+					RepeatEvery: repeatEvery,
+					Parent:      parent,
+					Body:        body,
 				}
 			}
 
@@ -251,6 +253,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&kind, "kind", "", "Task kind")
 	cmd.Flags().StringVar(&status, "status", "", "Task status")
 	cmd.Flags().StringVar(&due, "due", "", "Task due date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Task body")
 	return cmd

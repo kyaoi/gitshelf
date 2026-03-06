@@ -8,7 +8,7 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
-func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string, initialDue string) (shelf.AddTaskInput, error) {
+func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus string, initialDue string, initialRepeatEvery string) (shelf.AddTaskInput, error) {
 	if !interactive.IsTTY() {
 		return shelf.AddTaskInput{}, errors.New("非TTYでは対話入力できません。--title を指定してください")
 	}
@@ -22,6 +22,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 	kind := cfg.DefaultKind
 	status := cfg.DefaultStatus
 	due := strings.TrimSpace(initialDue)
+	repeatEvery := strings.TrimSpace(initialRepeatEvery)
 	parent := "root"
 	if initial := strings.TrimSpace(initialStatus); initial != "" {
 		status = shelf.Status(initial)
@@ -36,6 +37,10 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		if strings.TrimSpace(dueLabel) == "" {
 			dueLabel = "(none)"
 		}
+		repeatLabel := repeatEvery
+		if strings.TrimSpace(repeatLabel) == "" {
+			repeatLabel = "(none)"
+		}
 		parentLabel := parent
 		if strings.TrimSpace(parentLabel) == "" {
 			parentLabel = "root"
@@ -46,6 +51,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			{Value: "kind", Label: "Kind: " + string(kind)},
 			{Value: "status", Label: "Status: " + string(status)},
 			{Value: "due", Label: "Due: " + dueLabel},
+			{Value: "repeat", Label: "Repeat: " + repeatLabel},
 			{Value: "parent", Label: "Parent: " + parentLabel},
 			{Value: "save", Label: "Create task"},
 			{Value: "cancel", Label: "Cancel"},
@@ -112,6 +118,12 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				}
 				due = strings.TrimSpace(customDue)
 			}
+		case "repeat":
+			repeat, err := interactive.PromptText("繰り返し間隔を入力してください (<N>d|<N>w|<N>m|<N>y, 空でクリア)")
+			if err != nil {
+				return shelf.AddTaskInput{}, err
+			}
+			repeatEvery = strings.TrimSpace(repeat)
 		case "parent":
 			taskStore := shelf.NewTaskStore(ctx.rootDir)
 			tasks, err := taskStore.List()
@@ -129,12 +141,13 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				return shelf.AddTaskInput{}, errors.New("title は必須です")
 			}
 			return shelf.AddTaskInput{
-				Title:  title,
-				Kind:   kind,
-				Status: status,
-				DueOn:  due,
-				Parent: parent,
-				Body:   body,
+				Title:       title,
+				Kind:        kind,
+				Status:      status,
+				DueOn:       due,
+				RepeatEvery: repeatEvery,
+				Parent:      parent,
+				Body:        body,
 			}, nil
 		case "cancel":
 			return shelf.AddTaskInput{}, interactive.ErrCanceled

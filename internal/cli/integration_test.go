@@ -323,6 +323,55 @@ func TestCLIAddAndSetDueKeywords(t *testing.T) {
 	}
 }
 
+func TestCLIAddAndSetRepeatEvery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	addOut, err := executeCLI(t, "add", "--root", root, "--title", "repeat task", "--repeat-every", "1w")
+	if err != nil {
+		t.Fatalf("add with repeat failed: %v", err)
+	}
+	id := extractIDFromAddOutput(addOut)
+	showOut, err := executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(showOut, `repeat_every = "1w"`) {
+		t.Fatalf("show should include repeat_every: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--repeat-every", "2w"); err != nil {
+		t.Fatalf("set repeat failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set repeat failed: %v", err)
+	}
+	if !strings.Contains(showOut, `repeat_every = "2w"`) {
+		t.Fatalf("show should include updated repeat_every: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--clear-repeat"); err != nil {
+		t.Fatalf("clear repeat failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after clear repeat failed: %v", err)
+	}
+	if strings.Contains(showOut, "repeat_every =") {
+		t.Fatalf("show should not include repeat_every after clear: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--repeat-every", "bad"); err == nil || !strings.Contains(err.Error(), "invalid repeat_every") {
+		t.Fatalf("expected invalid repeat error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "set", "--root", root, id, "--repeat-every", "1w", "--clear-repeat"); err == nil || !strings.Contains(err.Error(), "同時に指定できません") {
+		t.Fatalf("expected repeat/clear conflict error, got: %v", err)
+	}
+}
+
 func TestCLINextShowsOnlyReadyTasks(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
