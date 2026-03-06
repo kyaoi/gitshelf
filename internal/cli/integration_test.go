@@ -274,6 +274,60 @@ func TestCLICaptureRequiresTitleOnNonTTY(t *testing.T) {
 	}
 }
 
+func TestCLITriageAutoDone(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "inbox-1", Kind: "inbox", Status: "open"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "inbox-2", Kind: "inbox", Status: "open"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "todo-1", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "triage", "--root", root, "--auto", "done"); err != nil {
+		t.Fatalf("triage auto failed: %v", err)
+	}
+
+	doneInbox, err := shelf.ListTasks(root, shelf.TaskFilter{
+		Kinds:    []shelf.Kind{"inbox"},
+		Statuses: []shelf.Status{"done"},
+	})
+	if err != nil {
+		t.Fatalf("list done inbox failed: %v", err)
+	}
+	if len(doneInbox) != 2 {
+		t.Fatalf("expected 2 done inbox tasks, got %d", len(doneInbox))
+	}
+	openTodo, err := shelf.ListTasks(root, shelf.TaskFilter{
+		Kinds:    []shelf.Kind{"todo"},
+		Statuses: []shelf.Status{"open"},
+	})
+	if err != nil {
+		t.Fatalf("list open todo failed: %v", err)
+	}
+	if len(openTodo) != 1 {
+		t.Fatalf("todo task should stay open, got %d", len(openTodo))
+	}
+}
+
+func TestCLITriageRequiresAutoOnNonTTY(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "inbox-1", Kind: "inbox", Status: "open"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if _, err := executeCLI(t, "triage", "--root", root); err == nil || !strings.Contains(err.Error(), "--auto") {
+		t.Fatalf("expected --auto required error, got: %v", err)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -58,6 +58,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newCompletionCommand())
 	cmd.AddCommand(newAddCommand(ctx))
 	cmd.AddCommand(newCaptureCommand(ctx))
+	cmd.AddCommand(newTriageCommand(ctx))
 	cmd.AddCommand(newLsCommand(ctx))
 	cmd.AddCommand(newViewCommand(ctx))
 	cmd.AddCommand(newPresetCommand(ctx))

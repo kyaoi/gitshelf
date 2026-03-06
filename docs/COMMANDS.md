@@ -69,6 +69,24 @@ Flags:
 - `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
 - `--body <str>`
 
+## shelf triage
+
+Process inbox queue (`kind=inbox`, `status=open` by default).
+
+Modes:
+
+- interactive (TTY): per-task action menu (`edit`/status changes/`archive`/`skip`)
+- auto (non-TTY friendly): batch action via `--auto`
+
+Flags:
+
+- `--kind <kind>` (default: `inbox`)
+- `--status <status>` (default: `open`)
+- `--limit <n>` (default: `20`)
+- `--auto <done|start|block|cancel|reopen|archive>`
+
+If `--auto` is omitted in non-TTY, command fails.
+
 ## shelf ls
 
 Flat task list.

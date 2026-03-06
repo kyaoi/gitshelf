@@ -15,6 +15,7 @@ If not TTY, users must provide required flags.
 - `shelf mv` (when `<id>` and/or `--parent` is omitted)
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
+- `shelf triage` (without `--auto`)
 
 ## Key Bindings
 
@@ -96,3 +97,12 @@ The type selection screen includes this warning:
 
 1. Select target task by ID/title (when `<id>` omitted)
 2. Select new parent (`0: [root]`) when `--parent` omitted
+
+## triage Interactive Flow
+
+1. Load triage targets by `--kind` + `--status` (default `inbox/open`)
+2. For each task choose one action:
+   - `Edit fields` (same editor as `set` interactive)
+   - `Set status ...`
+   - `Archive task`
+   - `Skip` / `Quit triage`
