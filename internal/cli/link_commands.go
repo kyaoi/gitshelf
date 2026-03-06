@@ -38,7 +38,11 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 			if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
 				return err
 			}
-			fmt.Printf("Linked: %s --%s--> %s\n", uiShortID(shelf.ShortID(from)), uiLinkType(shelf.LinkType(kind)), uiShortID(shelf.ShortID(to)))
+			byID, err := loadTaskMap(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Linked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
 			return nil
 		},
 	}
@@ -79,7 +83,11 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 			if !removed {
 				return errors.New("指定リンクは存在しません")
 			}
-			fmt.Printf("Unlinked: %s --%s--> %s\n", uiShortID(shelf.ShortID(from)), uiLinkType(shelf.LinkType(kind)), uiShortID(shelf.ShortID(to)))
+			byID, err := loadTaskMap(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Unlinked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
 			return nil
 		},
 	}
@@ -105,6 +113,10 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, true)
+			if err != nil {
+				return err
+			}
+			byID, err := loadTaskMap(ctx.rootDir)
 			if err != nil {
 				return err
 			}
@@ -143,7 +155,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(uiMuted("  (none)"))
 			}
 			for _, edge := range outbound {
-				fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(id)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(edge.To)))
+				fmt.Printf("  %s --%s--> %s\n", taskLabelForLink(id, byID, ctx.showID), uiLinkType(edge.Type), taskLabelForLink(edge.To, byID, ctx.showID))
 			}
 
 			fmt.Println(uiHeading("Inbound:"))
@@ -151,7 +163,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(uiMuted("  (none)"))
 			}
 			for _, edge := range inbound {
-				fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(edge.From)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(id)))
+				fmt.Printf("  %s --%s--> %s\n", taskLabelForLink(edge.From, byID, ctx.showID), uiLinkType(edge.Type), taskLabelForLink(id, byID, ctx.showID))
 			}
 			if transitive {
 				fmt.Println(uiHeading("Transitive depends_on:"))
@@ -159,7 +171,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					fmt.Println(uiMuted("  (none)"))
 				} else {
 					for _, depID := range transitiveDeps {
-						fmt.Printf("  %s\n", uiShortID(shelf.ShortID(depID)))
+						fmt.Printf("  %s\n", taskLabelForLink(depID, byID, ctx.showID))
 					}
 				}
 			}
@@ -171,6 +183,18 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&transitive, "transitive", false, "Show transitive depends_on closure")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
+}
+
+func loadTaskMap(rootDir string) (map[string]shelf.Task, error) {
+	tasks, err := shelf.NewTaskStore(rootDir).List()
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]shelf.Task, len(tasks))
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+	return byID, nil
 }
 
 func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, error) {

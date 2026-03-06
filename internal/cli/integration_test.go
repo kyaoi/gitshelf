@@ -601,6 +601,17 @@ func TestCLILinksTransitiveAndJSON(t *testing.T) {
 	if !strings.Contains(out, "Transitive depends_on:") {
 		t.Fatalf("expected transitive section in links output: %s", out)
 	}
+	if strings.Contains(out, shelf.ShortID(a.ID)) || strings.Contains(out, shelf.ShortID(b.ID)) {
+		t.Fatalf("links default output should hide IDs: %s", out)
+	}
+
+	withID, err := executeCLI(t, "links", "--root", root, a.ID, "--show-id")
+	if err != nil {
+		t.Fatalf("links --show-id failed: %v", err)
+	}
+	if !strings.Contains(withID, shelf.ShortID(a.ID)) {
+		t.Fatalf("links --show-id should include source ID: %s", withID)
+	}
 
 	out, err = executeCLI(t, "links", "--root", root, a.ID, "--transitive", "--json")
 	if err != nil {

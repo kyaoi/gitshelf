@@ -43,6 +43,14 @@ func newExplainCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			readiness := readinessMap[task.ID]
+			allTasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			if err != nil {
+				return err
+			}
+			byID := make(map[string]shelf.Task, len(allTasks))
+			for _, item := range allTasks {
+				byID[item.ID] = item
+			}
 
 			builtin := map[string]shelf.TaskFilter{}
 			for _, name := range []string{"active", "ready", "blocked", "overdue"} {
@@ -165,7 +173,11 @@ func newExplainCommand(ctx *commandContext) *cobra.Command {
 			if len(readiness.UnresolvedDependsOn) == 0 {
 				fmt.Println("  unresolved depends_on: (none)")
 			} else {
-				fmt.Printf("  unresolved depends_on: %s\n", strings.Join(readiness.UnresolvedDependsOn, ", "))
+				labels := make([]string, 0, len(readiness.UnresolvedDependsOn))
+				for _, depID := range readiness.UnresolvedDependsOn {
+					labels = append(labels, taskLabelForLink(depID, byID, ctx.showID))
+				}
+				fmt.Printf("  unresolved depends_on: %s\n", strings.Join(labels, ", "))
 			}
 
 			fmt.Println(uiHeading("Built-in Views:"))
