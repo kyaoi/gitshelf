@@ -230,3 +230,35 @@ type = "depends_on"
 		t.Fatalf("expected only valid edge to remain, got: %+v", edges)
 	}
 }
+
+func TestRunDoctorStrictWarnsTodoWithoutDue(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if _, err := AddTask(root, AddTaskInput{Title: "todo-no-due", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add todo failed: %v", err)
+	}
+	if _, err := AddTask(root, AddTaskInput{Title: "memo-no-due", Kind: "memo", Status: "open"}); err != nil {
+		t.Fatalf("add memo failed: %v", err)
+	}
+
+	normalReport, err := RunDoctor(root)
+	if err != nil {
+		t.Fatalf("normal doctor should pass: %v", err)
+	}
+	if len(normalReport.Warnings) != 0 {
+		t.Fatalf("normal doctor should not return strict warnings: %+v", normalReport.Warnings)
+	}
+
+	strictReport, err := RunDoctorWithOptions(root, DoctorOptions{Strict: true})
+	if err != nil {
+		t.Fatalf("strict doctor should not fail on warnings only: %v", err)
+	}
+	if len(strictReport.Warnings) != 1 {
+		t.Fatalf("strict doctor should emit one warning, got: %+v", strictReport.Warnings)
+	}
+	if !strings.Contains(strictReport.Warnings[0].Message, "todo task has no due_on") {
+		t.Fatalf("unexpected warning: %+v", strictReport.Warnings[0])
+	}
+}

@@ -20,7 +20,12 @@ type DoctorIssue struct {
 }
 
 type DoctorReport struct {
-	Issues []DoctorIssue
+	Issues   []DoctorIssue
+	Warnings []DoctorIssue
+}
+
+type DoctorOptions struct {
+	Strict bool
 }
 
 func (r DoctorReport) HasIssues() bool {
@@ -28,7 +33,14 @@ func (r DoctorReport) HasIssues() bool {
 }
 
 func RunDoctor(rootDir string) (DoctorReport, error) {
-	report := DoctorReport{Issues: make([]DoctorIssue, 0)}
+	return RunDoctorWithOptions(rootDir, DoctorOptions{})
+}
+
+func RunDoctorWithOptions(rootDir string, opts DoctorOptions) (DoctorReport, error) {
+	report := DoctorReport{
+		Issues:   make([]DoctorIssue, 0),
+		Warnings: make([]DoctorIssue, 0),
+	}
 
 	cfg, err := LoadConfig(rootDir)
 	if err != nil {
@@ -53,6 +65,9 @@ func RunDoctor(rootDir string) (DoctorReport, error) {
 				report.Issues = append(report.Issues, DoctorIssue{Path: path, TaskID: id, Message: fmt.Sprintf("parent does not exist: %s", task.Parent)})
 			}
 		}
+		if opts.Strict && task.Kind == "todo" && strings.TrimSpace(task.DueOn) == "" {
+			report.Warnings = append(report.Warnings, DoctorIssue{Path: path, TaskID: id, Message: "todo task has no due_on"})
+		}
 	}
 
 	for id := range tasks {
@@ -76,11 +91,15 @@ func RunDoctor(rootDir string) (DoctorReport, error) {
 }
 
 func RunDoctorWithFix(rootDir string) (DoctorReport, int, error) {
+	return RunDoctorWithFixOptions(rootDir, DoctorOptions{})
+}
+
+func RunDoctorWithFixOptions(rootDir string, opts DoctorOptions) (DoctorReport, int, error) {
 	fixed, err := applyDoctorFixes(rootDir)
 	if err != nil {
 		return DoctorReport{}, fixed, err
 	}
-	report, doctorErr := RunDoctor(rootDir)
+	report, doctorErr := RunDoctorWithOptions(rootDir, opts)
 	return report, fixed, doctorErr
 }
 

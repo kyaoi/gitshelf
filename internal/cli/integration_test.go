@@ -712,6 +712,32 @@ type = "depends_on"
 	}
 }
 
+func TestCLIDoctorStrictWarnings(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "todo-no-due", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "doctor", "--root", root, "--strict", "--json")
+	if err != nil {
+		t.Fatalf("doctor --strict --json should not fail for warning-only case: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse doctor strict json output: %v output=%s", err, out)
+	}
+	if payload["ok"] != true {
+		t.Fatalf("expected ok=true in warning-only strict doctor output: %s", out)
+	}
+	warningCount, ok := payload["warning_count"].(float64)
+	if !ok || warningCount < 1 {
+		t.Fatalf("expected warning_count >= 1: %s", out)
+	}
+}
+
 func TestCLIDoctorShowsAdvice(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -13,6 +13,7 @@ import (
 func newDoctorCommand(ctx *commandContext) *cobra.Command {
 	var (
 		fix    bool
+		strict bool
 		asJSON bool
 	)
 
@@ -21,6 +22,7 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 		Short: "Run integrity checks for .shelf",
 		Example: "  shelf doctor\n" +
 			"  shelf doctor --fix\n" +
+			"  shelf doctor --strict\n" +
 			"  shelf doctor --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var (
@@ -28,13 +30,14 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 				err    error
 				fixed  int
 			)
+			opts := shelf.DoctorOptions{Strict: strict}
 			if fix {
-				rawReport, fixedCount, runErr := shelf.RunDoctorWithFix(ctx.rootDir)
+				rawReport, fixedCount, runErr := shelf.RunDoctorWithFixOptions(ctx.rootDir, opts)
 				report = rawReport
 				fixed = fixedCount
 				err = runErr
 			} else {
-				rawReport, runErr := shelf.RunDoctor(ctx.rootDir)
+				rawReport, runErr := shelf.RunDoctorWithOptions(ctx.rootDir, opts)
 				report = rawReport
 				err = runErr
 			}
@@ -59,11 +62,22 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 						Advice:  buildDoctorAdvice(issue),
 					})
 				}
+				warnings := make([]issueWithAdvice, 0, len(report.Warnings))
+				for _, warning := range report.Warnings {
+					warnings = append(warnings, issueWithAdvice{
+						Path:    warning.Path,
+						TaskID:  warning.TaskID,
+						Message: warning.Message,
+						Advice:  buildDoctorAdvice(warning),
+					})
+				}
 				payload := map[string]any{
-					"ok":          err == nil,
-					"fixed_count": fixed,
-					"issue_count": len(issues),
-					"issues":      issues,
+					"ok":            err == nil,
+					"fixed_count":   fixed,
+					"issue_count":   len(issues),
+					"warning_count": len(warnings),
+					"issues":        issues,
+					"warnings":      warnings,
 				}
 				data, marshalErr := json.MarshalIndent(payload, "", "  ")
 				if marshalErr != nil {
@@ -78,6 +92,19 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 					fmt.Printf("%s %s (fixed=%d)\n", uiHeading("doctor:"), uiColor("問題は見つかりませんでした", "32"), fixed)
 				} else {
 					fmt.Printf("%s %s\n", uiHeading("doctor:"), uiColor("問題は見つかりませんでした", "32"))
+				}
+				if len(report.Warnings) > 0 {
+					fmt.Printf("%s %s\n", uiHeading("doctor:"), uiColor(fmt.Sprintf("%d 件の警告を検出しました", len(report.Warnings)), "33"))
+					for _, warning := range report.Warnings {
+						if warning.TaskID != "" {
+							fmt.Printf("- %s (%s): %s\n", warning.Path, uiShortID(shelf.ShortID(warning.TaskID)), warning.Message)
+						} else {
+							fmt.Printf("- %s: %s\n", warning.Path, warning.Message)
+						}
+						if advice := buildDoctorAdvice(warning); advice != "" {
+							fmt.Printf("  hint: %s\n", advice)
+						}
+					}
 				}
 				return nil
 			}
@@ -96,10 +123,24 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 					fmt.Printf("  hint: %s\n", advice)
 				}
 			}
+			if len(report.Warnings) > 0 {
+				fmt.Printf("%s %s\n", uiHeading("doctor:"), uiColor(fmt.Sprintf("%d 件の警告を検出しました", len(report.Warnings)), "33"))
+				for _, warning := range report.Warnings {
+					if warning.TaskID != "" {
+						fmt.Printf("- %s (%s): %s\n", warning.Path, uiShortID(shelf.ShortID(warning.TaskID)), warning.Message)
+					} else {
+						fmt.Printf("- %s: %s\n", warning.Path, warning.Message)
+					}
+					if advice := buildDoctorAdvice(warning); advice != "" {
+						fmt.Printf("  hint: %s\n", advice)
+					}
+				}
+			}
 			return err
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply safe automatic fixes before running checks")
+	cmd.Flags().BoolVar(&strict, "strict", false, "Enable stricter warnings (e.g. todo without due_on)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -121,6 +162,8 @@ func buildDoctorAdvice(issue shelf.DoctorIssue) string {
 		return "対応する edge file を削除するか、source task を復元してください"
 	case strings.Contains(msg, "duplicate edge found"):
 		return "`shelf doctor --fix` で重複 edge を正規化できます"
+	case strings.Contains(msg, "todo task has no due_on"):
+		return "`shelf set <id> --due today` や `snooze --to` で期限を設定してください"
 	case strings.Contains(msg, "invalid toml"), strings.Contains(msg, "failed to parse"), strings.Contains(msg, "failed to read file"):
 		return "ファイルを手動で修正し、必要なら `shelf doctor --fix` を再実行してください"
 	default:
