@@ -81,7 +81,7 @@ Flags:
 Show task details:
 
 - front matter fields
-- body
+- body (freeform notes)
 - outbound and inbound link summary
 
 ## shelf set <id>

@@ -141,6 +141,13 @@ updated_at = "2026-03-05T12:34:56+09:00"
 Body text...
 ```
 
+Task files are split into:
+
+- front matter: structured metadata (`title`, `kind`, `status`, `parent`, timestamps)
+- body: freeform notes (`details`, `supplements`, `progress logs`, `ideas`, `references`)
+
+`shelf show <id>` displays both metadata and body so the task context stays in one place.
+
 Edge file format (`.shelf/edges/<src_id>.toml`):
 
 ```toml

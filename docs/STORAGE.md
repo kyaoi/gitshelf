@@ -19,6 +19,7 @@
 ## Task File (`.shelf/tasks/<id>.md`)
 
 - Markdown body with TOML front matter (`+++ ... +++`).
+- Front matter is structured metadata.
 - Required front matter keys:
   - `id`
   - `title`
@@ -28,7 +29,16 @@
   - `updated_at`
 - Optional:
   - `parent`
-  - body text
+  - body text (freeform notes)
+
+Body is intentionally freeform. Typical usage:
+
+- detailed description
+- supplementary context
+- execution memo
+- progress log
+- idea draft
+- references
 
 Key order is stable:
 
