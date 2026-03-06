@@ -12,21 +12,23 @@ import (
 
 func newLsCommand(ctx *commandContext) *cobra.Command {
 	var (
-		kinds       []string
-		statuses    []string
-		notKinds    []string
-		notStatuses []string
-		view        string
-		ready       bool
-		depsBlocked bool
-		dueBefore   string
-		dueAfter    string
-		overdue     bool
-		noDue       bool
-		asJSON      bool
-		parent      string
-		limit       int
-		search      string
+		kinds           []string
+		statuses        []string
+		notKinds        []string
+		notStatuses     []string
+		view            string
+		includeArchived bool
+		onlyArchived    bool
+		ready           bool
+		depsBlocked     bool
+		dueBefore       string
+		dueAfter        string
+		overdue         bool
+		noDue           bool
+		asJSON          bool
+		parent          string
+		limit           int
+		search          string
 	)
 
 	cmd := &cobra.Command{
@@ -43,19 +45,21 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			filter := shelf.TaskFilter{
-				Kinds:       toKinds(kinds),
-				Statuses:    toStatuses(statuses),
-				NotKinds:    toKinds(notKinds),
-				NotStatuses: toStatuses(notStatuses),
-				ReadyOnly:   ready,
-				DepsBlocked: depsBlocked,
-				DueBefore:   dueBefore,
-				DueAfter:    dueAfter,
-				Overdue:     overdue,
-				NoDue:       noDue,
-				Parent:      parent,
-				Limit:       limit,
-				Search:      search,
+				Kinds:           toKinds(kinds),
+				Statuses:        toStatuses(statuses),
+				NotKinds:        toKinds(notKinds),
+				NotStatuses:     toStatuses(notStatuses),
+				IncludeArchived: includeArchived,
+				OnlyArchived:    onlyArchived,
+				ReadyOnly:       ready,
+				DepsBlocked:     depsBlocked,
+				DueBefore:       dueBefore,
+				DueAfter:        dueAfter,
+				Overdue:         overdue,
+				NoDue:           noDue,
+				Parent:          parent,
+				Limit:           limit,
+				Search:          search,
 			}
 			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
 				"ready":           cmd.Flags().Changed("ready"),
@@ -89,6 +93,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					Kind        string `json:"kind"`
 					Status      string `json:"status"`
 					DueOn       string `json:"due_on,omitempty"`
+					RepeatEvery string `json:"repeat_every,omitempty"`
+					ArchivedAt  string `json:"archived_at,omitempty"`
 					Parent      string `json:"parent,omitempty"`
 					ParentTitle string `json:"parent_title,omitempty"`
 				}
@@ -104,6 +110,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						DueOn:       task.DueOn,
+						RepeatEvery: task.RepeatEvery,
+						ArchivedAt:  task.ArchivedAt,
 						Parent:      task.Parent,
 						ParentTitle: parentTitle,
 					})
@@ -138,7 +146,11 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if task.DueOn != "" {
 					dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
 				}
-				fmt.Printf("%s  (%s/%s)%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, parentLabel)
+				archivedText := ""
+				if task.ArchivedAt != "" {
+					archivedText = " " + uiMuted("[archived]")
+				}
+				fmt.Printf("%s  (%s/%s)%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, archivedText, parentLabel)
 			}
 			return nil
 		},
@@ -149,6 +161,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
+	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
+	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -164,9 +178,11 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		view   string
-		limit  int
-		asJSON bool
+		view            string
+		includeArchived bool
+		onlyArchived    bool
+		limit           int
+		asJSON          bool
 	)
 
 	cmd := &cobra.Command{
@@ -184,6 +200,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			filter := mergeTaskFilterWithView(shelf.TaskFilter{Limit: 0}, preset, map[string]bool{
 				"limit": true,
 			})
+			filter.IncludeArchived = includeArchived
+			filter.OnlyArchived = onlyArchived
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
 				return err
@@ -205,6 +223,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 					Kind        string `json:"kind"`
 					Status      string `json:"status"`
 					DueOn       string `json:"due_on,omitempty"`
+					RepeatEvery string `json:"repeat_every,omitempty"`
+					ArchivedAt  string `json:"archived_at,omitempty"`
 					Parent      string `json:"parent,omitempty"`
 					ParentTitle string `json:"parent_title,omitempty"`
 				}
@@ -224,6 +244,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						DueOn:       task.DueOn,
+						RepeatEvery: task.RepeatEvery,
+						ArchivedAt:  task.ArchivedAt,
 						Parent:      task.Parent,
 						ParentTitle: parentTitle,
 					})
@@ -278,6 +300,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
+	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
+	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
@@ -354,13 +378,15 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 
 			if asJSON {
 				type jsonTreeNode struct {
-					ID       string         `json:"id"`
-					Title    string         `json:"title"`
-					Kind     string         `json:"kind"`
-					Status   string         `json:"status"`
-					DueOn    string         `json:"due_on,omitempty"`
-					Parent   string         `json:"parent,omitempty"`
-					Children []jsonTreeNode `json:"children,omitempty"`
+					ID          string         `json:"id"`
+					Title       string         `json:"title"`
+					Kind        string         `json:"kind"`
+					Status      string         `json:"status"`
+					DueOn       string         `json:"due_on,omitempty"`
+					RepeatEvery string         `json:"repeat_every,omitempty"`
+					ArchivedAt  string         `json:"archived_at,omitempty"`
+					Parent      string         `json:"parent,omitempty"`
+					Children    []jsonTreeNode `json:"children,omitempty"`
 				}
 				var convert func(node shelf.TreeNode) jsonTreeNode
 				convert = func(node shelf.TreeNode) jsonTreeNode {
@@ -369,13 +395,15 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 						children = append(children, convert(child))
 					}
 					return jsonTreeNode{
-						ID:       node.Task.ID,
-						Title:    node.Task.Title,
-						Kind:     string(node.Task.Kind),
-						Status:   string(node.Task.Status),
-						DueOn:    node.Task.DueOn,
-						Parent:   node.Task.Parent,
-						Children: children,
+						ID:          node.Task.ID,
+						Title:       node.Task.Title,
+						Kind:        string(node.Task.Kind),
+						Status:      string(node.Task.Status),
+						DueOn:       node.Task.DueOn,
+						RepeatEvery: node.Task.RepeatEvery,
+						ArchivedAt:  node.Task.ArchivedAt,
+						Parent:      node.Task.Parent,
+						Children:    children,
 					}
 				}
 				subtreePayload := make([]jsonTreeNode, 0, len(subtree))
@@ -384,14 +412,16 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				}
 
 				taskPayload := map[string]string{
-					"id":         task.ID,
-					"title":      task.Title,
-					"kind":       string(task.Kind),
-					"status":     string(task.Status),
-					"due_on":     task.DueOn,
-					"parent":     task.Parent,
-					"created_at": task.CreatedAt.Format(time.RFC3339),
-					"updated_at": task.UpdatedAt.Format(time.RFC3339),
+					"id":           task.ID,
+					"title":        task.Title,
+					"kind":         string(task.Kind),
+					"status":       string(task.Status),
+					"due_on":       task.DueOn,
+					"repeat_every": task.RepeatEvery,
+					"archived_at":  task.ArchivedAt,
+					"parent":       task.Parent,
+					"created_at":   task.CreatedAt.Format(time.RFC3339),
+					"updated_at":   task.UpdatedAt.Format(time.RFC3339),
 				}
 				if !noBody {
 					taskPayload["body"] = task.Body
@@ -419,6 +449,12 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("status = %q\n", task.Status)
 			if task.DueOn != "" {
 				fmt.Printf("due_on = %q\n", task.DueOn)
+			}
+			if task.RepeatEvery != "" {
+				fmt.Printf("repeat_every = %q\n", task.RepeatEvery)
+			}
+			if task.ArchivedAt != "" {
+				fmt.Printf("archived_at = %q\n", task.ArchivedAt)
 			}
 			if task.Parent != "" {
 				fmt.Printf("parent = %q\n", task.Parent)
@@ -477,14 +513,16 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 
 func newTreeCommand(ctx *commandContext) *cobra.Command {
 	var (
-		from     string
-		maxDepth int
-		view     string
-		kinds    []string
-		statuses []string
-		notKinds []string
-		notStats []string
-		asJSON   bool
+		from            string
+		maxDepth        int
+		view            string
+		includeArchived bool
+		onlyArchived    bool
+		kinds           []string
+		statuses        []string
+		notKinds        []string
+		notStats        []string
+		asJSON          bool
 	)
 
 	cmd := &cobra.Command{
@@ -524,12 +562,14 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 				fromID = from
 			}
 			treeOpts := shelf.TreeOptions{
-				FromID:      fromID,
-				Kinds:       toKinds(kinds),
-				Statuses:    toStatuses(statuses),
-				NotKinds:    toKinds(notKinds),
-				NotStatuses: toStatuses(notStats),
-				MaxDepth:    maxDepth,
+				FromID:          fromID,
+				Kinds:           toKinds(kinds),
+				Statuses:        toStatuses(statuses),
+				NotKinds:        toKinds(notKinds),
+				NotStatuses:     toStatuses(notStats),
+				IncludeArchived: includeArchived,
+				OnlyArchived:    onlyArchived,
+				MaxDepth:        maxDepth,
 			}
 			preset, err := resolveTaskView(ctx.rootDir, view)
 			if err != nil {
@@ -547,13 +587,15 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 
 			if asJSON {
 				type jsonTreeNode struct {
-					ID       string         `json:"id"`
-					Title    string         `json:"title"`
-					Kind     string         `json:"kind"`
-					Status   string         `json:"status"`
-					DueOn    string         `json:"due_on,omitempty"`
-					Parent   string         `json:"parent,omitempty"`
-					Children []jsonTreeNode `json:"children,omitempty"`
+					ID          string         `json:"id"`
+					Title       string         `json:"title"`
+					Kind        string         `json:"kind"`
+					Status      string         `json:"status"`
+					DueOn       string         `json:"due_on,omitempty"`
+					RepeatEvery string         `json:"repeat_every,omitempty"`
+					ArchivedAt  string         `json:"archived_at,omitempty"`
+					Parent      string         `json:"parent,omitempty"`
+					Children    []jsonTreeNode `json:"children,omitempty"`
 				}
 				var convert func(node shelf.TreeNode) jsonTreeNode
 				convert = func(node shelf.TreeNode) jsonTreeNode {
@@ -562,13 +604,15 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 						children = append(children, convert(child))
 					}
 					return jsonTreeNode{
-						ID:       node.Task.ID,
-						Title:    node.Task.Title,
-						Kind:     string(node.Task.Kind),
-						Status:   string(node.Task.Status),
-						DueOn:    node.Task.DueOn,
-						Parent:   node.Task.Parent,
-						Children: children,
+						ID:          node.Task.ID,
+						Title:       node.Task.Title,
+						Kind:        string(node.Task.Kind),
+						Status:      string(node.Task.Status),
+						DueOn:       node.Task.DueOn,
+						RepeatEvery: node.Task.RepeatEvery,
+						ArchivedAt:  node.Task.ArchivedAt,
+						Parent:      node.Task.Parent,
+						Children:    children,
 					}
 				}
 
@@ -594,6 +638,8 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
+	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
+	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")

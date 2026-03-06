@@ -845,6 +845,67 @@ func TestCLIAgendaAndSnooze(t *testing.T) {
 	}
 }
 
+func TestCLIArchiveAndArchivedFilters(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	active, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "active"})
+	if err != nil {
+		t.Fatalf("add active failed: %v", err)
+	}
+	archived, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "archived"})
+	if err != nil {
+		t.Fatalf("add archived failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "archive", "--root", root, archived.ID); err != nil {
+		t.Fatalf("archive failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root)
+	if err != nil {
+		t.Fatalf("ls failed: %v", err)
+	}
+	if strings.Contains(out, "archived") || !strings.Contains(out, "active") {
+		t.Fatalf("default ls should hide archived: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--include-archived")
+	if err != nil {
+		t.Fatalf("ls --include-archived failed: %v", err)
+	}
+	if !strings.Contains(out, "archived") || !strings.Contains(out, "active") {
+		t.Fatalf("include-archived should show both: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--only-archived")
+	if err != nil {
+		t.Fatalf("ls --only-archived failed: %v", err)
+	}
+	if !strings.Contains(out, "archived") || strings.Contains(out, "active") {
+		t.Fatalf("only-archived should show only archived tasks: %s", out)
+	}
+
+	if _, err := executeCLI(t, "ls", "--root", root, "--include-archived", "--only-archived"); err == nil || !strings.Contains(err.Error(), "同時に指定") {
+		t.Fatalf("expected include/only conflict error, got: %v", err)
+	}
+
+	if _, err := executeCLI(t, "unarchive", "--root", root, archived.ID); err != nil {
+		t.Fatalf("unarchive failed: %v", err)
+	}
+	showOut, err := executeCLI(t, "show", "--root", root, archived.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if strings.Contains(showOut, "archived_at =") {
+		t.Fatalf("expected archived_at cleared after unarchive: %s", showOut)
+	}
+
+	_ = active
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

@@ -8,13 +8,15 @@ type TreeNode struct {
 }
 
 type TreeOptions struct {
-	FromID      string
-	Status      Status
-	Kinds       []Kind
-	Statuses    []Status
-	NotKinds    []Kind
-	NotStatuses []Status
-	MaxDepth    int
+	FromID          string
+	Status          Status
+	Kinds           []Kind
+	Statuses        []Status
+	NotKinds        []Kind
+	NotStatuses     []Status
+	IncludeArchived bool
+	OnlyArchived    bool
+	MaxDepth        int
 }
 
 func BuildTree(rootDir string, options TreeOptions) ([]TreeNode, error) {
@@ -63,6 +65,13 @@ func BuildTree(rootDir string, options TreeOptions) ([]TreeNode, error) {
 
 func buildTreeNode(task Task, byParent map[string][]Task, options TreeOptions, depth int, path map[string]struct{}) *TreeNode {
 	if options.MaxDepth > 0 && depth > options.MaxDepth {
+		return nil
+	}
+	if options.OnlyArchived {
+		if task.ArchivedAt == "" {
+			return nil
+		}
+	} else if !options.IncludeArchived && task.ArchivedAt != "" {
 		return nil
 	}
 	if _, ok := path[task.ID]; ok {

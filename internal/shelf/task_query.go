@@ -10,19 +10,21 @@ import (
 )
 
 type TaskFilter struct {
-	Kinds       []Kind
-	Statuses    []Status
-	NotKinds    []Kind
-	NotStatuses []Status
-	ReadyOnly   bool
-	DepsBlocked bool
-	DueBefore   string
-	DueAfter    string
-	Overdue     bool
-	NoDue       bool
-	Parent      string
-	Search      string
-	Limit       int
+	Kinds           []Kind
+	Statuses        []Status
+	NotKinds        []Kind
+	NotStatuses     []Status
+	IncludeArchived bool
+	OnlyArchived    bool
+	ReadyOnly       bool
+	DepsBlocked     bool
+	DueBefore       string
+	DueAfter        string
+	Overdue         bool
+	NoDue           bool
+	Parent          string
+	Search          string
+	Limit           int
 }
 
 type TaskReadiness struct {
@@ -64,6 +66,13 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 	}
 
 	for _, task := range tasks {
+		if filter.OnlyArchived {
+			if task.ArchivedAt == "" {
+				continue
+			}
+		} else if !filter.IncludeArchived && task.ArchivedAt != "" {
+			continue
+		}
 		if len(filter.Kinds) > 0 && !slices.Contains(filter.Kinds, task.Kind) {
 			continue
 		}
@@ -240,6 +249,9 @@ func validateTaskFilter(rootDir string, filter TaskFilter) error {
 	}
 	if filter.ReadyOnly && filter.DepsBlocked {
 		return fmt.Errorf("--ready と --blocked-by-deps は同時に指定できません")
+	}
+	if filter.IncludeArchived && filter.OnlyArchived {
+		return fmt.Errorf("--include-archived と --only-archived は同時に指定できません")
 	}
 	if filter.NoDue && (filter.DueBefore != "" || filter.DueAfter != "" || filter.Overdue) {
 		return fmt.Errorf("--no-due は --due-before/--due-after/--overdue と同時に指定できません")

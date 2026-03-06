@@ -21,13 +21,15 @@ type agendaBuckets struct {
 
 func newAgendaCommand(ctx *commandContext) *cobra.Command {
 	var (
-		view        string
-		kinds       []string
-		statuses    []string
-		notKinds    []string
-		notStatuses []string
-		days        int
-		asJSON      bool
+		view            string
+		includeArchived bool
+		onlyArchived    bool
+		kinds           []string
+		statuses        []string
+		notKinds        []string
+		notStatuses     []string
+		days            int
+		asJSON          bool
 	)
 
 	cmd := &cobra.Command{
@@ -43,11 +45,13 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			filter := shelf.TaskFilter{
-				Kinds:       toKinds(kinds),
-				Statuses:    toStatuses(statuses),
-				NotKinds:    toKinds(notKinds),
-				NotStatuses: toStatuses(notStatuses),
-				Limit:       0,
+				Kinds:           toKinds(kinds),
+				Statuses:        toStatuses(statuses),
+				NotKinds:        toKinds(notKinds),
+				NotStatuses:     toStatuses(notStatuses),
+				IncludeArchived: includeArchived,
+				OnlyArchived:    onlyArchived,
+				Limit:           0,
 			}
 			if !cmd.Flags().Changed("status") && len(preset.Statuses) == 0 && len(preset.NotStatuses) == 0 {
 				filter.Statuses = []shelf.Status{"open", "in_progress", "blocked"}
@@ -101,6 +105,8 @@ func newAgendaCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&view, "view", "", "Apply built-in or config view")
+	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
+	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")

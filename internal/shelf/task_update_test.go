@@ -130,3 +130,32 @@ func TestSetTaskRejectsInvalidRepeatEvery(t *testing.T) {
 		t.Fatalf("expected invalid repeat_every error, got: %v", err)
 	}
 }
+
+func TestSetTaskUpdatesAndClearsArchivedAt(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "archive target"})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	archivedAt := "2026-03-06T10:00:00+09:00"
+	updated, err := SetTask(root, task.ID, SetTaskInput{ArchivedAt: &archivedAt})
+	if err != nil {
+		t.Fatalf("set archived failed: %v", err)
+	}
+	if updated.ArchivedAt != archivedAt {
+		t.Fatalf("unexpected archived_at: %+v", updated)
+	}
+
+	empty := ""
+	cleared, err := SetTask(root, task.ID, SetTaskInput{ArchivedAt: &empty})
+	if err != nil {
+		t.Fatalf("clear archived failed: %v", err)
+	}
+	if cleared.ArchivedAt != "" {
+		t.Fatalf("expected archived_at cleared, got: %q", cleared.ArchivedAt)
+	}
+}
