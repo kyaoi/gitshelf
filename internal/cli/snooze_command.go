@@ -56,6 +56,9 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "snooze"); err != nil {
+				return err
+			}
 			updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 				DueOn: &nextDue,
 			})

@@ -100,6 +100,9 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "set"); err != nil {
+				return err
+			}
 			task, err := shelf.SetTask(ctx.rootDir, id, input)
 			if err != nil {
 				return err
@@ -382,6 +385,9 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "mv"); err != nil {
+				return err
+			}
 			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 				Parent: &resolvedParent,
 			})
@@ -421,6 +427,9 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			if task.RepeatEvery == "" {
+				if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
+					return err
+				}
 				next := shelf.Status("done")
 				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 					Status: &next,
@@ -452,6 +461,9 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 
 			nextDue, err := shelf.AdvanceDueByRepeat(task.DueOn, task.RepeatEvery, time.Now().Local())
 			if err != nil {
+				return err
+			}
+			if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
 				return err
 			}
 
@@ -528,6 +540,9 @@ func newStatusShortcutCommand(ctx *commandContext, use string, short string, tar
 			}
 
 			next := shelf.Status(targetStatus)
+			if err := prepareUndoSnapshot(ctx.rootDir, use); err != nil {
+				return err
+			}
 			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 				Status: &next,
 			})

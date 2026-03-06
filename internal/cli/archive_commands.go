@@ -19,6 +19,9 @@ func newArchiveCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := prepareUndoSnapshot(ctx.rootDir, "archive"); err != nil {
+				return err
+			}
 			now := time.Now().Local().Round(time.Second).Format(time.RFC3339)
 			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
 				ArchivedAt: &now,
@@ -42,6 +45,9 @@ func newUnarchiveCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "unarchive するタスクを選択", nil, true)
 			if err != nil {
+				return err
+			}
+			if err := prepareUndoSnapshot(ctx.rootDir, "unarchive"); err != nil {
 				return err
 			}
 			empty := ""

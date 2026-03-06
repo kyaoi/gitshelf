@@ -76,6 +76,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newLinkCommand(ctx))
 	cmd.AddCommand(newUnlinkCommand(ctx))
 	cmd.AddCommand(newLinksCommand(ctx))
+	cmd.AddCommand(newUndoCommand(ctx))
 	cmd.AddCommand(newDoctorCommand(ctx))
 
 	return cmd
@@ -240,6 +241,9 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "add"); err != nil {
+				return err
+			}
 			task, err := shelf.AddTask(ctx.rootDir, input)
 			if err != nil {
 				return err

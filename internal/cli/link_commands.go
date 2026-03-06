@@ -32,6 +32,9 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "link"); err != nil {
+				return err
+			}
 			if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
 				return err
 			}
@@ -66,6 +69,9 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
+			if err := prepareUndoSnapshot(ctx.rootDir, "unlink"); err != nil {
+				return err
+			}
 			removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind))
 			if err != nil {
 				return err

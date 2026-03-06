@@ -1103,6 +1103,89 @@ func TestCLIShowIncludesReadinessDetails(t *testing.T) {
 	}
 }
 
+func TestCLIUndoRevertsLastMutatingAction(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err == nil || !strings.Contains(err.Error(), "undo history is empty") {
+		t.Fatalf("expected empty undo history error, got: %v", err)
+	}
+
+	addOut, err := executeCLI(t, "add", "--root", root, "--title", "undo add")
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	addedID := extractIDFromAddOutput(addOut)
+	if addedID == "" {
+		t.Fatalf("failed to parse add id: %s", addOut)
+	}
+	if _, err := shelf.EnsureTaskExists(root, addedID); err != nil {
+		t.Fatalf("added task should exist: %v", err)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo add failed: %v", err)
+	}
+	if _, err := shelf.EnsureTaskExists(root, addedID); err == nil {
+		t.Fatalf("task should be removed after undo add")
+	}
+
+	a, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "undo set/link a"})
+	if err != nil {
+		t.Fatalf("add a failed: %v", err)
+	}
+	b, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "undo set/link b"})
+	if err != nil {
+		t.Fatalf("add b failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, a.ID, "--status", "done"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	updated, err := shelf.EnsureTaskExists(root, a.ID)
+	if err != nil {
+		t.Fatalf("load updated failed: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Fatalf("expected done status after set, got: %s", updated.Status)
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo set failed: %v", err)
+	}
+	updated, err = shelf.EnsureTaskExists(root, a.ID)
+	if err != nil {
+		t.Fatalf("load reverted failed: %v", err)
+	}
+	if updated.Status != "open" {
+		t.Fatalf("expected status open after undo, got: %s", updated.Status)
+	}
+
+	if _, err := executeCLI(t, "link", "--root", root, "--from", a.ID, "--to", b.ID, "--type", "related"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+	outbound, inbound, err := shelf.ListLinks(root, a.ID)
+	if err != nil {
+		t.Fatalf("list links failed: %v", err)
+	}
+	if len(outbound) != 1 || len(inbound) != 0 {
+		t.Fatalf("unexpected links after link: outbound=%d inbound=%d", len(outbound), len(inbound))
+	}
+
+	if _, err := executeCLI(t, "undo", "--root", root); err != nil {
+		t.Fatalf("undo link failed: %v", err)
+	}
+	outbound, inbound, err = shelf.ListLinks(root, a.ID)
+	if err != nil {
+		t.Fatalf("list links after undo failed: %v", err)
+	}
+	if len(outbound) != 0 || len(inbound) != 0 {
+		t.Fatalf("expected links to be removed after undo, outbound=%d inbound=%d", len(outbound), len(inbound))
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
