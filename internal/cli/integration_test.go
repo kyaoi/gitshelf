@@ -130,6 +130,54 @@ func TestCLIEditReturnsEditorExitError(t *testing.T) {
 	}
 }
 
+func TestCLITreeLsAndShowHideIDsAndShowHierarchy(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	lsOutput, err := executeCLI(t, "ls", "--root", root)
+	if err != nil {
+		t.Fatalf("ls failed: %v", err)
+	}
+	if strings.Contains(lsOutput, "[") || strings.Contains(lsOutput, shelf.ShortID(parent.ID)) {
+		t.Fatalf("ls should not display IDs: %s", lsOutput)
+	}
+	if !strings.Contains(lsOutput, "parent=root") || !strings.Contains(lsOutput, "parent=Parent") {
+		t.Fatalf("ls should display parent title hierarchy hint: %s", lsOutput)
+	}
+
+	treeOutput, err := executeCLI(t, "tree", "--root", root)
+	if err != nil {
+		t.Fatalf("tree failed: %v", err)
+	}
+	if strings.Contains(treeOutput, "[") || strings.Contains(treeOutput, shelf.ShortID(parent.ID)) {
+		t.Fatalf("tree should not display IDs: %s", treeOutput)
+	}
+	if !strings.Contains(treeOutput, "Parent (todo/open)") || !strings.Contains(treeOutput, "└─ Child (todo/open)") {
+		t.Fatalf("unexpected tree output: %s", treeOutput)
+	}
+
+	showOutput, err := executeCLI(t, "show", "--root", root, child.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	if !strings.Contains(showOutput, "Hierarchy:") || !strings.Contains(showOutput, "Path: root > Parent > Child") {
+		t.Fatalf("show should include hierarchy path: %s", showOutput)
+	}
+	if !strings.Contains(showOutput, "Subtree:") || !strings.Contains(showOutput, "Child (todo/open)") {
+		t.Fatalf("show should include subtree output: %s", showOutput)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

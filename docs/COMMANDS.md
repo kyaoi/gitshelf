@@ -45,6 +45,7 @@ Output includes full ID for copy-paste.
 ## shelf ls
 
 Flat task list.
+ID is omitted from default display. Parent is shown as `root` or parent title.
 
 Flags:
 
@@ -69,6 +70,7 @@ Examples:
 ## shelf tree
 
 Render tree based on `parent`.
+ID is omitted from tree output by default.
 
 Flags:
 
@@ -82,6 +84,7 @@ Show task details:
 
 - front matter fields
 - body (freeform notes)
+- hierarchy path + subtree
 - outbound and inbound link summary
 
 ## shelf edit [id]

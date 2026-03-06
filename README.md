@@ -85,6 +85,9 @@ Supported `link_types` are only:
 ./shelf ls --kind todo --not-status done --not-status cancelled
 ```
 
+`ls` / `tree` output omits IDs by default for readability.
+Use `show` to inspect full metadata and hierarchy details.
+
 ## Interactive by Default for Omitted Args
 
 When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts interactively instead of failing.

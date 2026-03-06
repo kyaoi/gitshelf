@@ -35,12 +35,24 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			allTasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			if err != nil {
+				return err
+			}
+			titleByID := make(map[string]string, len(allTasks))
+			for _, task := range allTasks {
+				titleByID[task.ID] = task.Title
+			}
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
-					parentLabel = shelf.ShortID(task.Parent)
+					if title, ok := titleByID[task.Parent]; ok {
+						parentLabel = title
+					} else {
+						parentLabel = "(missing)"
+					}
 				}
-				fmt.Printf("[%s] %s  (%s/%s) parent=%s\n", shelf.ShortID(task.ID), task.Title, task.Kind, task.Status, parentLabel)
+				fmt.Printf("%s  (%s/%s) parent=%s\n", task.Title, task.Kind, task.Status, parentLabel)
 			}
 			return nil
 		},
@@ -85,6 +97,30 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Println("+++")
 			fmt.Println()
 			fmt.Println(task.Body)
+			fmt.Println()
+
+			allTasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			if err != nil {
+				return err
+			}
+			byID := make(map[string]shelf.Task, len(allTasks))
+			for _, item := range allTasks {
+				byID[item.ID] = item
+			}
+			fmt.Println("Hierarchy:")
+			fmt.Printf("Path: %s\n", buildTaskPath(task, byID))
+			subtree, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{FromID: task.ID})
+			if err != nil {
+				return err
+			}
+			fmt.Println("Subtree:")
+			if len(subtree) == 0 {
+				fmt.Println("  (none)")
+			} else {
+				for i, node := range subtree {
+					printTreeNode(node, "", i == len(subtree)-1)
+				}
+			}
 			fmt.Println()
 
 			edgeStore := shelf.NewEdgeStore(ctx.rootDir)
@@ -166,7 +202,7 @@ func printTreeNode(node shelf.TreeNode, prefix string, isLast bool) {
 		branch = ""
 	}
 
-	fmt.Printf("%s%s[%s] %s (%s/%s)\n", prefix, branch, shelf.ShortID(node.Task.ID), node.Task.Title, node.Task.Kind, node.Task.Status)
+	fmt.Printf("%s%s%s (%s/%s)\n", prefix, branch, node.Task.Title, node.Task.Kind, node.Task.Status)
 	for i, child := range node.Children {
 		printTreeNode(child, nextPrefix, i == len(node.Children)-1)
 	}
@@ -186,4 +222,26 @@ func toStatuses(values []string) []shelf.Status {
 		statuses[i] = shelf.Status(value)
 	}
 	return statuses
+}
+
+func buildTaskPath(task shelf.Task, byID map[string]shelf.Task) string {
+	titles := []string{task.Title}
+	current := task.Parent
+	seen := map[string]struct{}{}
+	for current != "" {
+		if _, ok := seen[current]; ok {
+			titles = append([]string{"(cycle)"}, titles...)
+			break
+		}
+		seen[current] = struct{}{}
+
+		parent, ok := byID[current]
+		if !ok {
+			titles = append([]string{"(missing)"}, titles...)
+			break
+		}
+		titles = append([]string{parent.Title}, titles...)
+		current = parent.Parent
+	}
+	return "root > " + strings.Join(titles, " > ")
 }
