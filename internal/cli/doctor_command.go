@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
@@ -43,11 +44,26 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if asJSON {
+				type issueWithAdvice struct {
+					Path    string `json:"path"`
+					TaskID  string `json:"task_id,omitempty"`
+					Message string `json:"message"`
+					Advice  string `json:"advice,omitempty"`
+				}
+				issues := make([]issueWithAdvice, 0, len(report.Issues))
+				for _, issue := range report.Issues {
+					issues = append(issues, issueWithAdvice{
+						Path:    issue.Path,
+						TaskID:  issue.TaskID,
+						Message: issue.Message,
+						Advice:  buildDoctorAdvice(issue),
+					})
+				}
 				payload := map[string]any{
 					"ok":          err == nil,
 					"fixed_count": fixed,
-					"issue_count": len(report.Issues),
-					"issues":      report.Issues,
+					"issue_count": len(issues),
+					"issues":      issues,
 				}
 				data, marshalErr := json.MarshalIndent(payload, "", "  ")
 				if marshalErr != nil {
@@ -76,6 +92,9 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 				} else {
 					fmt.Printf("- %s: %s\n", issue.Path, issue.Message)
 				}
+				if advice := buildDoctorAdvice(issue); advice != "" {
+					fmt.Printf("  hint: %s\n", advice)
+				}
 			}
 			return err
 		},
@@ -83,4 +102,28 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply safe automatic fixes before running checks")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
+}
+
+func buildDoctorAdvice(issue shelf.DoctorIssue) string {
+	msg := strings.ToLower(issue.Message)
+	switch {
+	case strings.Contains(msg, "unknown kind"):
+		return "config の kinds を確認するか、`shelf set <id> --kind <known-kind>` で修正してください"
+	case strings.Contains(msg, "unknown status"):
+		return "config の statuses を確認するか、`shelf set <id> --status <known-status>` で修正してください"
+	case strings.Contains(msg, "parent does not exist"):
+		return "`shelf mv <id> --parent root` で root に戻すか、正しい parent ID に付け替えてください"
+	case strings.Contains(msg, "parent cycle detected"):
+		return "`shelf mv` で循環しない親子関係へ移動してください"
+	case strings.Contains(msg, "edge destination does not exist"):
+		return "壊れたリンクを `shelf unlink --from <id> --to <id> --type <depends_on|related>` で削除してください"
+	case strings.Contains(msg, "source task does not exist"):
+		return "対応する edge file を削除するか、source task を復元してください"
+	case strings.Contains(msg, "duplicate edge found"):
+		return "`shelf doctor --fix` で重複 edge を正規化できます"
+	case strings.Contains(msg, "invalid toml"), strings.Contains(msg, "failed to parse"), strings.Contains(msg, "failed to read file"):
+		return "ファイルを手動で修正し、必要なら `shelf doctor --fix` を再実行してください"
+	default:
+		return ""
+	}
 }

@@ -643,6 +643,57 @@ type = "depends_on"
 	}
 }
 
+func TestCLIDoctorShowsAdvice(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "bad status"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	taskPath := filepath.Join(root, ".shelf", "tasks", task.ID+".md")
+	data, err := os.ReadFile(taskPath)
+	if err != nil {
+		t.Fatalf("read task failed: %v", err)
+	}
+	corrupt := strings.Replace(string(data), `status = "open"`, `status = "oops"`, 1)
+	if err := os.WriteFile(taskPath, []byte(corrupt), 0o644); err != nil {
+		t.Fatalf("write corrupt task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "doctor", "--root", root)
+	if err == nil {
+		t.Fatalf("doctor should report error for bad status")
+	}
+	if !strings.Contains(out, "hint:") || !strings.Contains(out, "statuses") {
+		t.Fatalf("doctor output should include advice hint: %s", out)
+	}
+
+	out, err = executeCLI(t, "doctor", "--root", root, "--json")
+	if err == nil {
+		t.Fatalf("doctor --json should report error for bad status")
+	}
+	if idx := strings.Index(out, "\nError:"); idx >= 0 {
+		out = out[:idx]
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse doctor json: %v output=%s", err, out)
+	}
+	issues, ok := payload["issues"].([]any)
+	if !ok || len(issues) == 0 {
+		t.Fatalf("doctor json should include issues: %s", out)
+	}
+	first, ok := issues[0].(map[string]any)
+	if !ok {
+		t.Fatalf("doctor json issue format mismatch: %s", out)
+	}
+	if _, ok := first["advice"]; !ok {
+		t.Fatalf("doctor json issue should include advice: %s", out)
+	}
+}
+
 func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
