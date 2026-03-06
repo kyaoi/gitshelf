@@ -575,6 +575,71 @@ func TestCLISyncGitHubUpdatesTaskMetadata(t *testing.T) {
 	}
 }
 
+func TestCLIReviewShowsInboxDueBlockedAndReadySections(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	inbox, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "InboxTask", Kind: "inbox", Status: "open"})
+	if err != nil {
+		t.Fatalf("add inbox failed: %v", err)
+	}
+	overdueDate := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	todayDate := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "OverdueTask", Kind: "todo", Status: "open", DueOn: overdueDate}); err != nil {
+		t.Fatalf("add overdue failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TodayTask", Kind: "todo", Status: "in_progress", DueOn: todayDate}); err != nil {
+		t.Fatalf("add today failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "StatusBlocked", Kind: "todo", Status: "blocked"}); err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	dependency, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "DependencyTask", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add dependency failed: %v", err)
+	}
+	depsBlocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "DepsBlocked", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add deps blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, depsBlocked.ID, dependency.ID, "depends_on"); err != nil {
+		t.Fatalf("link dependency failed: %v", err)
+	}
+	ready, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "ReadyTask", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add ready failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "review", "--root", root, "--limit", "10")
+	if err != nil {
+		t.Fatalf("review failed: %v", err)
+	}
+	for _, want := range []string{"Inbox:", "Overdue:", "Today:", "Blocked:", "Ready:", inbox.Title, "OverdueTask", "TodayTask", "StatusBlocked", "DepsBlocked", ready.Title} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("review output missing %q: %s", want, out)
+		}
+	}
+	if !strings.Contains(out, "depends_on: DependencyTask") {
+		t.Fatalf("review should explain dependency blocker: %s", out)
+	}
+
+	jsonOut, err := executeCLI(t, "review", "--root", root, "--limit", "10", "--json")
+	if err != nil {
+		t.Fatalf("review --json failed: %v", err)
+	}
+	var payload map[string][]map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("invalid review json: %v output=%s", err, jsonOut)
+	}
+	if len(payload["inbox"]) != 1 || payload["inbox"][0]["title"] != "InboxTask" {
+		t.Fatalf("unexpected inbox payload: %#v", payload["inbox"])
+	}
+	if len(payload["blocked"]) < 2 {
+		t.Fatalf("expected blocked payload to include status and dependency blockers: %#v", payload["blocked"])
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

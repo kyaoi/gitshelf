@@ -39,6 +39,7 @@ go build -o shelf ./cmd/shelf
 ./shelf notify --command 'notify-send gitshelf "$SHELF_TASK_TITLE"'
 ./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
 ./shelf sync github <task-id>
+./shelf review
 
 # List and inspect
 ./shelf ls
@@ -100,6 +101,7 @@ go build -o shelf ./cmd/shelf
 - `shelf notify [--root <dir>] [--command <shell> --dry-run]`
 - `shelf github link|unlink|show [--root <dir>] ...`
 - `shelf sync github [id] [--root <dir>] [--all]`
+- `shelf review [--root <dir>] [--limit N --json]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
@@ -167,6 +169,18 @@ Color output:
   - `status` from GitHub state (`open` -> `open`, `closed` -> `done`)
 - GitHub API base can be overridden with `GITSHELF_GITHUB_API_URL`
 - `GITHUB_TOKEN` is used automatically when present
+
+## Daily Review
+
+`shelf review` is a compact dashboard for daily check-ins. It groups active tasks into:
+
+- `Inbox`
+- `Overdue`
+- `Today`
+- `Blocked`
+- `Ready`
+
+Use `--limit` to control how many items each section shows, or `--json` for scripting.
 
 ## Link Types
 

@@ -206,6 +206,23 @@ Environment:
 - `GITHUB_TOKEN`: optional bearer token
 - `GITSHELF_GITHUB_API_URL`: optional API base override (default `https://api.github.com`)
 
+## shelf review
+
+Compact daily review dashboard.
+
+Sections:
+
+- `Inbox`: `kind=inbox`, `status=open`
+- `Overdue`: active tasks with `due_on < today`
+- `Today`: active tasks with `due_on = today`
+- `Blocked`: tasks with `status=blocked` or unresolved `depends_on`
+- `Ready`: actionable non-inbox tasks
+
+Flags:
+
+- `--limit <n>`: maximum items per section (default: `5`)
+- `--json`
+
 ## shelf ls
 
 Flat task list.
