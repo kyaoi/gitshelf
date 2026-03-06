@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
@@ -201,11 +202,20 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newShowCommand(ctx *commandContext) *cobra.Command {
+	var (
+		noBody   bool
+		onlyBody bool
+		asJSON   bool
+	)
+
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show task details",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if noBody && onlyBody {
+				return fmt.Errorf("--no-body と --only-body は同時に指定できません")
+			}
 			id, err := selectTaskIDIfMissing(ctx, args, "表示するタスクを選択", nil, true)
 			if err != nil {
 				return err
@@ -214,6 +224,107 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			task, err := shelf.EnsureTaskExists(ctx.rootDir, id)
 			if err != nil {
 				return err
+			}
+
+			if onlyBody {
+				if asJSON {
+					payload := map[string]string{
+						"id":   task.ID,
+						"body": task.Body,
+					}
+					data, err := json.MarshalIndent(payload, "", "  ")
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(data))
+					return nil
+				}
+				fmt.Println(task.Body)
+				return nil
+			}
+
+			allTasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			if err != nil {
+				return err
+			}
+			byID := make(map[string]shelf.Task, len(allTasks))
+			for _, item := range allTasks {
+				byID[item.ID] = item
+			}
+			path := buildTaskPath(task, byID)
+			subtree, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{FromID: task.ID})
+			if err != nil {
+				return err
+			}
+
+			edgeStore := shelf.NewEdgeStore(ctx.rootDir)
+			outbound, err := edgeStore.ListOutbound(task.ID)
+			if err != nil {
+				return err
+			}
+			inbound, err := edgeStore.FindInbound(task.ID)
+			if err != nil {
+				return err
+			}
+
+			if asJSON {
+				type jsonTreeNode struct {
+					ID       string         `json:"id"`
+					Title    string         `json:"title"`
+					Kind     string         `json:"kind"`
+					Status   string         `json:"status"`
+					DueOn    string         `json:"due_on,omitempty"`
+					Parent   string         `json:"parent,omitempty"`
+					Children []jsonTreeNode `json:"children,omitempty"`
+				}
+				var convert func(node shelf.TreeNode) jsonTreeNode
+				convert = func(node shelf.TreeNode) jsonTreeNode {
+					children := make([]jsonTreeNode, 0, len(node.Children))
+					for _, child := range node.Children {
+						children = append(children, convert(child))
+					}
+					return jsonTreeNode{
+						ID:       node.Task.ID,
+						Title:    node.Task.Title,
+						Kind:     string(node.Task.Kind),
+						Status:   string(node.Task.Status),
+						DueOn:    node.Task.DueOn,
+						Parent:   node.Task.Parent,
+						Children: children,
+					}
+				}
+				subtreePayload := make([]jsonTreeNode, 0, len(subtree))
+				for _, node := range subtree {
+					subtreePayload = append(subtreePayload, convert(node))
+				}
+
+				taskPayload := map[string]string{
+					"id":         task.ID,
+					"title":      task.Title,
+					"kind":       string(task.Kind),
+					"status":     string(task.Status),
+					"due_on":     task.DueOn,
+					"parent":     task.Parent,
+					"created_at": task.CreatedAt.Format(time.RFC3339),
+					"updated_at": task.UpdatedAt.Format(time.RFC3339),
+				}
+				if !noBody {
+					taskPayload["body"] = task.Body
+				}
+
+				payload := map[string]any{
+					"task":     taskPayload,
+					"path":     path,
+					"subtree":  subtreePayload,
+					"outbound": outbound,
+					"inbound":  inbound,
+				}
+				data, err := json.MarshalIndent(payload, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
 			}
 
 			fmt.Println("+++")
@@ -230,24 +341,14 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			fmt.Printf("created_at = %q\n", task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
 			fmt.Printf("updated_at = %q\n", task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"))
 			fmt.Println("+++")
-			fmt.Println()
-			fmt.Println(task.Body)
-			fmt.Println()
+			if !noBody {
+				fmt.Println()
+				fmt.Println(task.Body)
+				fmt.Println()
+			}
 
-			allTasks, err := shelf.NewTaskStore(ctx.rootDir).List()
-			if err != nil {
-				return err
-			}
-			byID := make(map[string]shelf.Task, len(allTasks))
-			for _, item := range allTasks {
-				byID[item.ID] = item
-			}
 			fmt.Println(uiHeading("Hierarchy:"))
-			fmt.Printf("%s %s\n", uiMuted("Path:"), uiPrimary(buildTaskPath(task, byID)))
-			subtree, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{FromID: task.ID})
-			if err != nil {
-				return err
-			}
+			fmt.Printf("%s %s\n", uiMuted("Path:"), uiPrimary(path))
 			fmt.Println(uiHeading("Subtree:"))
 			if len(subtree) == 0 {
 				fmt.Println(uiMuted("  (none)"))
@@ -257,16 +358,6 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 			fmt.Println()
-
-			edgeStore := shelf.NewEdgeStore(ctx.rootDir)
-			outbound, err := edgeStore.ListOutbound(task.ID)
-			if err != nil {
-				return err
-			}
-			inbound, err := edgeStore.FindInbound(task.ID)
-			if err != nil {
-				return err
-			}
 
 			fmt.Println(uiHeading("Outbound Links:"))
 			if len(outbound) == 0 {
@@ -287,6 +378,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&noBody, "no-body", false, "Hide body section")
+	cmd.Flags().BoolVar(&onlyBody, "only-body", false, "Show only body")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
 

@@ -429,6 +429,49 @@ func TestCLITreeFiltersAndJSON(t *testing.T) {
 	}
 }
 
+func TestCLIShowBodyModesAndJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "show target", Body: "line1\nline2"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--only-body")
+	if err != nil {
+		t.Fatalf("show --only-body failed: %v", err)
+	}
+	if strings.Contains(out, "+++") || !strings.Contains(out, "line1") {
+		t.Fatalf("only-body output should contain only body text: %s", out)
+	}
+
+	out, err = executeCLI(t, "show", "--root", root, task.ID, "--no-body")
+	if err != nil {
+		t.Fatalf("show --no-body failed: %v", err)
+	}
+	if strings.Contains(out, "line1") || !strings.Contains(out, "Hierarchy:") {
+		t.Fatalf("no-body output should hide body and keep metadata/hierarchy: %s", out)
+	}
+
+	out, err = executeCLI(t, "show", "--root", root, task.ID, "--json")
+	if err != nil {
+		t.Fatalf("show --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse show json output: %v output=%s", err, out)
+	}
+	if _, ok := payload["task"]; !ok {
+		t.Fatalf("show json should include task object: %s", out)
+	}
+
+	if _, err := executeCLI(t, "show", "--root", root, task.ID, "--no-body", "--only-body"); err == nil || !strings.Contains(err.Error(), "同時に指定できません") {
+		t.Fatalf("expected no-body/only-body conflict error, got: %v", err)
+	}
+}
+
 func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
