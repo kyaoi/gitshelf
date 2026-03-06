@@ -199,8 +199,8 @@ func TestCLITreeLsAndShowHideIDsAndShowHierarchy(t *testing.T) {
 	if !strings.Contains(showOutput, "Hierarchy:") || !strings.Contains(showOutput, "Path: root > Parent > Child") {
 		t.Fatalf("show should include hierarchy path: %s", showOutput)
 	}
-	if !strings.Contains(showOutput, "Subtree:") || !strings.Contains(showOutput, "Child (todo/open)") {
-		t.Fatalf("show should include subtree output: %s", showOutput)
+	if !strings.Contains(showOutput, "Context Tree:") || !strings.Contains(showOutput, "Child (todo/open)") {
+		t.Fatalf("show should include context tree output: %s", showOutput)
 	}
 }
 

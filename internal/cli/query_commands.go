@@ -403,12 +403,18 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 
 			fmt.Println(uiHeading("Hierarchy:"))
 			fmt.Printf("%s %s\n", uiMuted("Path:"), uiPrimary(path))
-			fmt.Println(uiHeading("Subtree:"))
-			if len(subtree) == 0 {
+			fmt.Println(uiHeading("Context Tree:"))
+			fullTree, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{})
+			if err != nil {
+				return err
+			}
+			if len(fullTree) == 0 {
 				fmt.Println(uiMuted("  (none)"))
 			} else {
-				for i, node := range subtree {
-					printTreeNode(node, "", i == len(subtree)-1, ctx.showID)
+				if !printContextTree(fullTree, task.ID, "", true, ctx.showID) {
+					for i, node := range subtree {
+						printTreeNode(node, "", i == len(subtree)-1, ctx.showID)
+					}
 				}
 			}
 			fmt.Println()
@@ -418,7 +424,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(uiMuted("  (none)"))
 			} else {
 				for _, edge := range outbound {
-					fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(task.ID)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(edge.To)))
+					fmt.Printf("  %s --%s--> %s\n", taskLabelForLink(task.ID, byID, ctx.showID), uiLinkType(edge.Type), taskLabelForLink(edge.To, byID, ctx.showID))
 				}
 			}
 			fmt.Println(uiHeading("Inbound Links:"))
@@ -426,7 +432,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(uiMuted("  (none)"))
 			} else {
 				for _, edge := range inbound {
-					fmt.Printf("  %s --%s--> %s\n", uiShortID(shelf.ShortID(edge.From)), uiLinkType(edge.Type), uiShortID(shelf.ShortID(task.ID)))
+					fmt.Printf("  %s --%s--> %s\n", taskLabelForLink(edge.From, byID, ctx.showID), uiLinkType(edge.Type), taskLabelForLink(task.ID, byID, ctx.showID))
 				}
 			}
 			return nil
@@ -614,4 +620,85 @@ func buildTaskPath(task shelf.Task, byID map[string]shelf.Task) string {
 		current = parent.Parent
 	}
 	return "root > " + strings.Join(titles, " > ")
+}
+
+func printContextTree(nodes []shelf.TreeNode, targetID string, prefix string, isRoot bool, showID bool) bool {
+	printedAny := false
+	matched := make([]shelf.TreeNode, 0, len(nodes))
+	for _, node := range nodes {
+		if containsTask(node, targetID) {
+			matched = append(matched, node)
+		}
+	}
+	for i, node := range matched {
+		isLast := i == len(nodes)-1
+		isLast = i == len(matched)-1
+		printedAny = true
+		branch := "├─ "
+		nextPrefix := prefix + "│  "
+		if isLast {
+			branch = "└─ "
+			nextPrefix = prefix + "   "
+		}
+		if isRoot {
+			branch = ""
+			if isLast {
+				nextPrefix = "   "
+			} else {
+				nextPrefix = "│  "
+			}
+		}
+
+		label := uiPrimary(node.Task.Title)
+		if showID {
+			label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(node.Task.ID)), uiPrimary(node.Task.Title))
+		}
+		if node.Task.ID == targetID {
+			label = uiColor(label, "1;33")
+		}
+		dueText := ""
+		if node.Task.DueOn != "" {
+			dueText = fmt.Sprintf(" due=%s", uiDue(node.Task.DueOn))
+		}
+		fmt.Printf("%s%s%s (%s/%s)%s\n", uiMuted(prefix), uiMuted(branch), label, uiKind(node.Task.Kind), uiStatus(node.Task.Status), dueText)
+
+		children := node.Children
+		if node.Task.ID != targetID {
+			filtered := make([]shelf.TreeNode, 0, len(node.Children))
+			for _, child := range node.Children {
+				if containsTask(child, targetID) {
+					filtered = append(filtered, child)
+				}
+			}
+			children = filtered
+		}
+		_ = printContextTree(children, targetID, nextPrefix, false, showID)
+	}
+	return printedAny
+}
+
+func containsTask(node shelf.TreeNode, targetID string) bool {
+	if node.Task.ID == targetID {
+		return true
+	}
+	for _, child := range node.Children {
+		if containsTask(child, targetID) {
+			return true
+		}
+	}
+	return false
+}
+
+func taskLabelForLink(taskID string, byID map[string]shelf.Task, showID bool) string {
+	task, ok := byID[taskID]
+	if !ok {
+		if showID {
+			return uiShortID(shelf.ShortID(taskID))
+		}
+		return uiMuted("(missing)")
+	}
+	if showID {
+		return fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
+	}
+	return uiPrimary(task.Title)
 }
