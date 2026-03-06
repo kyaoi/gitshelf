@@ -1447,6 +1447,95 @@ func TestCLIExportImportRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCLIImportValidateDryRunAndMerge(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	current, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "current", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add current failed: %v", err)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+
+	payload := shelfExport{
+		Version:    1,
+		ExportedAt: time.Now().Local().Format(time.RFC3339),
+		Config:     cfg,
+		Tasks: []shelf.Task{
+			{
+				ID:        current.ID,
+				Title:     "current",
+				Kind:      "todo",
+				Status:    "done",
+				CreatedAt: current.CreatedAt,
+				UpdatedAt: current.UpdatedAt,
+			},
+			{
+				ID:        "01KK0000000000000000000000",
+				Title:     "incoming-new",
+				Kind:      "todo",
+				Status:    "open",
+				CreatedAt: time.Now().Local().Round(time.Second),
+				UpdatedAt: time.Now().Local().Round(time.Second),
+			},
+		},
+		Edges: map[string][]shelf.Edge{},
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal payload failed: %v", err)
+	}
+	importPath := filepath.Join(root, "merge.json")
+	if err := os.WriteFile(importPath, data, 0o644); err != nil {
+		t.Fatalf("write payload failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "import", "--root", root, "--in", importPath, "--validate-only", "--merge"); err != nil {
+		t.Fatalf("import validate-only failed: %v", err)
+	}
+	taskAfterValidate, err := shelf.EnsureTaskExists(root, current.ID)
+	if err != nil {
+		t.Fatalf("load task after validate-only failed: %v", err)
+	}
+	if taskAfterValidate.Status != "open" {
+		t.Fatalf("validate-only should not mutate task status, got: %s", taskAfterValidate.Status)
+	}
+
+	dryOut, err := executeCLI(t, "import", "--root", root, "--in", importPath, "--dry-run", "--merge")
+	if err != nil {
+		t.Fatalf("import dry-run failed: %v", err)
+	}
+	var summary map[string]any
+	if err := json.Unmarshal([]byte(dryOut), &summary); err != nil {
+		t.Fatalf("parse dry-run summary failed: %v output=%s", err, dryOut)
+	}
+	if summary["mode"] != "merge" {
+		t.Fatalf("expected mode=merge summary, got: %v", summary["mode"])
+	}
+
+	if _, err := executeCLI(t, "import", "--root", root, "--in", importPath, "--merge"); err != nil {
+		t.Fatalf("import merge failed: %v", err)
+	}
+	taskAfterMerge, err := shelf.EnsureTaskExists(root, current.ID)
+	if err != nil {
+		t.Fatalf("load task after merge failed: %v", err)
+	}
+	if taskAfterMerge.Status != "done" {
+		t.Fatalf("merge should apply incoming task status, got: %s", taskAfterMerge.Status)
+	}
+	if _, err := shelf.EnsureTaskExists(root, "01KK0000000000000000000000"); err != nil {
+		t.Fatalf("merge should add incoming new task: %v", err)
+	}
+
+	if _, err := executeCLI(t, "import", "--root", root, "--in", importPath, "--merge", "--replace"); err == nil || !strings.Contains(err.Error(), "同時に指定") {
+		t.Fatalf("expected merge/replace conflict error, got: %v", err)
+	}
+}
+
 func TestCLICompletionCommands(t *testing.T) {
 	out, err := executeCLI(t, "completion", "bash")
 	if err != nil {
