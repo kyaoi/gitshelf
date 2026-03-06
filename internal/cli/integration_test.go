@@ -690,6 +690,52 @@ func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	}
 }
 
+func TestCLIViewPresetsForLsTreeNext(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "ChildDone", Kind: "todo", Status: "done", Parent: parent.ID}); err != nil {
+		t.Fatalf("add done child failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "ChildOpen", Kind: "todo", Status: "open", Parent: parent.ID}); err != nil {
+		t.Fatalf("add open child failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--view", "active")
+	if err != nil {
+		t.Fatalf("ls --view active failed: %v", err)
+	}
+	if strings.Contains(out, "ChildDone") || !strings.Contains(out, "ChildOpen") {
+		t.Fatalf("unexpected ls active output: %s", out)
+	}
+
+	out, err = executeCLI(t, "tree", "--root", root, "--view", "active")
+	if err != nil {
+		t.Fatalf("tree --view active failed: %v", err)
+	}
+	if strings.Contains(out, "ChildDone") || !strings.Contains(out, "ChildOpen") {
+		t.Fatalf("unexpected tree active output: %s", out)
+	}
+
+	if _, err := executeCLI(t, "tree", "--root", root, "--view", "ready"); err == nil || !strings.Contains(err.Error(), "not supported for tree") {
+		t.Fatalf("expected unsupported tree view error, got: %v", err)
+	}
+
+	out, err = executeCLI(t, "next", "--root", root, "--view", "active")
+	if err != nil {
+		t.Fatalf("next --view active failed: %v", err)
+	}
+	if strings.Contains(out, "ChildDone") {
+		t.Fatalf("next active should not include done tasks: %s", out)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")

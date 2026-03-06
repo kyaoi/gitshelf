@@ -16,6 +16,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		statuses    []string
 		notKinds    []string
 		notStatuses []string
+		view        string
 		ready       bool
 		depsBlocked bool
 		dueBefore   string
@@ -35,8 +36,13 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --kind todo --status open --status in_progress\n" +
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			tasks, err := shelf.ListTasks(ctx.rootDir, shelf.TaskFilter{
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			preset, err := resolveTaskView(view)
+			if err != nil {
+				return err
+			}
+
+			filter := shelf.TaskFilter{
 				Kinds:       toKinds(kinds),
 				Statuses:    toStatuses(statuses),
 				NotKinds:    toKinds(notKinds),
@@ -50,7 +56,20 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Parent:      parent,
 				Limit:       limit,
 				Search:      search,
+			}
+			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
+				"ready":           cmd.Flags().Changed("ready"),
+				"blocked-by-deps": cmd.Flags().Changed("blocked-by-deps"),
+				"due-before":      cmd.Flags().Changed("due-before"),
+				"due-after":       cmd.Flags().Changed("due-after"),
+				"overdue":         cmd.Flags().Changed("overdue"),
+				"no-due":          cmd.Flags().Changed("no-due"),
+				"parent":          cmd.Flags().Changed("parent"),
+				"search":          cmd.Flags().Changed("search"),
+				"limit":           cmd.Flags().Changed("limit"),
 			})
+
+			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
 				return err
 			}
@@ -129,6 +148,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -144,6 +164,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
+		view   string
 		limit  int
 		asJSON bool
 	)
@@ -152,9 +173,18 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		Use:   "next",
 		Short: "List actionable tasks (ready to work on)",
 		Example: "  shelf next\n" +
-			"  shelf next --limit 20",
+			"  shelf next --limit 20\n" +
+			"  shelf next --view active",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			tasks, err := shelf.NewTaskStore(ctx.rootDir).List()
+			preset, err := resolveTaskView(view)
+			if err != nil {
+				return err
+			}
+
+			filter := mergeTaskFilterWithView(shelf.TaskFilter{Limit: 0}, preset, map[string]bool{
+				"limit": true,
+			})
+			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
 				return err
 			}
@@ -247,6 +277,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
@@ -448,6 +479,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	var (
 		from     string
 		maxDepth int
+		view     string
 		kinds    []string
 		statuses []string
 		notKinds []string
@@ -491,14 +523,24 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			if strings.TrimSpace(from) != "" && !strings.EqualFold(from, "root") {
 				fromID = from
 			}
-			nodes, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{
+			treeOpts := shelf.TreeOptions{
 				FromID:      fromID,
 				Kinds:       toKinds(kinds),
 				Statuses:    toStatuses(statuses),
 				NotKinds:    toKinds(notKinds),
 				NotStatuses: toStatuses(notStats),
 				MaxDepth:    maxDepth,
-			})
+			}
+			preset, err := resolveTaskView(view)
+			if err != nil {
+				return err
+			}
+			treeOpts, err = treeOptionsFromFilter(treeOpts, preset)
+			if err != nil {
+				return err
+			}
+
+			nodes, err := shelf.BuildTree(ctx.rootDir, treeOpts)
 			if err != nil {
 				return err
 			}
@@ -551,6 +593,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
+	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
