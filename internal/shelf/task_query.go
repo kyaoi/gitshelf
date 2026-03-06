@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 type TaskFilter struct {
@@ -13,6 +14,12 @@ type TaskFilter struct {
 	Statuses    []Status
 	NotKinds    []Kind
 	NotStatuses []Status
+	ReadyOnly   bool
+	DepsBlocked bool
+	DueBefore   string
+	DueAfter    string
+	Overdue     bool
+	NoDue       bool
 	Parent      string
 	Search      string
 	Limit       int
@@ -38,6 +45,15 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 	filtered := make([]Task, 0, len(tasks))
 	search := strings.ToLower(strings.TrimSpace(filter.Search))
 	parent := normalizeParent(filter.Parent)
+	needsReadiness := filter.ReadyOnly || filter.DepsBlocked
+	readiness := map[string]TaskReadiness{}
+	if needsReadiness {
+		readiness, err = BuildTaskReadiness(rootDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	today := time.Now().Local().Format(dueOnLayout)
 
 	for _, task := range tasks {
 		if len(filter.Kinds) > 0 && !slices.Contains(filter.Kinds, task.Kind) {
@@ -50,6 +66,24 @@ func ListTasks(rootDir string, filter TaskFilter) ([]Task, error) {
 			continue
 		}
 		if slices.Contains(filter.NotStatuses, task.Status) {
+			continue
+		}
+		if filter.ReadyOnly && !readiness[task.ID].Ready {
+			continue
+		}
+		if filter.DepsBlocked && !readiness[task.ID].BlockedByDeps {
+			continue
+		}
+		if filter.NoDue && task.DueOn != "" {
+			continue
+		}
+		if filter.DueBefore != "" && (task.DueOn == "" || task.DueOn >= filter.DueBefore) {
+			continue
+		}
+		if filter.DueAfter != "" && (task.DueOn == "" || task.DueOn <= filter.DueAfter) {
+			continue
+		}
+		if filter.Overdue && (task.DueOn == "" || task.DueOn >= today) {
 			continue
 		}
 		if filter.Parent != "" {
@@ -193,6 +227,22 @@ func validateTaskFilter(rootDir string, filter TaskFilter) error {
 	}
 	for _, status := range filter.NotStatuses {
 		if err := cfg.ValidateStatus(status); err != nil {
+			return err
+		}
+	}
+	if filter.ReadyOnly && filter.DepsBlocked {
+		return fmt.Errorf("--ready と --blocked-by-deps は同時に指定できません")
+	}
+	if filter.NoDue && (filter.DueBefore != "" || filter.DueAfter != "" || filter.Overdue) {
+		return fmt.Errorf("--no-due は --due-before/--due-after/--overdue と同時に指定できません")
+	}
+	if filter.DueBefore != "" {
+		if _, err := NormalizeDueOn(filter.DueBefore); err != nil {
+			return err
+		}
+	}
+	if filter.DueAfter != "" {
+		if _, err := NormalizeDueOn(filter.DueAfter); err != nil {
 			return err
 		}
 	}

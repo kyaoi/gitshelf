@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
@@ -377,6 +379,102 @@ func TestCLIStatusShortcutCommands(t *testing.T) {
 	}
 	if !strings.Contains(showOut, `status = "cancelled"`) {
 		t.Fatalf("expected cancelled status: %s", showOut)
+	}
+}
+
+func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	today := time.Now().Local().Format("2006-01-02")
+	yesterday := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+
+	dep, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "dep", DueOn: yesterday})
+	if err != nil {
+		t.Fatalf("add dep failed: %v", err)
+	}
+	blocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "blocked", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, blocked.ID, dep.ID, "depends_on"); err != nil {
+		t.Fatalf("link blocked->dep failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "independent", DueOn: tomorrow}); err != nil {
+		t.Fatalf("add independent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "nodue"}); err != nil {
+		t.Fatalf("add nodue failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--ready")
+	if err != nil {
+		t.Fatalf("ls --ready failed: %v", err)
+	}
+	if strings.Contains(out, "blocked") {
+		t.Fatalf("blocked task should not be ready: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--blocked-by-deps")
+	if err != nil {
+		t.Fatalf("ls --blocked-by-deps failed: %v", err)
+	}
+	if !strings.Contains(out, "blocked") || strings.Contains(out, "independent") {
+		t.Fatalf("unexpected blocked-by-deps result: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--overdue")
+	if err != nil {
+		t.Fatalf("ls --overdue failed: %v", err)
+	}
+	if !strings.Contains(out, "dep") || strings.Contains(out, "independent") {
+		t.Fatalf("unexpected overdue result: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--due-before", today)
+	if err != nil {
+		t.Fatalf("ls --due-before failed: %v", err)
+	}
+	if !strings.Contains(out, "dep") || strings.Contains(out, "independent") {
+		t.Fatalf("unexpected due-before result: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--due-after", today)
+	if err != nil {
+		t.Fatalf("ls --due-after failed: %v", err)
+	}
+	if !strings.Contains(out, "independent") || !strings.Contains(out, "blocked") || strings.Contains(out, "dep  (") {
+		t.Fatalf("unexpected due-after result: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--no-due")
+	if err != nil {
+		t.Fatalf("ls --no-due failed: %v", err)
+	}
+	if !strings.Contains(out, "nodue") || strings.Contains(out, "independent") {
+		t.Fatalf("unexpected no-due result: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--json", "--ready")
+	if err != nil {
+		t.Fatalf("ls --json failed: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("failed to parse ls json output: %v output=%s", err, out)
+	}
+	if len(rows) == 0 {
+		t.Fatalf("expected json rows, got empty: %s", out)
+	}
+
+	if _, err := executeCLI(t, "ls", "--root", root, "--ready", "--blocked-by-deps"); err == nil || !strings.Contains(err.Error(), "同時に指定できません") {
+		t.Fatalf("expected ready/deps conflict error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--due-before", "2026-99-01"); err == nil || !strings.Contains(err.Error(), "invalid due_on") {
+		t.Fatalf("expected invalid due_on error, got: %v", err)
 	}
 }
 

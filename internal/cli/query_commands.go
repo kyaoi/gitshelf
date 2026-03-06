@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -14,6 +15,13 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		statuses    []string
 		notKinds    []string
 		notStatuses []string
+		ready       bool
+		depsBlocked bool
+		dueBefore   string
+		dueAfter    string
+		overdue     bool
+		noDue       bool
+		asJSON      bool
 		parent      string
 		limit       int
 		search      string
@@ -28,6 +36,12 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Statuses:    toStatuses(statuses),
 				NotKinds:    toKinds(notKinds),
 				NotStatuses: toStatuses(notStatuses),
+				ReadyOnly:   ready,
+				DepsBlocked: depsBlocked,
+				DueBefore:   dueBefore,
+				DueAfter:    dueAfter,
+				Overdue:     overdue,
+				NoDue:       noDue,
 				Parent:      parent,
 				Limit:       limit,
 				Search:      search,
@@ -43,6 +57,41 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			for _, task := range allTasks {
 				titleByID[task.ID] = task.Title
 			}
+
+			if asJSON {
+				type lsItem struct {
+					ID          string `json:"id"`
+					Title       string `json:"title"`
+					Kind        string `json:"kind"`
+					Status      string `json:"status"`
+					DueOn       string `json:"due_on,omitempty"`
+					Parent      string `json:"parent,omitempty"`
+					ParentTitle string `json:"parent_title,omitempty"`
+				}
+				items := make([]lsItem, 0, len(tasks))
+				for _, task := range tasks {
+					parentTitle := ""
+					if task.Parent != "" {
+						parentTitle = titleByID[task.Parent]
+					}
+					items = append(items, lsItem{
+						ID:          task.ID,
+						Title:       task.Title,
+						Kind:        string(task.Kind),
+						Status:      string(task.Status),
+						DueOn:       task.DueOn,
+						Parent:      task.Parent,
+						ParentTitle: parentTitle,
+					})
+				}
+				data, err := json.MarshalIndent(items, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
@@ -75,6 +124,13 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
+	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
+	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
+	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&dueAfter, "due-after", "", "Include only tasks due after this date (YYYY-MM-DD)")
+	cmd.Flags().BoolVar(&overdue, "overdue", false, "Include only overdue tasks")
+	cmd.Flags().BoolVar(&noDue, "no-due", false, "Include only tasks without due date")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
