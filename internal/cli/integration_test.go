@@ -804,6 +804,59 @@ func TestCLIViewPresetsForLsTreeNext(t *testing.T) {
 	}
 }
 
+func TestCLIViewManageCommands(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	listOut, err := executeCLI(t, "view", "--root", root, "list")
+	if err != nil {
+		t.Fatalf("view list failed: %v", err)
+	}
+	if !strings.Contains(listOut, "active") || !strings.Contains(listOut, "ready") {
+		t.Fatalf("view list should contain built-ins: %s", listOut)
+	}
+
+	if _, err := executeCLI(t, "view", "--root", root, "set", "todo_open", "--kind", "todo", "--status", "open", "--limit", "20"); err != nil {
+		t.Fatalf("view set failed: %v", err)
+	}
+
+	showOut, err := executeCLI(t, "view", "--root", root, "show", "todo_open")
+	if err != nil {
+		t.Fatalf("view show failed: %v", err)
+	}
+	if !strings.Contains(showOut, "name: todo_open") || !strings.Contains(showOut, "limit: 20") {
+		t.Fatalf("unexpected view show output: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "view", "--root", root, "set", "active", "--status", "open"); err == nil || !strings.Contains(err.Error(), "cannot overwrite built-in view") {
+		t.Fatalf("expected built-in overwrite error, got: %v", err)
+	}
+
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "todo-open", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add todo-open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "memo-open", Kind: "memo", Status: "open"}); err != nil {
+		t.Fatalf("add memo-open failed: %v", err)
+	}
+
+	lsOut, err := executeCLI(t, "ls", "--root", root, "--view", "todo_open")
+	if err != nil {
+		t.Fatalf("ls --view todo_open failed: %v", err)
+	}
+	if !strings.Contains(lsOut, "todo-open") || strings.Contains(lsOut, "memo-open") {
+		t.Fatalf("unexpected filtered output: %s", lsOut)
+	}
+
+	if _, err := executeCLI(t, "view", "--root", root, "delete", "todo_open"); err != nil {
+		t.Fatalf("view delete failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--view", "todo_open"); err == nil || !strings.Contains(err.Error(), "unknown view") {
+		t.Fatalf("expected unknown view error after delete, got: %v", err)
+	}
+}
+
 func TestCLIAgendaAndSnooze(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
