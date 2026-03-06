@@ -259,17 +259,19 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "add"); err != nil {
-				return err
-			}
-			task, err := shelf.AddTask(ctx.rootDir, input)
-			if err != nil {
-				return err
-			}
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "add"); err != nil {
+					return err
+				}
+				task, err := shelf.AddTask(ctx.rootDir, input)
+				if err != nil {
+					return err
+				}
 
-			fmt.Printf("Created: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
-			fmt.Printf("ID: %s\n", task.ID)
-			return nil
+				fmt.Printf("Created: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+				fmt.Printf("ID: %s\n", task.ID)
+				return nil
+			})
 		},
 	}
 

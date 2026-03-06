@@ -135,14 +135,16 @@ func newImportCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "import"); err != nil {
-				return err
-			}
-			if err := restoreFromExport(ctx.rootDir, resultPayload); err != nil {
-				return err
-			}
-			fmt.Printf("Imported (%s): tasks=%d edge_files=%d\n", summary.Mode, summary.ResultTasks, summary.ResultEdges)
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "import"); err != nil {
+					return err
+				}
+				if err := restoreFromExport(ctx.rootDir, resultPayload); err != nil {
+					return err
+				}
+				fmt.Printf("Imported (%s): tasks=%d edge_files=%d\n", summary.Mode, summary.ResultTasks, summary.ResultEdges)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&inPath, "in", "-", "Input path ('-' for stdin)")

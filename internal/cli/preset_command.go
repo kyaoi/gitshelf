@@ -127,10 +127,12 @@ func newPresetSetCommand(ctx *commandContext) *cobra.Command {
 				View:    strings.TrimSpace(view),
 				Limit:   limit,
 			}
-			if err := prepareUndoSnapshot(ctx.rootDir, "preset-set"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "preset-set"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Saved preset: %s\n", name)
@@ -160,10 +162,12 @@ func newPresetDeleteCommand(ctx *commandContext) *cobra.Command {
 				return fmt.Errorf("unknown output preset: %s", name)
 			}
 			delete(cfg.OutputPresets, name)
-			if err := prepareUndoSnapshot(ctx.rootDir, "preset-delete"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "preset-delete"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Deleted preset: %s\n", name)

@@ -32,10 +32,16 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 			)
 			opts := shelf.DoctorOptions{Strict: strict}
 			if fix {
-				rawReport, fixedCount, runErr := shelf.RunDoctorWithFixOptions(ctx.rootDir, opts)
-				report = rawReport
-				fixed = fixedCount
-				err = runErr
+				lockErr := withWriteLock(ctx.rootDir, func() error {
+					rawReport, fixedCount, runErr := shelf.RunDoctorWithFixOptions(ctx.rootDir, opts)
+					report = rawReport
+					fixed = fixedCount
+					err = runErr
+					return nil
+				})
+				if lockErr != nil {
+					return lockErr
+				}
 			} else {
 				rawReport, runErr := shelf.RunDoctorWithOptions(ctx.rootDir, opts)
 				report = rawReport

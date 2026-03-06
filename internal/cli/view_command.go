@@ -190,10 +190,12 @@ func newViewSetCommand(ctx *commandContext) *cobra.Command {
 				Search:      strings.TrimSpace(search),
 				Limit:       limit,
 			}
-			if err := prepareUndoSnapshot(ctx.rootDir, "view-set"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "view-set"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Saved view: %s\n", name)
@@ -237,10 +239,12 @@ func newViewDeleteCommand(ctx *commandContext) *cobra.Command {
 				return fmt.Errorf("unknown custom view: %s", name)
 			}
 			delete(cfg.Views, name)
-			if err := prepareUndoSnapshot(ctx.rootDir, "view-delete"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "view-delete"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Deleted view: %s\n", name)
@@ -274,10 +278,12 @@ func newViewCopyCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			cfg.Views[dst] = srcView
-			if err := prepareUndoSnapshot(ctx.rootDir, "view-copy"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "view-copy"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Copied view: %s -> %s\n", src, dst)
@@ -311,10 +317,12 @@ func newViewRenameCommand(ctx *commandContext) *cobra.Command {
 			}
 			delete(cfg.Views, src)
 			cfg.Views[dst] = view
-			if err := prepareUndoSnapshot(ctx.rootDir, "view-rename"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "view-rename"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Renamed view: %s -> %s\n", src, dst)
@@ -374,10 +382,12 @@ func newViewMergeCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			cfg.Views[dst] = merged
-			if err := prepareUndoSnapshot(ctx.rootDir, "view-merge"); err != nil {
-				return err
-			}
-			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
+			if err := withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "view-merge"); err != nil {
+					return err
+				}
+				return shelf.SaveConfig(ctx.rootDir, cfg)
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("Merged view: %s (%s)\n", dst, strategy)

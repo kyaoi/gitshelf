@@ -32,18 +32,20 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "link"); err != nil {
-				return err
-			}
-			if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
-				return err
-			}
-			byID, err := loadTaskMap(ctx.rootDir)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Linked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "link"); err != nil {
+					return err
+				}
+				if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind)); err != nil {
+					return err
+				}
+				byID, err := loadTaskMap(ctx.rootDir)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Linked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
+				return nil
+			})
 		},
 	}
 
@@ -73,22 +75,24 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "unlink"); err != nil {
-				return err
-			}
-			removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind))
-			if err != nil {
-				return err
-			}
-			if !removed {
-				return errors.New("指定リンクは存在しません")
-			}
-			byID, err := loadTaskMap(ctx.rootDir)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Unlinked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "unlink"); err != nil {
+					return err
+				}
+				removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, shelf.LinkType(kind))
+				if err != nil {
+					return err
+				}
+				if !removed {
+					return errors.New("指定リンクは存在しません")
+				}
+				byID, err := loadTaskMap(ctx.rootDir)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Unlinked: %s --%s--> %s\n", taskLabelForLink(from, byID, ctx.showID), uiLinkType(shelf.LinkType(kind)), taskLabelForLink(to, byID, ctx.showID))
+				return nil
+			})
 		},
 	}
 

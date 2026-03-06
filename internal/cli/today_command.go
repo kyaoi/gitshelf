@@ -96,16 +96,21 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 						}
 					}
 
-					if err := prepareUndoSnapshot(ctx.rootDir, "today-carry-over"); err != nil {
-						return err
-					}
-					for _, task := range targets {
-						due := today
-						if _, err := shelf.SetTask(ctx.rootDir, task.ID, shelf.SetTaskInput{
-							DueOn: &due,
-						}); err != nil {
+					if err := withWriteLock(ctx.rootDir, func() error {
+						if err := prepareUndoSnapshot(ctx.rootDir, "today-carry-over"); err != nil {
 							return err
 						}
+						for _, task := range targets {
+							due := today
+							if _, err := shelf.SetTask(ctx.rootDir, task.ID, shelf.SetTaskInput{
+								DueOn: &due,
+							}); err != nil {
+								return err
+							}
+						}
+						return nil
+					}); err != nil {
+						return err
 					}
 					carriedCount = len(targets)
 					tasks, err = shelf.ListTasks(ctx.rootDir, filter)

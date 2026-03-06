@@ -42,12 +42,14 @@ func newUndoCommand(ctx *commandContext) *cobra.Command {
 			if steps <= 0 {
 				return fmt.Errorf("--steps must be >= 1")
 			}
-			last, err := restoreUndoSnapshots(ctx.rootDir, steps)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Undone (%d): %s\n", steps, last.Action)
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				last, err := restoreUndoSnapshots(ctx.rootDir, steps)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Undone (%d): %s\n", steps, last.Action)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().IntVar(&steps, "steps", 1, "Number of actions to undo")
@@ -64,12 +66,14 @@ func newRedoCommand(ctx *commandContext) *cobra.Command {
 			if steps <= 0 {
 				return fmt.Errorf("--steps must be >= 1")
 			}
-			last, err := restoreRedoSnapshots(ctx.rootDir, steps)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Redone (%d): %s\n", steps, last.Action)
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				last, err := restoreRedoSnapshots(ctx.rootDir, steps)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Redone (%d): %s\n", steps, last.Action)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().IntVar(&steps, "steps", 1, "Number of actions to redo")

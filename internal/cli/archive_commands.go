@@ -19,18 +19,20 @@ func newArchiveCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := prepareUndoSnapshot(ctx.rootDir, "archive"); err != nil {
-				return err
-			}
-			now := time.Now().Local().Round(time.Second).Format(time.RFC3339)
-			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				ArchivedAt: &now,
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "archive"); err != nil {
+					return err
+				}
+				now := time.Now().Local().Round(time.Second).Format(time.RFC3339)
+				task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					ArchivedAt: &now,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Archived: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Archived: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
-			return nil
 		},
 	}
 	return cmd
@@ -47,18 +49,20 @@ func newUnarchiveCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := prepareUndoSnapshot(ctx.rootDir, "unarchive"); err != nil {
-				return err
-			}
-			empty := ""
-			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				ArchivedAt: &empty,
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "unarchive"); err != nil {
+					return err
+				}
+				empty := ""
+				task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					ArchivedAt: &empty,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Unarchived: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Unarchived: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
-			return nil
 		},
 	}
 	return cmd

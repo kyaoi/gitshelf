@@ -56,22 +56,24 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "snooze"); err != nil {
-				return err
-			}
-			updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				DueOn: &nextDue,
-			})
-			if err != nil {
-				return err
-			}
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "snooze"); err != nil {
+					return err
+				}
+				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					DueOn: &nextDue,
+				})
+				if err != nil {
+					return err
+				}
 
-			label := uiPrimary(updated.Title)
-			if ctx.showID {
-				label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(updated.ID)), label)
-			}
-			fmt.Printf("Snoozed: %s due=%s\n", label, uiDue(updated.DueOn))
-			return nil
+				label := uiPrimary(updated.Title)
+				if ctx.showID {
+					label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(updated.ID)), label)
+				}
+				fmt.Printf("Snoozed: %s due=%s\n", label, uiDue(updated.DueOn))
+				return nil
+			})
 		},
 	}
 

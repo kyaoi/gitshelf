@@ -100,15 +100,17 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "set"); err != nil {
-				return err
-			}
-			task, err := shelf.SetTask(ctx.rootDir, id, input)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Updated: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
-			return nil
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "set"); err != nil {
+					return err
+				}
+				task, err := shelf.SetTask(ctx.rootDir, id, input)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Updated: [%s] %s\n", shelf.ShortID(task.ID), task.Title)
+				return nil
+			})
 		},
 	}
 
@@ -385,21 +387,23 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 				}
 			}
 
-			if err := prepareUndoSnapshot(ctx.rootDir, "mv"); err != nil {
-				return err
-			}
-			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				Parent: &resolvedParent,
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "mv"); err != nil {
+					return err
+				}
+				task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					Parent: &resolvedParent,
+				})
+				if err != nil {
+					return err
+				}
+				parentLabel := "root"
+				if task.Parent != "" {
+					parentLabel = shelf.ShortID(task.Parent)
+				}
+				fmt.Printf("Moved: [%s] parent=%s\n", shelf.ShortID(task.ID), parentLabel)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			parentLabel := "root"
-			if task.Parent != "" {
-				parentLabel = shelf.ShortID(task.Parent)
-			}
-			fmt.Printf("Moved: [%s] parent=%s\n", shelf.ShortID(task.ID), parentLabel)
-			return nil
 		},
 	}
 
@@ -427,18 +431,20 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			if task.RepeatEvery == "" {
-				if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
-					return err
-				}
-				next := shelf.Status("done")
-				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-					Status: &next,
+				return withWriteLock(ctx.rootDir, func() error {
+					if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
+						return err
+					}
+					next := shelf.Status("done")
+					updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+						Status: &next,
+					})
+					if err != nil {
+						return err
+					}
+					fmt.Printf("Done: [%s] %s\n", shelf.ShortID(updated.ID), updated.Title)
+					return nil
 				})
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Done: [%s] %s\n", shelf.ShortID(updated.ID), updated.Title)
-				return nil
 			}
 
 			action, err := resolveRecurringAction(recurringAction)
@@ -463,46 +469,48 @@ func newDoneCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
-				return err
-			}
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, "done"); err != nil {
+					return err
+				}
 
-			switch action {
-			case "create":
-				doneStatus := shelf.Status("done")
-				if _, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-					Status: &doneStatus,
-				}); err != nil {
-					return err
+				switch action {
+				case "create":
+					doneStatus := shelf.Status("done")
+					if _, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+						Status: &doneStatus,
+					}); err != nil {
+						return err
+					}
+					nextTask, err := shelf.AddTask(ctx.rootDir, shelf.AddTaskInput{
+						Title:       task.Title,
+						Kind:        task.Kind,
+						Status:      shelf.Status("open"),
+						DueOn:       nextDue,
+						RepeatEvery: task.RepeatEvery,
+						Parent:      task.Parent,
+						Body:        task.Body,
+					})
+					if err != nil {
+						return err
+					}
+					fmt.Printf("Done + Created next: [%s] -> [%s] due=%s\n", shelf.ShortID(task.ID), shelf.ShortID(nextTask.ID), nextTask.DueOn)
+					return nil
+				case "reopen":
+					openStatus := shelf.Status("open")
+					updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+						Status: &openStatus,
+						DueOn:  &nextDue,
+					})
+					if err != nil {
+						return err
+					}
+					fmt.Printf("Reopened recurring: [%s] %s due=%s\n", shelf.ShortID(updated.ID), updated.Title, updated.DueOn)
+					return nil
+				default:
+					return fmt.Errorf("invalid recurring action: %s", action)
 				}
-				nextTask, err := shelf.AddTask(ctx.rootDir, shelf.AddTaskInput{
-					Title:       task.Title,
-					Kind:        task.Kind,
-					Status:      shelf.Status("open"),
-					DueOn:       nextDue,
-					RepeatEvery: task.RepeatEvery,
-					Parent:      task.Parent,
-					Body:        task.Body,
-				})
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Done + Created next: [%s] -> [%s] due=%s\n", shelf.ShortID(task.ID), shelf.ShortID(nextTask.ID), nextTask.DueOn)
-				return nil
-			case "reopen":
-				openStatus := shelf.Status("open")
-				updated, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-					Status: &openStatus,
-					DueOn:  &nextDue,
-				})
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Reopened recurring: [%s] %s due=%s\n", shelf.ShortID(updated.ID), updated.Title, updated.DueOn)
-				return nil
-			default:
-				return fmt.Errorf("invalid recurring action: %s", action)
-			}
+			})
 		},
 	}
 	cmd.Flags().StringVar(&recurringAction, "recurring-action", "", "Action for recurring task: create|reopen")
@@ -540,17 +548,19 @@ func newStatusShortcutCommand(ctx *commandContext, use string, short string, tar
 			}
 
 			next := shelf.Status(targetStatus)
-			if err := prepareUndoSnapshot(ctx.rootDir, use); err != nil {
-				return err
-			}
-			task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
-				Status: &next,
+			return withWriteLock(ctx.rootDir, func() error {
+				if err := prepareUndoSnapshot(ctx.rootDir, use); err != nil {
+					return err
+				}
+				task, err := shelf.SetTask(ctx.rootDir, id, shelf.SetTaskInput{
+					Status: &next,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("%s: [%s] %s\n", actionLabel, shelf.ShortID(task.ID), task.Title)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("%s: [%s] %s\n", actionLabel, shelf.ShortID(task.ID), task.Title)
-			return nil
 		},
 	}
 	return cmd
