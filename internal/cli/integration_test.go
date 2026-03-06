@@ -615,6 +615,52 @@ func TestCLILinksTransitiveAndJSON(t *testing.T) {
 	}
 }
 
+func TestCLIDepsCommand(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	a, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add A failed: %v", err)
+	}
+	b, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add B failed: %v", err)
+	}
+	c, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "C"})
+	if err != nil {
+		t.Fatalf("add C failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, a.ID, b.ID, "depends_on"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, c.ID, a.ID, "depends_on"); err != nil {
+		t.Fatalf("link C->A failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "deps", "--root", root, a.ID)
+	if err != nil {
+		t.Fatalf("deps failed: %v", err)
+	}
+	if !strings.Contains(out, "Prerequisites:") || !strings.Contains(out, "B") || !strings.Contains(out, "Dependents:") || !strings.Contains(out, "C") {
+		t.Fatalf("unexpected deps output: %s", out)
+	}
+
+	out, err = executeCLI(t, "deps", "--root", root, b.ID, "--transitive", "--json")
+	if err != nil {
+		t.Fatalf("deps --transitive --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse deps json output: %v output=%s", err, out)
+	}
+	dependents, ok := payload["dependents"].([]any)
+	if !ok || len(dependents) == 0 {
+		t.Fatalf("expected transitive dependents in deps json output: %s", out)
+	}
+}
+
 func TestCLIDoctorFixAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

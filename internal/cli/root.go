@@ -80,6 +80,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newLinkCommand(ctx))
 	cmd.AddCommand(newUnlinkCommand(ctx))
 	cmd.AddCommand(newLinksCommand(ctx))
+	cmd.AddCommand(newDepsCommand(ctx))
 	cmd.AddCommand(newExportCommand(ctx))
 	cmd.AddCommand(newImportCommand(ctx))
 	cmd.AddCommand(newUndoCommand(ctx))
