@@ -58,15 +58,15 @@ func Select(prompt string, options []Option) (Option, error) {
 
 		render(prompt, filtered, cursor, search, searchMode, showHelp)
 
-		b, err := reader.ReadByte()
+		key, err := readKeyEvent(reader)
 		if err != nil {
 			return Option{}, fmt.Errorf("failed to read key input: %w", err)
 		}
 
-		switch b {
-		case 3:
+		switch key.Kind {
+		case keyKindCtrlC:
 			return Option{}, ErrCanceled
-		case 13, 10:
+		case keyKindEnter:
 			if searchMode {
 				searchMode = false
 				continue
@@ -75,19 +75,7 @@ func Select(prompt string, options []Option) (Option, error) {
 				continue
 			}
 			return filtered[cursor], nil
-		case 27:
-			seq1, _ := reader.Peek(1)
-			if len(seq1) == 1 && seq1[0] == '[' {
-				_, _ = reader.ReadByte()
-				seq2, _ := reader.ReadByte()
-				switch seq2 {
-				case 'A':
-					cursor = moveUp(cursor, len(filtered))
-				case 'B':
-					cursor = moveDown(cursor, len(filtered))
-				}
-				continue
-			}
+		case keyKindEsc:
 			if searchMode {
 				search = ""
 				searchMode = false
@@ -95,46 +83,47 @@ func Select(prompt string, options []Option) (Option, error) {
 				continue
 			}
 			return Option{}, ErrCanceled
-		case '/':
-			searchMode = true
-			cursor = 0
-		case '?':
-			if searchMode {
-				search += string(b)
-				cursor = 0
-				continue
-			}
-			showHelp = !showHelp
-		case 'q':
-			if searchMode {
-				search += string(b)
-				cursor = 0
-				continue
-			}
-			return Option{}, ErrCanceled
-		case 127:
+		case keyKindUp:
+			cursor = moveUp(cursor, len(filtered))
+		case keyKindDown:
+			cursor = moveDown(cursor, len(filtered))
+		case keyKindBackspace:
 			if searchMode && len(search) > 0 {
 				_, size := utf8.DecodeLastRuneInString(search)
 				search = search[:len(search)-size]
 				cursor = 0
 			}
-		case 'j':
+		case keyKindRune:
+			r := key.Rune
 			if searchMode {
-				search += string(b)
-				cursor = 0
+				if isPrintableRune(r) {
+					search += string(r)
+					cursor = 0
+				}
 				continue
 			}
-			cursor = moveDown(cursor, len(filtered))
-		case 'k':
-			if searchMode {
-				search += string(b)
+
+			switch r {
+			case '/':
+				searchMode = true
 				cursor = 0
-				continue
+			case '?':
+				showHelp = !showHelp
+			case 'q':
+				return Option{}, ErrCanceled
+			case 'j':
+				cursor = moveDown(cursor, len(filtered))
+			case 'k':
+				cursor = moveUp(cursor, len(filtered))
+			default:
+				if searchMode && isPrintableRune(r) {
+					search += string(r)
+					cursor = 0
+				}
 			}
-			cursor = moveUp(cursor, len(filtered))
 		default:
-			if searchMode && b >= 32 {
-				search += string(b)
+			if key.Kind == keyKindRune && searchMode && isPrintableRune(key.Rune) {
+				search += string(key.Rune)
 				cursor = 0
 			}
 		}

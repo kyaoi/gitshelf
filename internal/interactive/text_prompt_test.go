@@ -2,10 +2,10 @@ package interactive
 
 import "testing"
 
-func TestApplyTextPromptByteAppendsAndEnterDone(t *testing.T) {
+func TestApplyTextPromptKeyAppendsAndEnterDone(t *testing.T) {
 	value := ""
-	for _, b := range []byte("Task q1") {
-		done, canceled, next := applyTextPromptByte(value, b)
+	for _, r := range []rune("Task q1") {
+		done, canceled, next := applyTextPromptKey(value, keyEvent{Kind: keyKindRune, Rune: r})
 		if done || canceled {
 			t.Fatalf("unexpected terminal state while typing: done=%v canceled=%v", done, canceled)
 		}
@@ -15,7 +15,7 @@ func TestApplyTextPromptByteAppendsAndEnterDone(t *testing.T) {
 		t.Fatalf("unexpected value: %q", value)
 	}
 
-	done, canceled, next := applyTextPromptByte(value, '\n')
+	done, canceled, next := applyTextPromptKey(value, keyEvent{Kind: keyKindEnter})
 	if !done || canceled {
 		t.Fatalf("enter should finish input: done=%v canceled=%v", done, canceled)
 	}
@@ -24,8 +24,8 @@ func TestApplyTextPromptByteAppendsAndEnterDone(t *testing.T) {
 	}
 }
 
-func TestApplyTextPromptByteBackspace(t *testing.T) {
-	done, canceled, next := applyTextPromptByte("ab", 127)
+func TestApplyTextPromptKeyBackspace(t *testing.T) {
+	done, canceled, next := applyTextPromptKey("ab", keyEvent{Kind: keyKindBackspace})
 	if done || canceled {
 		t.Fatalf("backspace should not finish: done=%v canceled=%v", done, canceled)
 	}
@@ -34,14 +34,33 @@ func TestApplyTextPromptByteBackspace(t *testing.T) {
 	}
 }
 
-func TestApplyTextPromptByteCancelKeys(t *testing.T) {
-	for _, key := range []byte{3, 27} {
-		done, canceled, next := applyTextPromptByte("abc", key)
+func TestApplyTextPromptKeyCancelKeys(t *testing.T) {
+	for _, key := range []keyKind{keyKindCtrlC, keyKindEsc} {
+		done, canceled, next := applyTextPromptKey("abc", keyEvent{Kind: key})
 		if done || !canceled {
-			t.Fatalf("expected canceled for key %d: done=%v canceled=%v", key, done, canceled)
+			t.Fatalf("expected canceled for key %v: done=%v canceled=%v", key, done, canceled)
 		}
 		if next != "abc" {
 			t.Fatalf("cancel should not alter value: %q", next)
 		}
+	}
+}
+
+func TestApplyTextPromptKeyUnicodeInputAndBackspace(t *testing.T) {
+	value := ""
+	for _, r := range []rune("日本語") {
+		done, canceled, next := applyTextPromptKey(value, keyEvent{Kind: keyKindRune, Rune: r})
+		if done || canceled {
+			t.Fatalf("unexpected terminal state while typing unicode: done=%v canceled=%v", done, canceled)
+		}
+		value = next
+	}
+	if value != "日本語" {
+		t.Fatalf("unexpected unicode value: %q", value)
+	}
+
+	_, _, value = applyTextPromptKey(value, keyEvent{Kind: keyKindBackspace})
+	if value != "日本" {
+		t.Fatalf("unexpected unicode value after backspace: %q", value)
 	}
 }

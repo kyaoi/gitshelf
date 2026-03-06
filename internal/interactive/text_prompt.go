@@ -31,12 +31,12 @@ func PromptText(prompt string) (string, error) {
 	for {
 		renderTextPrompt(prompt, value)
 
-		b, err := reader.ReadByte()
+		key, err := readKeyEvent(reader)
 		if err != nil {
 			return "", fmt.Errorf("failed to read key input: %w", err)
 		}
 
-		done, canceled, next := applyTextPromptByte(value, b)
+		done, canceled, next := applyTextPromptKey(value, key)
 		if canceled {
 			return "", ErrCanceled
 		}
@@ -47,23 +47,21 @@ func PromptText(prompt string) (string, error) {
 	}
 }
 
-func applyTextPromptByte(value string, b byte) (done bool, canceled bool, next string) {
-	switch b {
-	case 3:
+func applyTextPromptKey(value string, key keyEvent) (done bool, canceled bool, next string) {
+	switch key.Kind {
+	case keyKindCtrlC, keyKindEsc:
 		return false, true, value
-	case 13, 10:
+	case keyKindEnter:
 		return true, false, value
-	case 27:
-		return false, true, value
-	case 8, 127:
+	case keyKindBackspace:
 		if len(value) == 0 {
 			return false, false, value
 		}
 		_, size := utf8.DecodeLastRuneInString(value)
 		return false, false, value[:len(value)-size]
 	default:
-		if b >= 32 {
-			return false, false, value + string(b)
+		if key.Kind == keyKindRune && isPrintableRune(key.Rune) {
+			return false, false, value + string(key.Rune)
 		}
 		return false, false, value
 	}
