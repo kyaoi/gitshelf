@@ -88,3 +88,28 @@ func TestBuildParentSelectionOptionsExcludeID(t *testing.T) {
 		t.Fatalf("unexpected root option: %+v", options[0])
 	}
 }
+
+func TestBuildTaskSelectionOptionsHierarchical(t *testing.T) {
+	now := time.Now().UTC().Round(time.Second)
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+		{ID: "01B", Title: "B", Kind: "todo", Status: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now},
+		{ID: "01C", Title: "C", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+	}
+
+	options := buildTaskSelectionOptions(tasks, true)
+	if len(options) != 3 {
+		t.Fatalf("unexpected option length: %d", len(options))
+	}
+	wantLabels := []string{"A", "└─ B", "C"}
+	for i, want := range wantLabels {
+		if options[i].Label != want {
+			t.Fatalf("label[%d] = %q, want %q", i, options[i].Label, want)
+		}
+	}
+	for _, option := range options {
+		if strings.Contains(option.Label, "[") {
+			t.Fatalf("hierarchical task selection should omit IDs in label: %q", option.Label)
+		}
+	}
+}

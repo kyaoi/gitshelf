@@ -70,6 +70,7 @@ The type selection screen includes this warning:
 ## show / edit / set / done / links Interactive Flow
 
 1. Select target task by ID/title
+   - `show` uses hierarchical tree-style labels without IDs by default
 2. (`set` only, when no update flags are passed) select `Status`
 
 ## mv Interactive Flow

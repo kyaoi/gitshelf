@@ -74,7 +74,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show task details",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			id, err := selectTaskIDIfMissing(ctx, args, "表示するタスクを選択", nil)
+			id, err := selectTaskIDIfMissing(ctx, args, "表示するタスクを選択", nil, true)
 			if err != nil {
 				return err
 			}
