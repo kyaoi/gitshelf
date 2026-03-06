@@ -134,7 +134,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 			{Value: "save", Label: "Save changes"},
 			{Value: "cancel", Label: "Cancel"},
 		}
-		selected, err := interactive.Select("更新項目を選択してください", options)
+		selected, err := selectEnumOption("更新項目を選択してください", options)
 		if err != nil {
 			return shelf.SetTaskInput{}, err
 		}
@@ -160,7 +160,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 					SearchText: string(kind),
 				})
 			}
-			selectedKind, err := interactive.Select("Kind を選択してください", kindOptions)
+			selectedKind, err := selectEnumOption("Kind を選択してください", kindOptions)
 			if err != nil {
 				return shelf.SetTaskInput{}, err
 			}
@@ -177,7 +177,7 @@ func resolveSetInputInteractive(ctx *commandContext, id string, task shelf.Task,
 					SearchText: string(status),
 				})
 			}
-			selectedStatus, err := interactive.Select("Status を選択してください", statusOptions)
+			selectedStatus, err := selectEnumOption("Status を選択してください", statusOptions)
 			if err != nil {
 				return shelf.SetTaskInput{}, err
 			}

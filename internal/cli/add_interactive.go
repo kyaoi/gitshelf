@@ -34,7 +34,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			SearchText: string(kind),
 		})
 	}
-	kindSelected, err := interactive.Select("Kind を選択してください", kindOptions)
+	kindSelected, err := selectEnumOption("Kind を選択してください", kindOptions)
 	if err != nil {
 		return shelf.AddTaskInput{}, err
 	}
@@ -49,7 +49,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				SearchText: string(status),
 			})
 		}
-		statusSelected, err := interactive.Select("Status を選択してください", statusOptions)
+		statusSelected, err := selectEnumOption("Status を選択してください", statusOptions)
 		if err != nil {
 			return shelf.AddTaskInput{}, err
 		}
@@ -71,7 +71,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 	}
 
 	parentOptions := buildParentSelectionOptions(tasks, "", ctx.showID)
-	parentSelected, err := interactive.Select("Parent を選択してください", parentOptions)
+	parentSelected, err := selectTaskOption("Parent を選択してください", parentOptions)
 	if err != nil {
 		return shelf.AddTaskInput{}, err
 	}

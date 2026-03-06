@@ -10,6 +10,30 @@ import (
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
+const selectorHelpText = "j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"
+
+func selectTaskOption(prompt string, options []interactive.Option) (interactive.Option, error) {
+	return interactive.SelectWithConfig(interactive.SelectConfig{
+		Prompt:            prompt,
+		Options:           options,
+		ShowPreview:       true,
+		MaxRows:           15,
+		HelpText:          selectorHelpText,
+		SearchPlaceholder: "検索",
+	})
+}
+
+func selectEnumOption(prompt string, options []interactive.Option) (interactive.Option, error) {
+	return interactive.SelectWithConfig(interactive.SelectConfig{
+		Prompt:            prompt,
+		Options:           options,
+		ShowPreview:       false,
+		MaxRows:           15,
+		HelpText:          selectorHelpText,
+		SearchPlaceholder: "検索",
+	})
+}
+
 func selectTaskIDIfMissing(
 	ctx *commandContext,
 	args []string,
@@ -58,7 +82,7 @@ func selectTaskIDIfMissing(
 		ShowID:        ctx.showID,
 		IncludeOrphan: true,
 	})
-	selected, err := interactive.Select(prompt, options)
+	selected, err := selectTaskOption(prompt, options)
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +104,7 @@ func selectParentIfMissing(ctx *commandContext, currentID string, parentFlag str
 	}
 
 	options := buildParentSelectionOptions(tasks, currentID, ctx.showID)
-	selected, err := interactive.Select("Parent を選択してください", options)
+	selected, err := selectTaskOption("Parent を選択してください", options)
 	if err != nil {
 		return "", err
 	}

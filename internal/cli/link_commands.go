@@ -187,7 +187,7 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 		IncludeOrphan: true,
 	})
 
-	src, err := interactive.Select("source を選択", taskOptions)
+	src, err := selectTaskOption("source を選択", taskOptions)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -204,7 +204,7 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 		ShowID:        ctx.showID,
 		IncludeOrphan: true,
 	})
-	dst, err := interactive.Select("destination を選択", dstOptions)
+	dst, err := selectTaskOption("destination を選択", dstOptions)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -221,7 +221,7 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 			SearchText: string(linkType),
 		})
 	}
-	selectedType, err := interactive.Select("type を選択（A depends_on B = AをやるにはBが先）", typeOptions)
+	selectedType, err := selectEnumOption("type を選択（A depends_on B = AをやるにはBが先）", typeOptions)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -252,7 +252,7 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 		byID[task.ID] = task
 	}
 
-	src, err := interactive.Select("source を選択", taskOptions)
+	src, err := selectTaskOption("source を選択", taskOptions)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -283,7 +283,7 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 		})
 	}
 
-	selectedEdge, err := interactive.Select("削除する edge を選択", edgeOptions)
+	selectedEdge, err := selectEnumOption("削除する edge を選択", edgeOptions)
 	if err != nil {
 		return "", "", "", err
 	}
