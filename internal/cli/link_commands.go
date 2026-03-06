@@ -134,7 +134,6 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        ctx.showID,
-		PreviewBody:   ctx.previewBody,
 		IncludeOrphan: true,
 	})
 
@@ -153,7 +152,6 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 	dstOptions := buildTaskSelectionOptions(dstTasks, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        ctx.showID,
-		PreviewBody:   ctx.previewBody,
 		IncludeOrphan: true,
 	})
 	dst, err := interactive.Select("destination を選択", dstOptions)
@@ -197,7 +195,6 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        ctx.showID,
-		PreviewBody:   ctx.previewBody,
 		IncludeOrphan: true,
 	})
 	byID := make(map[string]shelf.Task, len(tasks))

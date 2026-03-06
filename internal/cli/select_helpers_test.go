@@ -17,7 +17,7 @@ func TestBuildParentSelectionOptionsHierarchyOrder(t *testing.T) {
 		{ID: "01D", Title: "D", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "", false, false)
+	options := buildParentSelectionOptions(tasks, "", false)
 	if len(options) != 5 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -46,7 +46,7 @@ func TestBuildParentSelectionOptionsDuplicateTitles(t *testing.T) {
 		{ID: "01B", Title: "same", Kind: "idea", Status: "blocked", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "", false, false)
+	options := buildParentSelectionOptions(tasks, "", false)
 	if len(options) != 3 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -64,7 +64,7 @@ func TestBuildParentSelectionOptionsOmitsIDsForUniqueTitles(t *testing.T) {
 		{ID: "01A", Title: "unique", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "", false, false)
+	options := buildParentSelectionOptions(tasks, "", false)
 	if len(options) != 2 {
 		t.Fatalf("unexpected option length: %d", len(options))
 	}
@@ -80,7 +80,7 @@ func TestBuildParentSelectionOptionsExcludeID(t *testing.T) {
 		{ID: "01B", Title: "B", Kind: "todo", Status: "open", Parent: "01A", CreatedAt: now, UpdatedAt: now},
 	}
 
-	options := buildParentSelectionOptions(tasks, "01A", false, false)
+	options := buildParentSelectionOptions(tasks, "01A", false)
 	if len(options) != 1 {
 		t.Fatalf("expected only root when excluding current branch, got %+v", options)
 	}
@@ -100,7 +100,6 @@ func TestBuildTaskSelectionOptionsHierarchical(t *testing.T) {
 	options := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        false,
-		PreviewBody:   false,
 		IncludeOrphan: true,
 	})
 	if len(options) != 3 {
@@ -127,7 +126,6 @@ func TestBuildTaskSelectionOptionsWithIDAndPreview(t *testing.T) {
 	options := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        true,
-		PreviewBody:   true,
 		IncludeOrphan: true,
 	})
 	if len(options) != 1 {

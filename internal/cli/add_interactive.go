@@ -65,7 +65,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		return shelf.AddTaskInput{}, err
 	}
 
-	parentOptions := buildParentSelectionOptions(tasks, "", ctx.showID, ctx.previewBody)
+	parentOptions := buildParentSelectionOptions(tasks, "", ctx.showID)
 	parentSelected, err := interactive.Select("Parent を選択してください", parentOptions)
 	if err != nil {
 		return shelf.AddTaskInput{}, err

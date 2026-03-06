@@ -56,7 +56,6 @@ func selectTaskIDIfMissing(
 	options := buildTaskSelectionOptions(candidates, taskSelectionBuildOptions{
 		Hierarchical:  hierarchical,
 		ShowID:        ctx.showID,
-		PreviewBody:   ctx.previewBody,
 		IncludeOrphan: true,
 	})
 	selected, err := interactive.Select(prompt, options)
@@ -80,7 +79,7 @@ func selectParentIfMissing(ctx *commandContext, currentID string, parentFlag str
 		return "", err
 	}
 
-	options := buildParentSelectionOptions(tasks, currentID, ctx.showID, ctx.previewBody)
+	options := buildParentSelectionOptions(tasks, currentID, ctx.showID)
 	selected, err := interactive.Select("Parent を選択してください", options)
 	if err != nil {
 		return "", err
@@ -88,7 +87,7 @@ func selectParentIfMissing(ctx *commandContext, currentID string, parentFlag str
 	return selected.Value, nil
 }
 
-func buildParentSelectionOptions(tasks []shelf.Task, excludeID string, showID bool, previewBody bool) []interactive.Option {
+func buildParentSelectionOptions(tasks []shelf.Task, excludeID string, showID bool) []interactive.Option {
 	options := []interactive.Option{{
 		Value:      "root",
 		Label:      "(root)",
@@ -111,7 +110,6 @@ func buildParentSelectionOptions(tasks []shelf.Task, excludeID string, showID bo
 	return append(options, buildTaskSelectionOptions(filtered, taskSelectionBuildOptions{
 		Hierarchical:  true,
 		ShowID:        showID,
-		PreviewBody:   previewBody,
 		IncludeOrphan: false,
 	})...)
 }
@@ -119,7 +117,6 @@ func buildParentSelectionOptions(tasks []shelf.Task, excludeID string, showID bo
 type taskSelectionBuildOptions struct {
 	Hierarchical  bool
 	ShowID        bool
-	PreviewBody   bool
 	IncludeOrphan bool
 }
 
@@ -135,7 +132,7 @@ func buildTaskSelectionOptions(tasks []shelf.Task, opts taskSelectionBuildOption
 				Value:      task.ID,
 				Label:      label,
 				SearchText: fmt.Sprintf("%s %s %s", task.ID, shelf.ShortID(task.ID), task.Title),
-				Preview:    buildPreview(task, opts.PreviewBody),
+				Preview:    buildPreview(task),
 			})
 		}
 		return options
@@ -203,7 +200,7 @@ func buildTaskSelectionOptions(tasks []shelf.Task, opts taskSelectionBuildOption
 				Value:      task.ID,
 				Label:      label,
 				SearchText: fmt.Sprintf("%s %s %s %s %s", task.ID, shelf.ShortID(task.ID), task.Title, task.Kind, task.Status),
-				Preview:    buildPreview(task, opts.PreviewBody),
+				Preview:    buildPreview(task),
 			})
 			visit(task.ID, nextPrefix, depth+1)
 		}
@@ -225,10 +222,7 @@ func taskDisplayLabel(task shelf.Task, titleCount map[string]int, tksCount map[s
 	return label
 }
 
-func buildPreview(task shelf.Task, enabled bool) string {
-	if !enabled {
-		return ""
-	}
+func buildPreview(task shelf.Task) string {
 	body := strings.TrimSpace(task.Body)
 	if body == "" {
 		return "(empty body)"
