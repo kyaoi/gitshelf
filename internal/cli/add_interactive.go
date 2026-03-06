@@ -28,11 +28,29 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		status = shelf.Status(initial)
 	}
 
+	initialTitle, err := interactive.PromptText("Title を入力してください")
+	if err != nil {
+		return shelf.AddTaskInput{}, err
+	}
+	title = strings.TrimSpace(initialTitle)
+	if title == "" {
+		return shelf.AddTaskInput{}, errors.New("title は必須です")
+	}
+
+	kindSelected, err := selectEnumOption("Kind を選択してください", enumOptionsFromKinds(cfg.Kinds))
+	if err != nil {
+		return shelf.AddTaskInput{}, err
+	}
+	kind = shelf.Kind(kindSelected.Value)
+
+	statusSelected, err := selectEnumOption("Status を選択してください", enumOptionsFromStatuses(cfg.Statuses))
+	if err != nil {
+		return shelf.AddTaskInput{}, err
+	}
+	status = shelf.Status(statusSelected.Value)
+
 	for {
 		titleLabel := title
-		if strings.TrimSpace(titleLabel) == "" {
-			titleLabel = "(required)"
-		}
 		dueLabel := due
 		if strings.TrimSpace(dueLabel) == "" {
 			dueLabel = "(none)"
@@ -53,10 +71,10 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			{Value: "due", Label: "Due: " + dueLabel},
 			{Value: "repeat", Label: "Repeat: " + repeatLabel},
 			{Value: "parent", Label: "Parent: " + parentLabel},
-			{Value: "save", Label: "Create task"},
+			{Value: "save", Label: "Create task", Preview: buildAddSummary(title, kind, status, dueLabel, repeatLabel, parentLabel)},
 			{Value: "cancel", Label: "Cancel"},
 		}
-		selected, err := selectEnumOption("追加項目を入力してください", options)
+		selected, err := selectEnumOption("内容を確認してください", options)
 		if err != nil {
 			return shelf.AddTaskInput{}, err
 		}
@@ -67,31 +85,18 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			if err != nil {
 				return shelf.AddTaskInput{}, err
 			}
-			title = next
-		case "kind":
-			kindOptions := make([]interactive.Option, 0, len(cfg.Kinds))
-			for _, value := range cfg.Kinds {
-				kindOptions = append(kindOptions, interactive.Option{
-					Value:      string(value),
-					Label:      string(value),
-					SearchText: string(value),
-				})
+			title = strings.TrimSpace(next)
+			if title == "" {
+				return shelf.AddTaskInput{}, errors.New("title は必須です")
 			}
-			kindSelected, err := selectEnumOption("Kind を選択してください", kindOptions)
+		case "kind":
+			kindSelected, err := selectEnumOption("Kind を選択してください", enumOptionsFromKinds(cfg.Kinds))
 			if err != nil {
 				return shelf.AddTaskInput{}, err
 			}
 			kind = shelf.Kind(kindSelected.Value)
 		case "status":
-			statusOptions := make([]interactive.Option, 0, len(cfg.Statuses))
-			for _, value := range cfg.Statuses {
-				statusOptions = append(statusOptions, interactive.Option{
-					Value:      string(value),
-					Label:      string(value),
-					SearchText: string(value),
-				})
-			}
-			statusSelected, err := selectEnumOption("Status を選択してください", statusOptions)
+			statusSelected, err := selectEnumOption("Status を選択してください", enumOptionsFromStatuses(cfg.Statuses))
 			if err != nil {
 				return shelf.AddTaskInput{}, err
 			}
@@ -101,7 +106,8 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				{Value: "none", Label: "(none)", SearchText: "none"},
 				{Value: "today", Label: "today", SearchText: "today"},
 				{Value: "tomorrow", Label: "tomorrow", SearchText: "tomorrow"},
-				{Value: "custom", Label: "custom (YYYY-MM-DD)", SearchText: "custom YYYY-MM-DD"},
+				{Value: "next-week", Label: "next-week", SearchText: "next-week"},
+				{Value: "custom", Label: "custom", SearchText: "custom YYYY-MM-DD +Nd -Nd mon..sun"},
 			})
 			if err != nil {
 				return shelf.AddTaskInput{}, err
@@ -109,10 +115,10 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			switch dueSelected.Value {
 			case "none":
 				due = ""
-			case "today", "tomorrow":
+			case "today", "tomorrow", "next-week":
 				due = dueSelected.Value
 			case "custom":
-				customDue, err := interactive.PromptText("期限を入力してください (YYYY-MM-DD, today, tomorrow, 空でクリア)")
+				customDue, err := interactive.PromptText("期限を入力してください (YYYY-MM-DD, today, tomorrow, +Nd, -Nd, next-week, mon..sun, 空でクリア)")
 				if err != nil {
 					return shelf.AddTaskInput{}, err
 				}
@@ -137,9 +143,6 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			}
 			parent = parentSelected.Value
 		case "save":
-			if strings.TrimSpace(title) == "" {
-				return shelf.AddTaskInput{}, errors.New("title は必須です")
-			}
 			return shelf.AddTaskInput{
 				Title:       title,
 				Kind:        kind,
@@ -155,4 +158,39 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			return shelf.AddTaskInput{}, errors.New("未知の選択です")
 		}
 	}
+}
+
+func enumOptionsFromKinds(values []shelf.Kind) []interactive.Option {
+	options := make([]interactive.Option, 0, len(values))
+	for _, value := range values {
+		options = append(options, interactive.Option{
+			Value:      string(value),
+			Label:      string(value),
+			SearchText: string(value),
+		})
+	}
+	return options
+}
+
+func enumOptionsFromStatuses(values []shelf.Status) []interactive.Option {
+	options := make([]interactive.Option, 0, len(values))
+	for _, value := range values {
+		options = append(options, interactive.Option{
+			Value:      string(value),
+			Label:      string(value),
+			SearchText: string(value),
+		})
+	}
+	return options
+}
+
+func buildAddSummary(title string, kind shelf.Kind, status shelf.Status, due string, repeat string, parent string) string {
+	return strings.Join([]string{
+		"Title: " + title,
+		"Kind: " + string(kind),
+		"Status: " + string(status),
+		"Due: " + due,
+		"Repeat: " + repeat,
+		"Parent: " + parent,
+	}, "\n")
 }
