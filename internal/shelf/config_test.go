@@ -10,6 +10,9 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("default config should be valid: %v", err)
 	}
+	if err := cfg.ValidateKind("inbox"); err != nil {
+		t.Fatalf("default config should include inbox kind: %v", err)
+	}
 	expected := []Status{"open", "in_progress", "blocked", "done", "cancelled"}
 	if len(cfg.Statuses) != len(expected) {
 		t.Fatalf("unexpected default statuses: %+v", cfg.Statuses)

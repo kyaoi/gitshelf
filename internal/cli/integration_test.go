@@ -240,6 +240,40 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	}
 }
 
+func TestCLICaptureCreatesInboxOpenTask(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "capture", "--root", root, "--title", "quick capture", "--tag", "ops"); err != nil {
+		t.Fatalf("capture failed: %v", err)
+	}
+	tasks, err := shelf.NewTaskStore(root).List()
+	if err != nil {
+		t.Fatalf("list tasks failed: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("unexpected task count: %d", len(tasks))
+	}
+	task := tasks[0]
+	if task.Kind != "inbox" || task.Status != "open" {
+		t.Fatalf("capture should create inbox/open task: %+v", task)
+	}
+	if len(task.Tags) != 1 || task.Tags[0] != "ops" {
+		t.Fatalf("capture should set tags: %+v", task.Tags)
+	}
+}
+
+func TestCLICaptureRequiresTitleOnNonTTY(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "capture", "--root", root); err == nil || !strings.Contains(err.Error(), "<title> を指定してください") {
+		t.Fatalf("expected title required error, got: %v", err)
+	}
+}
+
 func TestCLIAddSetAndShowDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -52,6 +52,23 @@ Flags:
 
 Output includes full ID for copy-paste.
 
+## shelf capture
+
+Quick capture command for inbox queue.
+
+- Always creates `kind=inbox` and `status=open`
+- Accepts title by positional args (`capture <title...>`) or `--title`
+- If title is missing:
+  - TTY: prompt for title
+  - non-TTY: fail with `<title> を指定してください`
+
+Flags:
+
+- `--title <str>`
+- `--tag <tag>` (repeatable)
+- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
+- `--body <str>`
+
 ## shelf ls
 
 Flat task list.

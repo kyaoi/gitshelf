@@ -87,7 +87,7 @@ type configOutputPreset struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:         []Kind{"todo", "idea", "memo"},
+		Kinds:         []Kind{"todo", "idea", "memo", "inbox"},
 		Statuses:      []Status{"open", "in_progress", "blocked", "done", "cancelled"},
 		Tags:          []string{},
 		LinkTypes:     []LinkType{"depends_on", "related"},
