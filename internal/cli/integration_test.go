@@ -1239,6 +1239,52 @@ func TestCLIUndoRevertsLastMutatingAction(t *testing.T) {
 	}
 }
 
+func TestCLIExplainCommand(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	dep, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "dep"})
+	if err != nil {
+		t.Fatalf("add dep failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "target"})
+	if err != nil {
+		t.Fatalf("add target failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, task.ID, dep.ID, "depends_on"); err != nil {
+		t.Fatalf("link target->dep failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "explain", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("explain failed: %v", err)
+	}
+	if !strings.Contains(out, "Built-in Views:") || !strings.Contains(out, "ready") || !strings.Contains(out, "task is not ready") {
+		t.Fatalf("unexpected explain output: %s", out)
+	}
+
+	out, err = executeCLI(t, "explain", "--root", root, task.ID, "--view", "ready", "--json")
+	if err != nil {
+		t.Fatalf("explain --view --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse explain json output: %v output=%s", err, out)
+	}
+	requested, ok := payload["requested_view"].(map[string]any)
+	if !ok {
+		t.Fatalf("requested_view missing in explain payload: %s", out)
+	}
+	result, ok := requested["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("requested_view.result missing: %s", out)
+	}
+	if match, ok := result["match"].(bool); !ok || match {
+		t.Fatalf("expected requested ready view match=false, got: %v", result["match"])
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
