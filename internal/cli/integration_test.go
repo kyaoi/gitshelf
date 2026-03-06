@@ -755,6 +755,96 @@ func TestCLIViewPresetsForLsTreeNext(t *testing.T) {
 	}
 }
 
+func TestCLIAgendaAndSnooze(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	today := time.Now().Local().Format("2006-01-02")
+	yesterday := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	later := time.Now().Local().AddDate(0, 0, 20).Format("2006-01-02")
+
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "overdue", DueOn: yesterday}); err != nil {
+		t.Fatalf("add overdue failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "today", DueOn: today}); err != nil {
+		t.Fatalf("add today failed: %v", err)
+	}
+	target, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "tomorrow", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add tomorrow failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "later", DueOn: later}); err != nil {
+		t.Fatalf("add later failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "no-due"}); err != nil {
+		t.Fatalf("add no-due failed: %v", err)
+	}
+	done := shelf.Status("done")
+	doneTask, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "done-task", DueOn: today})
+	if err != nil {
+		t.Fatalf("add done task failed: %v", err)
+	}
+	if _, err := shelf.SetTask(root, doneTask.ID, shelf.SetTaskInput{Status: &done}); err != nil {
+		t.Fatalf("set done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "agenda", "--root", root)
+	if err != nil {
+		t.Fatalf("agenda failed: %v", err)
+	}
+	if !strings.Contains(out, "Overdue:") || !strings.Contains(out, "Today:") || !strings.Contains(out, "Tomorrow:") {
+		t.Fatalf("agenda sections missing: %s", out)
+	}
+	if strings.Contains(out, "done-task") {
+		t.Fatalf("agenda should exclude done by default: %s", out)
+	}
+
+	out, err = executeCLI(t, "agenda", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("agenda --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("agenda json parse failed: %v output=%s", err, out)
+	}
+	if _, ok := payload["overdue"]; !ok {
+		t.Fatalf("agenda json should contain overdue: %s", out)
+	}
+
+	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--by", "2d"); err != nil {
+		t.Fatalf("snooze --by failed: %v", err)
+	}
+	showOut, err := executeCLI(t, "show", "--root", root, target.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	wantBy := time.Now().Local().AddDate(0, 0, 3).Format("2006-01-02")
+	if !strings.Contains(showOut, `due_on = "`+wantBy+`"`) {
+		t.Fatalf("snooze --by did not update due: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--to", "today"); err != nil {
+		t.Fatalf("snooze --to failed: %v", err)
+	}
+	showOut, err = executeCLI(t, "show", "--root", root, target.ID)
+	if err != nil {
+		t.Fatalf("show after --to failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+today+`"`) {
+		t.Fatalf("snooze --to did not set due: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--by", "1d", "--to", "today"); err == nil || !strings.Contains(err.Error(), "どちらか一方") {
+		t.Fatalf("expected by/to conflict error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "snooze", "--root", root, target.ID, "--by", "x"); err == nil || !strings.Contains(err.Error(), "invalid --by") {
+		t.Fatalf("expected invalid by error, got: %v", err)
+	}
+}
+
 func executeCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := NewRootCommand("test")
