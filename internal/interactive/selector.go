@@ -45,6 +45,7 @@ func Select(prompt string, options []Option) (Option, error) {
 
 	search := ""
 	searchMode := false
+	showHelp := false
 	cursor := 0
 
 	for {
@@ -55,7 +56,7 @@ func Select(prompt string, options []Option) (Option, error) {
 			cursor = len(filtered) - 1
 		}
 
-		render(prompt, filtered, cursor, search, searchMode)
+		render(prompt, filtered, cursor, search, searchMode, showHelp)
 
 		b, err := reader.ReadByte()
 		if err != nil {
@@ -97,6 +98,13 @@ func Select(prompt string, options []Option) (Option, error) {
 		case '/':
 			searchMode = true
 			cursor = 0
+		case '?':
+			if searchMode {
+				search += string(b)
+				cursor = 0
+				continue
+			}
+			showHelp = !showHelp
 		case 'q':
 			if searchMode {
 				search += string(b)
@@ -133,13 +141,17 @@ func Select(prompt string, options []Option) (Option, error) {
 	}
 }
 
-func render(prompt string, options []Option, cursor int, search string, searchMode bool) {
+func render(prompt string, options []Option, cursor int, search string, searchMode bool, showHelp bool) {
 	var b strings.Builder
 	b.WriteString("\r\033[H\033[2J")
 	b.WriteString(uiPrompt(prompt))
 	b.WriteString(eol)
-	b.WriteString(uiHelp("j/k: 移動  Enter: 決定  /: 検索  q/Esc/Ctrl+C: キャンセル"))
+	b.WriteString(uiHelp("j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"))
 	b.WriteString(eol)
+	if showHelp {
+		b.WriteString(uiHelp("↑/↓ でも移動できます。検索中は通常文字が検索語に追加されます。"))
+		b.WriteString(eol)
+	}
 
 	if searchMode {
 		b.WriteString(uiSearch(fmt.Sprintf("検索: %s_", search)))
