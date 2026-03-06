@@ -115,7 +115,7 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&kind, "kind", "", "New kind")
 	cmd.Flags().StringVar(&status, "status", "", "New status")
-	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	cmd.Flags().BoolVar(&clearDue, "clear-due", false, "Clear due date")
 	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
 	cmd.Flags().BoolVar(&clearRepeat, "clear-repeat", false, "Clear repeat interval")

@@ -276,7 +276,7 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Task title")
 	cmd.Flags().StringVar(&kind, "kind", "", "Task kind")
 	cmd.Flags().StringVar(&status, "status", "", "Task status")
-	cmd.Flags().StringVar(&due, "due", "", "Task due date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&due, "due", "", "Task due date (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	cmd.Flags().StringVar(&repeatEvery, "repeat-every", "", "Repeat interval (<N>d|<N>w|<N>m|<N>y)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent task ID or root")
 	cmd.Flags().StringVar(&body, "body", "", "Task body")

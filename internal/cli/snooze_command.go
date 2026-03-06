@@ -76,7 +76,7 @@ func newSnoozeCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&by, "by", "", "Shift due date by relative days (e.g. 2d, -1d)")
-	cmd.Flags().StringVar(&to, "to", "", "Set due date directly (YYYY-MM-DD|today|tomorrow)")
+	cmd.Flags().StringVar(&to, "to", "", "Set due date directly (YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days)")
 	return cmd
 }
 

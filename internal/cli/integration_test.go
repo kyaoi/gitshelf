@@ -333,6 +333,30 @@ func TestCLIAddAndSetDueKeywords(t *testing.T) {
 	if !strings.Contains(showOut, `due_on = "`+wantPlus2+`"`) {
 		t.Fatalf("show should contain normalized +2d due_on: %s", showOut)
 	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "next-mon"); err != nil {
+		t.Fatalf("set due next-mon failed: %v", err)
+	}
+	wantNextMon := shelfNormalizeForTest(t, "next-mon")
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set next-mon failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+wantNextMon+`"`) {
+		t.Fatalf("show should contain normalized next-mon due_on: %s", showOut)
+	}
+
+	if _, err := executeCLI(t, "set", "--root", root, id, "--due", "in 4 days"); err != nil {
+		t.Fatalf("set due in 4 days failed: %v", err)
+	}
+	wantIn4Days := shelfNormalizeForTest(t, "in 4 days")
+	showOut, err = executeCLI(t, "show", "--root", root, id)
+	if err != nil {
+		t.Fatalf("show after set in 4 days failed: %v", err)
+	}
+	if !strings.Contains(showOut, `due_on = "`+wantIn4Days+`"`) {
+		t.Fatalf("show should contain normalized in 4 days due_on: %s", showOut)
+	}
 }
 
 func TestCLIAddAndSetRepeatEvery(t *testing.T) {
@@ -1815,4 +1839,13 @@ func extractIDFromAddOutput(output string) string {
 		}
 	}
 	return ""
+}
+
+func shelfNormalizeForTest(t *testing.T, token string) string {
+	t.Helper()
+	normalized, err := shelf.NormalizeDueOn(token)
+	if err != nil {
+		t.Fatalf("normalize due token %q failed: %v", token, err)
+	}
+	return normalized
 }
