@@ -1,5 +1,7 @@
 # COMMANDS (CLI Specification)
 
+For a task-oriented explanation of when to use each command, see `docs/COMMAND_GUIDE.md`.
+
 ## Common
 
 - All commands support `--root <dir>` to explicitly select the project root (directory that contains `.shelf/`).
