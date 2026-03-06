@@ -18,6 +18,9 @@ func newDoctorCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Run integrity checks for .shelf",
+		Example: "  shelf doctor\n" +
+			"  shelf doctor --fix\n" +
+			"  shelf doctor --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var (
 				report shelf.DoctorReport

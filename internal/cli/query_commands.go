@@ -31,6 +31,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List tasks",
+		Example: "  shelf ls\n" +
+			"  shelf ls --kind todo --status open --status in_progress\n" +
+			"  shelf ls --ready --overdue\n" +
+			"  shelf ls --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			tasks, err := shelf.ListTasks(ctx.rootDir, shelf.TaskFilter{
 				Kinds:       toKinds(kinds),
@@ -144,6 +148,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List actionable tasks (ready to work on)",
+		Example: "  shelf next\n" +
+			"  shelf next --limit 20",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			tasks, err := shelf.NewTaskStore(ctx.rootDir).List()
 			if err != nil {
@@ -211,6 +217,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show task details",
+		Example: "  shelf show 01ABCDEFG...\n" +
+			"  shelf show 01ABCDEFG... --no-body\n" +
+			"  shelf show 01ABCDEFG... --json",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if noBody && onlyBody {
@@ -398,6 +407,9 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree",
 		Short: "Show task tree",
+		Example: "  shelf tree\n" +
+			"  shelf tree --kind todo --not-status done\n" +
+			"  shelf tree --from root --max-depth 2 --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {

@@ -25,6 +25,9 @@ func newSetCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <id>",
 		Short: "Update task fields",
+		Example: "  shelf set 01ABCDEFG... --status blocked\n" +
+			"  shelf set 01ABCDEFG... --due 2026-03-31\n" +
+			"  shelf set 01ABCDEFG... --clear-due",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "更新するタスクを選択", nil, true)
@@ -216,6 +219,8 @@ func newMvCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mv <id>",
 		Short: "Move task under a new parent",
+		Example: "  shelf mv 01ABCDEFG... --parent root\n" +
+			"  shelf mv 01ABCDEFG...",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "移動するタスクを選択", nil, true)
@@ -270,6 +275,7 @@ func newStatusShortcutCommand(ctx *commandContext, use string, short string, tar
 	cmd := &cobra.Command{
 		Use:   use + " <id>",
 		Short: short,
+		Example: fmt.Sprintf("  shelf %s 01ABCDEFG...\n  shelf %s", use, use),
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, prompt, func(task shelf.Task) bool {

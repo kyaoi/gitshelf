@@ -83,6 +83,9 @@ func newInitCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize .shelf in the current directory",
+		Example: "  shelf init\n" +
+			"  shelf init --root /path/to/project\n" +
+			"  shelf init --global",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if global {
 				return runGlobalInit(ctx.rootOverride, force)
@@ -207,6 +210,9 @@ func newAddCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a new task",
+		Example: "  shelf add --title \"Weekly Goal\"\n" +
+			"  shelf add --title \"Write report\" --kind todo --status in_progress --due 2026-03-31\n" +
+			"  shelf add --title \"Research note\" --kind memo --parent root",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var input shelf.AddTaskInput
 			if strings.TrimSpace(title) == "" {

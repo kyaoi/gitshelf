@@ -21,6 +21,8 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link",
 		Short: "Create outbound link",
+		Example: "  shelf link --from <id> --to <id> --type depends_on\n" +
+			"  shelf link",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" || strings.TrimSpace(kind) == "" {
 				var err error
@@ -53,6 +55,8 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unlink",
 		Short: "Remove outbound link",
+		Example: "  shelf unlink --from <id> --to <id> --type depends_on\n" +
+			"  shelf unlink",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" || strings.TrimSpace(kind) == "" {
 				var err error
@@ -89,6 +93,9 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "links <id>",
 		Short: "Show outbound and inbound links",
+		Example: "  shelf links <id>\n" +
+			"  shelf links <id> --transitive\n" +
+			"  shelf links <id> --json",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			id, err := selectTaskIDIfMissing(ctx, args, "リンクを表示するタスクを選択", nil, true)
