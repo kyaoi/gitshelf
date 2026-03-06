@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
-	"fmt"
-	"os"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/interactive"
@@ -21,7 +18,7 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		return shelf.AddTaskInput{}, err
 	}
 
-	title, err := promptLine("Title: ")
+	title, err := interactive.PromptText("Title を入力してください")
 	if err != nil {
 		return shelf.AddTaskInput{}, err
 	}
@@ -78,14 +75,4 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		Parent: parentSelected.Value,
 		Body:   body,
 	}, nil
-}
-
-func promptLine(prompt string) (string, error) {
-	fmt.Print(prompt)
-	reader := bufio.NewReader(os.Stdin)
-	text, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(text), nil
 }
