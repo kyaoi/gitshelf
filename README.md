@@ -103,6 +103,8 @@ go build -o shelf ./cmd/shelf
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
 - `shelf calendar [--root <dir>] [--start <date> --days N --status ... --json]`
+  - text view by default for `--days <= 7`
+  - TUI month grid for `--days > 7` (TTY only unless `--json`)
 - `shelf board [--root <dir>] [--show-id]`
 - `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
 - `shelf track start|stop|show [--root <dir>] ...`

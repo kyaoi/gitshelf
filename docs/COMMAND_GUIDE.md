@@ -179,10 +179,15 @@ You want a due-oriented review with `Overdue`, `Today`, `Tomorrow`, `Upcoming`, 
 ### `shelf calendar`
 
 Meaning:
-Calendar-style weekly due-date view.
+Due-date calendar view.
 
 Use when:
 You want a date-first perspective instead of a task-first list.
+
+Notes:
+- `--days <= 7` keeps the simple text view.
+- `--days > 7` switches to a TUI month grid with day-by-day navigation.
+- Use `--json` if you need long ranges in non-TTY contexts.
 
 ### `shelf board`
 

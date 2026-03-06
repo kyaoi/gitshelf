@@ -2,10 +2,12 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -58,6 +60,12 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 				}
 				fmt.Println(string(data))
 				return nil
+			}
+			if days > 7 {
+				if !interactive.IsTTY() {
+					return errors.New("calendar の 8 日以上表示はTTYが必要です。--json を使うか --days を 7 以下にしてください")
+				}
+				return runCalendarTUI(calendar, ctx.showID)
 			}
 
 			fmt.Printf("Week of %s\n", startDate.Format("2006-01-02"))

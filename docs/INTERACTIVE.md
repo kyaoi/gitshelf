@@ -18,6 +18,7 @@ If not TTY, users must provide required flags.
 - `shelf links` (when `<id>` is omitted)
 - `shelf triage` (without `--auto`)
 - `shelf board` (TTY only, dedicated TUI)
+- `shelf calendar --days <n>` (TTY only when `n > 7`)
 
 ## Key Bindings
 
@@ -115,3 +116,12 @@ The type selection screen includes this warning:
 - status columns follow config order
 - selected task body is previewed below the board
 - `o` / `s` / `b` / `d` / `c` update task status in place
+
+## calendar TUI
+
+- used when `shelf calendar --days <n>` is called with `n > 7`
+- renders a month grid focused on the currently selected day
+- `h` / `l`: move by one day
+- `j` / `k`: move by one week
+- `g` / `G`: jump to first / last day in range
+- `q` / `Esc` / `Ctrl+C`: quit

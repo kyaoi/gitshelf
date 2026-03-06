@@ -18,6 +18,7 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf links`（`<id>` 省略時）
 - `shelf triage`（`--auto` なし）
 - `shelf board`（TTY 専用 TUI）
+- `shelf calendar --days <n>`（`n > 7` のとき TTY 専用 TUI）
 
 ## キーバインド
 
@@ -131,3 +132,12 @@ type 選択画面では、次の注意文を出します。
 - status 列は config の順序に従う
 - 下部に選択 task の body preview を表示
 - `o` / `s` / `b` / `d` / `c` で status をその場で更新
+
+## `calendar` TUI
+
+- `shelf calendar --days <n>` で `n > 7` のときに使います
+- 選択中の日付を中心に月グリッドを表示します
+- `h` / `l`: 1日ずつ移動
+- `j` / `k`: 1週ずつ移動
+- `g` / `G`: レンジの先頭 / 末尾へ移動
+- `q` / `Esc` / `Ctrl+C`: 終了

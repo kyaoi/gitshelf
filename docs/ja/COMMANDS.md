@@ -96,7 +96,14 @@ subcommand:
 ## `shelf calendar`
 
 意味:
-期限を週ビューで確認します。
+期限をカレンダービューで確認します。
+
+仕様:
+- 既定の開始日: 今週の月曜日
+- 既定の status: `open`, `in_progress`, `blocked`
+- `--days <= 7` はテキスト表示
+- `--days > 7` は月グリッドの TUI に切り替え
+- 長期表示 TUI は TTY 必須。非TTYでは `--json` を使う
 
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
