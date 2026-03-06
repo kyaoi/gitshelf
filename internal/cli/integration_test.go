@@ -508,6 +508,46 @@ func TestCLILinksTransitiveAndJSON(t *testing.T) {
 	}
 }
 
+func TestCLIDoctorFixAndJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	dep, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "B"})
+	if err != nil {
+		t.Fatalf("add dep failed: %v", err)
+	}
+
+	edgePath := filepath.Join(root, ".shelf", "edges", task.ID+".toml")
+	edgeData := `[[edge]]
+to = "` + dep.ID + `"
+type = "depends_on"
+
+[[edge]]
+to = "` + dep.ID + `"
+type = "depends_on"
+`
+	if err := os.WriteFile(edgePath, []byte(edgeData), 0o644); err != nil {
+		t.Fatalf("write edge file failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "doctor", "--root", root, "--fix", "--json")
+	if err != nil {
+		t.Fatalf("doctor --fix --json should pass after fix, got: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("failed to parse doctor json output: %v output=%s", err, out)
+	}
+	if payload["ok"] != true {
+		t.Fatalf("doctor json should report ok=true: %s", out)
+	}
+}
+
 func TestCLILsReadinessDueFiltersAndJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

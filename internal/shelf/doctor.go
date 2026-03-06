@@ -1,6 +1,7 @@
 package shelf
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -72,6 +73,15 @@ func RunDoctor(rootDir string) (DoctorReport, error) {
 		return report, ErrDoctorIssues
 	}
 	return report, nil
+}
+
+func RunDoctorWithFix(rootDir string) (DoctorReport, int, error) {
+	fixed, err := applyDoctorFixes(rootDir)
+	if err != nil {
+		return DoctorReport{}, fixed, err
+	}
+	report, doctorErr := RunDoctor(rootDir)
+	return report, fixed, doctorErr
 }
 
 func loadTasksForDoctor(rootDir string, report *DoctorReport) (map[string]Task, map[string]string, error) {
@@ -208,4 +218,69 @@ func validateEdgesForDoctor(rootDir string, cfg Config, tasks map[string]Task, r
 		}
 	}
 	return nil
+}
+
+func applyDoctorFixes(rootDir string) (int, error) {
+	fixedCount := 0
+
+	taskDir := TasksDir(rootDir)
+	taskEntries, err := os.ReadDir(taskDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fixedCount, fmt.Errorf("failed to read tasks directory %s: %w", taskDir, err)
+	}
+	for _, entry := range taskEntries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(taskDir, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		task, err := ParseTaskMarkdown(data)
+		if err != nil {
+			continue
+		}
+		normalized, err := FormatTaskMarkdown(task)
+		if err != nil {
+			continue
+		}
+		if bytes.Equal(data, normalized) {
+			continue
+		}
+		if err := atomicWriteFile(path, normalized, 0o644); err != nil {
+			return fixedCount, err
+		}
+		fixedCount++
+	}
+
+	edgeDir := EdgesDir(rootDir)
+	edgeEntries, err := os.ReadDir(edgeDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fixedCount, fmt.Errorf("failed to read edges directory %s: %w", edgeDir, err)
+	}
+	for _, entry := range edgeEntries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".toml") {
+			continue
+		}
+		path := filepath.Join(edgeDir, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		edges, err := ParseEdgesTOML(data)
+		if err != nil {
+			continue
+		}
+		normalized := FormatEdgesTOML(edges)
+		if bytes.Equal(data, normalized) {
+			continue
+		}
+		if err := atomicWriteFile(path, normalized, 0o644); err != nil {
+			return fixedCount, err
+		}
+		fixedCount++
+	}
+
+	return fixedCount, nil
 }
