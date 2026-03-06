@@ -51,10 +51,11 @@ Task candidate line format:
 
 ## add Interactive Flow
 
-1. Select field to edit (`Title`/`Kind`/`Status`/`Due`/`Parent`)
-2. Update fields repeatedly
-3. Select `Create task`
-4. Or select `Cancel`
+1. Input `Title` (required)
+2. Select `Kind`
+3. Select `Status`
+4. Review screen (`Title`/`Kind`/`Status`/`Due`/`Repeat`/`Parent`)
+5. Select `Create task` or `Cancel`
 
 Parent candidates are rendered as tree labels (without IDs by default), for example:
 

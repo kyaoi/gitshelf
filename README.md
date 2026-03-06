@@ -50,6 +50,7 @@ go build -o shelf ./cmd/shelf
 ./shelf undo
 ./shelf redo
 ./shelf history
+./shelf history show 1
 ./shelf explain <task-id>
 
 # Link tasks
@@ -61,6 +62,7 @@ go build -o shelf ./cmd/shelf
 ./shelf view set focus --ready --limit 20
 ./shelf preset set ls_focus --command ls --view active --format detail --limit 20
 ./shelf deps <task-id> --transitive
+./shelf deps <task-id> --graph --transitive
 ./shelf export --out backup.json
 ./shelf import --validate-only --in backup.json
 ./shelf import --merge --in backup.json
@@ -69,12 +71,13 @@ go build -o shelf ./cmd/shelf
 # Check integrity
 ./shelf doctor
 ./shelf doctor --fix
+./shelf doctor --strict
 ```
 
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
@@ -85,7 +88,7 @@ go build -o shelf ./cmd/shelf
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf explain <id> [--root <dir>] [--view <name> --json]`
 - `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
 - `shelf snooze <id> [--root <dir>] (--by <Nd> | --to YYYY-MM-DD|today|tomorrow)`
 - `shelf archive <id> [--root <dir>]`
 - `shelf unarchive <id> [--root <dir>]`
@@ -98,18 +101,19 @@ go build -o shelf ./cmd/shelf
 - `shelf link [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
 - `shelf links <id> [--root <dir>] [--transitive --json]`
-- `shelf deps <id> [--root <dir>] [--transitive --reverse --json]`
+- `shelf deps <id> [--root <dir>] [--transitive --reverse --graph --json]`
 - `shelf export [--root <dir>] [--out <path>|-]`
 - `shelf import [--root <dir>] [--in <path>|- --validate-only --dry-run --merge --replace]`
 - `shelf undo [--root <dir>]`
 - `shelf redo [--root <dir>]`
 - `shelf history [--root <dir>] [--limit N --json]`
+- `shelf history show <entry|snapshot_id> [--root <dir>] [--json]`
 - `shelf completion bash|zsh|fish|powershell`
-- `shelf doctor [--root <dir>] [--fix --json]`
+- `shelf doctor [--root <dir>] [--fix --strict --json]`
 
 Global display flags:
 
-- `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors
+- `--show-id`, `-i`: show IDs in list/tree/link-like text outputs and interactive task selectors
 - task selectors always show body preview by default (`(empty body)` when body is empty)
 - enum selectors and non-selection commands never show body preview
 
@@ -126,7 +130,7 @@ Color output:
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
 - `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
 - `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
-- CLI input for due also accepts `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `mon..sun` and stores normalized date
+- CLI input for due also accepts `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon..sun`, `next-mon..next-sun`, `in N days` and stores normalized date
 
 ## Link Types
 
@@ -163,11 +167,8 @@ When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts 
 - `show` / `set` / `done` / `links`: omitted `<id>`
 - `mv`: omitted `<id>` and/or `--parent`
 
-`add` and `set` interactive flows use an editable field session:
-
-- choose field (`Title`/`Kind`/`Status`/`Due`/`Parent`/`Body`)
-- update repeatedly
-- confirm and save
+`add` interactive flow starts with a guided wizard (Title -> Kind -> Status), then a review screen for Due/Repeat/Parent edits before final create.
+`set` interactive flow uses an editable field session with change preview before apply.
 
 Task selectors always show body preview. Enum selectors intentionally do not.
 
@@ -233,6 +234,7 @@ Resolution order for commands:
     <id>.md
   edges/
     <src_id>.toml
+  .write.lock
   history/
     index.json
     actions.log

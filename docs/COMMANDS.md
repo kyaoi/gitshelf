@@ -8,7 +8,7 @@
 - If `.shelf/` cannot be found, commands fail with a non-zero exit code.
 - `init` is the only command that does not require existing `.shelf/`.
 - `completion` is also available without existing `.shelf/`.
-- `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors.
+- `--show-id`, `-i`: show IDs in list/tree/link-like text outputs and interactive task selectors.
 - Task selectors always show a body preview (or `(empty body)`).
 - Enum selectors and non-selection commands do not show body preview.
 - Colorized output is enabled by default on TTY.
@@ -37,14 +37,14 @@ Flags:
 Create a task.
 
 - Non-interactive mode: `--title` is required.
-- Interactive mode (TTY only): Title -> Kind -> Status -> Parent.
+- Interactive mode (TTY only): guided steps (Title -> Kind -> Status) then review/edit (`Due`/`Repeat`/`Parent`) before create.
 
 Flags:
 
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
-- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>` (optional)
+- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>` (optional)
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>` (optional)
 - `--parent <id|root>`
 - `--body <str>`
@@ -232,7 +232,7 @@ Flags:
 - `--title <str>`
 - `--kind <kind>`
 - `--status <status>`
-- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>`
+- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
 - `--clear-due`
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>`
 - `--clear-repeat`
@@ -251,7 +251,7 @@ Adjust task due date.
 Flags:
 
 - `--by <Nd>` (relative day shift, e.g. `2d`, `-1d`)
-- `--to <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|mon..sun>` (absolute set)
+- `--to <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>` (absolute set)
 
 Rules:
 
@@ -321,7 +321,9 @@ Supported link types:
 
 Output keeps direction explicit:
 
-`Linked: [A] --depends_on--> [B]`
+`Linked: A --depends_on--> B`
+
+With `--show-id`, short IDs are included.
 
 ## shelf unlink
 
@@ -356,6 +358,7 @@ Flags:
 
 - `--transitive` (recursive closure)
 - `--reverse` (print dependents first)
+- `--graph` (render ASCII graph)
 - `--json`
 
 ## shelf export
@@ -406,6 +409,14 @@ Flags:
 - `--limit <n>` (default: 50)
 - `--json`
 
+### shelf history show <entry|snapshot_id>
+
+Show details for one history entry (index from `history` list output or snapshot ID).
+
+Flags:
+
+- `--json`
+
 ## shelf doctor
 
 Integrity checker for `.shelf/`:
@@ -423,9 +434,11 @@ Outputs file path + task ID + issue message for manual fixes.
 Flags:
 
 - `--fix` (apply safe normalization before checks)
+- `--strict` (emit additional warnings, e.g. `todo` without `due_on`)
 - `--json`
 
 Doctor output includes per-issue `hint` text for common recovery paths.
+Mutating commands acquire `.shelf/.write.lock` to prevent concurrent writes.
 
 ## shelf completion
 

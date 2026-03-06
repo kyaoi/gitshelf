@@ -13,3 +13,8 @@
 ## ID（確定）
 - ULID（推奨）
 - 表示用は短縮（先頭8〜10文字）
+- デフォルト表示は ID 非表示（`--show-id` / `-i` で表示）
+
+## Lock（確定）
+- mutating command は `.shelf/.write.lock` で排他
+- lock 取得に失敗した場合はタイムアウトエラーを返す

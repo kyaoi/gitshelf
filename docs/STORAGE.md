@@ -5,6 +5,7 @@
 ```text
 .shelf/
   config.toml
+  .write.lock
   tasks/
     <id>.md
   edges/
@@ -75,7 +76,7 @@ limit = 20
   - `parent`
   - body text (freeform notes)
 
-CLI accepts `today` / `tomorrow` for due input, but stores normalized `YYYY-MM-DD`.
+CLI accepts `today` / `tomorrow` / `+Nd` / `-Nd` / `next-week` / `this-week` / `mon..sun` / `next-mon..next-sun` / `in N days` for due input, but stores normalized `YYYY-MM-DD`.
 
 Body is intentionally freeform. Typical usage:
 
@@ -153,6 +154,10 @@ All writes use temp file -> rename in same filesystem to avoid partial corruptio
 Mutating commands push snapshots under `.shelf/history/snapshots`.
 `index.json` tracks undo/redo stacks.
 `actions.log` stores JSONL action records (`apply`/`undo`/`redo`).
+
+## Write Lock
+
+Mutating commands create `.shelf/.write.lock` during execution to avoid concurrent writes.
 
 ## Error Messages
 
