@@ -187,30 +187,13 @@ func resolveLinkInputInteractive(ctx *commandContext) (string, string, string, e
 		return "", "", "", errors.New("タスクがありません")
 	}
 
-	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
-		Hierarchical:  true,
-		ShowID:        ctx.showID,
-		IncludeOrphan: true,
-	})
-
-	src, err := selectTaskOption("source を選択", taskOptions)
+	src, err := selectTaskFromTasks(ctx, "source を選択", tasks, nil)
 	if err != nil {
 		return "", "", "", err
 	}
-
-	dstTasks := make([]shelf.Task, 0, len(tasks)-1)
-	for _, task := range tasks {
-		if task.ID == src.Value {
-			continue
-		}
-		dstTasks = append(dstTasks, task)
-	}
-	dstOptions := buildTaskSelectionOptions(dstTasks, taskSelectionBuildOptions{
-		Hierarchical:  true,
-		ShowID:        ctx.showID,
-		IncludeOrphan: true,
+	dst, err := selectTaskFromTasks(ctx, "destination を選択", tasks, map[string]bool{
+		src.Value: true,
 	})
-	dst, err := selectTaskOption("destination を選択", dstOptions)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -247,18 +230,12 @@ func resolveUnlinkInputInteractive(ctx *commandContext) (string, string, string,
 	if len(tasks) == 0 {
 		return "", "", "", errors.New("タスクがありません")
 	}
-
-	taskOptions := buildTaskSelectionOptions(tasks, taskSelectionBuildOptions{
-		Hierarchical:  true,
-		ShowID:        ctx.showID,
-		IncludeOrphan: true,
-	})
 	byID := make(map[string]shelf.Task, len(tasks))
 	for _, task := range tasks {
 		byID[task.ID] = task
 	}
 
-	src, err := selectTaskOption("source を選択", taskOptions)
+	src, err := selectTaskFromTasks(ctx, "source を選択", tasks, nil)
 	if err != nil {
 		return "", "", "", err
 	}

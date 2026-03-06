@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
@@ -154,5 +155,35 @@ func TestBuildTaskSelectionOptionsPreviewFallbackForEmptyBody(t *testing.T) {
 	}
 	if options[0].Preview != "(empty body)" {
 		t.Fatalf("unexpected preview fallback: %q", options[0].Preview)
+	}
+}
+
+func TestSelectTaskFromTasksExclusion(t *testing.T) {
+	now := time.Now().UTC().Round(time.Second)
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+	}
+	ctx := &commandContext{showID: false}
+	_, err := selectTaskFromTasks(ctx, "pick", tasks, map[string]bool{"01A": true})
+	if err == nil {
+		t.Fatal("expected error when all tasks are excluded")
+	}
+	if !strings.Contains(err.Error(), "選択可能なタスクがありません") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSelectTaskFromTasksNonTTY(t *testing.T) {
+	now := time.Now().UTC().Round(time.Second)
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+	}
+	ctx := &commandContext{showID: false}
+	_, err := selectTaskFromTasks(ctx, "pick", tasks, nil)
+	if err == nil {
+		t.Fatal("expected non-tty error")
+	}
+	if err != interactive.ErrNonTTY {
+		t.Fatalf("expected ErrNonTTY, got: %v", err)
 	}
 }

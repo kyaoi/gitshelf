@@ -23,6 +23,30 @@ func selectTaskOption(prompt string, options []interactive.Option) (interactive.
 	})
 }
 
+func selectTaskFromTasks(
+	ctx *commandContext,
+	prompt string,
+	tasks []shelf.Task,
+	excludedIDs map[string]bool,
+) (interactive.Option, error) {
+	candidates := make([]shelf.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if excludedIDs != nil && excludedIDs[task.ID] {
+			continue
+		}
+		candidates = append(candidates, task)
+	}
+	if len(candidates) == 0 {
+		return interactive.Option{}, errors.New("選択可能なタスクがありません")
+	}
+	options := buildTaskSelectionOptions(candidates, taskSelectionBuildOptions{
+		Hierarchical:  true,
+		ShowID:        ctx.showID,
+		IncludeOrphan: true,
+	})
+	return selectTaskOption(prompt, options)
+}
+
 func selectEnumOption(prompt string, options []interactive.Option) (interactive.Option, error) {
 	return interactive.SelectWithConfig(interactive.SelectConfig{
 		Prompt:            prompt,
