@@ -28,11 +28,12 @@ func TestEnumOptionsFromStatuses(t *testing.T) {
 }
 
 func TestBuildAddSummary(t *testing.T) {
-	summary := buildAddSummary("A", "todo", "open", "today", "(none)", "root")
+	summary := buildAddSummary("A", "todo", "open", []string{"backend"}, "today", "(none)", "root")
 	for _, expected := range []string{
 		"Title: A",
 		"Kind: todo",
 		"Status: open",
+		"Tags: backend",
 		"Due: today",
 		"Repeat: (none)",
 		"Parent: root",

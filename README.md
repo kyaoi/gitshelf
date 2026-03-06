@@ -77,18 +77,18 @@ go build -o shelf ./cmd/shelf
 ## Commands
 
 - `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
-- `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --not-kind ... --not-status ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
+- `shelf add [--root <dir>] [--title ... --kind ... --status ... --tag ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
+- `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
 - `shelf next [--root <dir>] [--view <name> --limit N --json]`
 - `shelf agenda [--root <dir>] [--preset <name> --view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
 - `shelf today [--root <dir>] [--preset <name> --view <name> --carry-over --yes --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf tree [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --not-kind ... --not-status ... --json]`
+- `shelf tree [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf explain <id> [--root <dir>] [--view <name> --json]`
 - `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
+- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --tag ... --untag ... --clear-tags --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
 - `shelf snooze <id> [--root <dir>] (--by <Nd> | --to YYYY-MM-DD|today|tomorrow)`
 - `shelf archive <id> [--root <dir>]`
 - `shelf unarchive <id> [--root <dir>]`
@@ -127,6 +127,8 @@ Color output:
 
 - `kind`: task category (`todo`, `idea`, `memo`, ...)
 - `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
+- `tag`: freeform label (case-preserving, trim-only normalization)
+- new tags entered in `add`/`set` are auto-added to config `tags` catalog
 - `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
 - `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
 - `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
@@ -145,7 +147,9 @@ Supported `link_types` are only:
 
 ```bash
 ./shelf ls --kind todo --status open
+./shelf ls --tag backend
 ./shelf ls --not-status done --not-status cancelled
+./shelf ls --not-tag wip
 ./shelf ls --status open --status in_progress --status blocked
 ./shelf ls --kind todo --not-status done --not-status cancelled
 ./shelf ls --ready --overdue
@@ -167,7 +171,7 @@ When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts 
 - `show` / `set` / `done` / `links`: omitted `<id>`
 - `mv`: omitted `<id>` and/or `--parent`
 
-`add` interactive flow starts with a guided wizard (Title -> Kind -> Status), then a review screen for Due/Repeat/Parent edits before final create.
+`add` interactive flow starts with a guided wizard (Title -> Kind -> Status), then a review screen for Tags/Due/Repeat/Parent edits before final create.
 `set` interactive flow uses an editable field session with change preview before apply.
 
 Task selectors always show body preview. Enum selectors intentionally do not.
@@ -249,6 +253,7 @@ id = "01..."
 title = "Example"
 kind = "todo"
 status = "open"
+tags = ["backend", "urgent"] # optional
 due_on = "2026-03-31" # optional
 repeat_every = "1w" # optional
 archived_at = "2026-03-31T11:22:33+09:00" # optional
@@ -262,7 +267,7 @@ Body text...
 
 Task files are split into:
 
-- front matter: structured metadata (`title`, `kind`, `status`, `due_on`, `parent`, timestamps)
+- front matter: structured metadata (`title`, `kind`, `status`, `tags`, `due_on`, `parent`, timestamps)
 - body: freeform notes (`details`, `supplements`, `progress logs`, `ideas`, `references`)
 
 `shelf show <id>` displays both metadata and body so the task context stays in one place.

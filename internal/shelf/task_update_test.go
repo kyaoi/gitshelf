@@ -159,3 +159,33 @@ func TestSetTaskUpdatesAndClearsArchivedAt(t *testing.T) {
 		t.Fatalf("expected archived_at cleared, got: %q", cleared.ArchivedAt)
 	}
 }
+
+func TestSetTaskUpdatesTagsAndRegistersConfig(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "tag target", Tags: []string{"backend"}})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	updated, err := SetTask(root, task.ID, SetTaskInput{
+		AddTags:    []string{"urgent"},
+		RemoveTags: []string{"backend"},
+	})
+	if err != nil {
+		t.Fatalf("set tags failed: %v", err)
+	}
+	if len(updated.Tags) != 1 || updated.Tags[0] != "urgent" {
+		t.Fatalf("unexpected tags: %+v", updated.Tags)
+	}
+
+	cfg, err := LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if len(cfg.Tags) != 2 || cfg.Tags[0] != "backend" || cfg.Tags[1] != "urgent" {
+		t.Fatalf("config tags should keep catalog entries: %+v", cfg.Tags)
+	}
+}

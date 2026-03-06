@@ -51,6 +51,41 @@ func TestDoctorDetectsParentCycleAndUnknownStatus(t *testing.T) {
 	}
 }
 
+func TestDoctorDetectsUnknownTag(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "A"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	task.Tags = []string{"unknown-tag"}
+	data, err := FormatTaskMarkdown(task)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+	taskPath := filepath.Join(TasksDir(root), task.ID+".md")
+	if err := os.WriteFile(taskPath, data, 0o644); err != nil {
+		t.Fatalf("write task failed: %v", err)
+	}
+
+	report, err := RunDoctor(root)
+	if err == nil {
+		t.Fatal("expected doctor to report unknown tag")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if strings.Contains(issue.Message, "unknown tag") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unknown tag issue, got: %+v", report.Issues)
+	}
+}
+
 func TestDoctorDetectsBrokenEdge(t *testing.T) {
 	root := t.TempDir()
 	if _, err := Initialize(root, false); err != nil {

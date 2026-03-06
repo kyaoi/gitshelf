@@ -142,3 +142,29 @@ func TestAddTaskRejectsInvalidRepeatEvery(t *testing.T) {
 		t.Fatalf("expected invalid repeat_every error, got: %v", err)
 	}
 }
+
+func TestAddTaskRegistersTagsInConfig(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	task, err := AddTask(root, AddTaskInput{
+		Title: "tagged",
+		Tags:  []string{"backend", "backend", "urgent"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if len(task.Tags) != 2 || task.Tags[0] != "backend" || task.Tags[1] != "urgent" {
+		t.Fatalf("unexpected tags: %+v", task.Tags)
+	}
+
+	cfg, err := LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if len(cfg.Tags) != 2 || cfg.Tags[0] != "backend" || cfg.Tags[1] != "urgent" {
+		t.Fatalf("config tags were not updated: %+v", cfg.Tags)
+	}
+}

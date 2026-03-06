@@ -15,6 +15,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		Title:       "月曜日にやること",
 		Kind:        Kind("todo"),
 		Status:      Status("open"),
+		Tags:        []string{"backend", "urgent"},
 		DueOn:       "2026-03-10",
 		RepeatEvery: "1w",
 		ArchivedAt:  "2026-03-05T12:34:56+09:00",
@@ -39,6 +40,9 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 
 	if parsed.ID != orig.ID || parsed.Title != orig.Title || parsed.Kind != orig.Kind || parsed.Status != orig.Status {
 		t.Fatalf("parsed task mismatch: %+v", parsed)
+	}
+	if len(parsed.Tags) != 2 || parsed.Tags[0] != "backend" || parsed.Tags[1] != "urgent" {
+		t.Fatalf("parsed tags mismatch: %+v", parsed.Tags)
 	}
 	if parsed.DueOn != orig.DueOn {
 		t.Fatalf("parsed due_on mismatch: %+v", parsed)

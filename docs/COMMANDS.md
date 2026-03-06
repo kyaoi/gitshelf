@@ -37,13 +37,14 @@ Flags:
 Create a task.
 
 - Non-interactive mode: `--title` is required.
-- Interactive mode (TTY only): guided steps (Title -> Kind -> Status) then review/edit (`Due`/`Repeat`/`Parent`) before create.
+- Interactive mode (TTY only): guided steps (Title -> Kind -> Status) then review/edit (`Tags`/`Due`/`Repeat`/`Parent`) before create.
 
 Flags:
 
 - `--title <str>`
 - `--kind <kind>` (defaults to config `default_kind`)
 - `--status <status>` (defaults to config `default_status`)
+- `--tag <tag>` (repeatable; free input, new tags are added to config catalog)
 - `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>` (optional)
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>` (optional)
 - `--parent <id|root>`
@@ -62,8 +63,10 @@ Flags:
 - `--preset <name>` (output preset for `ls`)
 - `--kind <kind>` (repeatable include filter)
 - `--status <status>` (repeatable include filter)
+- `--tag <tag>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
 - `--not-status <status>` (repeatable exclude filter)
+- `--not-tag <tag>` (repeatable exclude filter)
 - `--ready` (actionable tasks only)
 - `--blocked-by-deps` (tasks blocked by unresolved `depends_on`)
 - `--due-before <YYYY-MM-DD>`
@@ -76,12 +79,14 @@ Flags:
 - `--json`
 
 Default ordering is ULID ascending (creation order).
-Unknown `kind` / `status` values return an error.
+Unknown `kind` / `status` / `tag` values return an error.
 
 Examples:
 
 - `shelf ls --kind todo --status open`
+- `shelf ls --tag backend`
 - `shelf ls --not-status done --not-status cancelled`
+- `shelf ls --not-tag wip`
 - `shelf ls --status open --status in_progress --status blocked`
 - `shelf ls --kind todo --not-status done --not-status cancelled`
 - `shelf ls --ready --overdue`
@@ -114,7 +119,7 @@ Subcommands:
 
 `view set` supports:
 
-- `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
+- `--kind`, `--status`, `--tag`, `--not-kind`, `--not-status`, `--not-tag` (repeatable)
 - `--ready`, `--blocked-by-deps`
 - `--due-before`, `--due-after`, `--overdue`, `--no-due`
 - `--parent`, `--search`, `--limit`
@@ -148,8 +153,10 @@ Flags:
 - `--days <n>` (upcoming range, default 7)
 - `--kind <kind>` (repeatable include filter)
 - `--status <status>` (repeatable include filter)
+- `--tag <tag>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
 - `--not-status <status>` (repeatable exclude filter)
+- `--not-tag <tag>` (repeatable exclude filter)
 - `--json`
 
 ## shelf today
@@ -232,6 +239,9 @@ Flags:
 - `--title <str>`
 - `--kind <kind>`
 - `--status <status>`
+- `--tag <tag>` (repeatable add)
+- `--untag <tag>` (repeatable remove)
+- `--clear-tags`
 - `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
 - `--clear-due`
 - `--repeat-every <N>d|<N>w|<N>m|<N>y>`

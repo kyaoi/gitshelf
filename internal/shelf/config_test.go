@@ -26,7 +26,9 @@ func TestDefaultConfigIsValid(t *testing.T) {
 
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.Tags = []string{"backend", "urgent"}
 	cfg.Views["active"] = TaskView{
+		Tags:        []string{"backend"},
 		NotStatuses: []Status{"done", "cancelled"},
 	}
 	cfg.OutputPresets["focus"] = OutputPreset{
@@ -45,11 +47,17 @@ func TestConfigRoundTrip(t *testing.T) {
 	if len(parsed.Kinds) != len(cfg.Kinds) || len(parsed.Statuses) != len(cfg.Statuses) || len(parsed.LinkTypes) != len(cfg.LinkTypes) {
 		t.Fatalf("parsed config mismatch: %+v", parsed)
 	}
+	if len(parsed.Tags) != 2 || parsed.Tags[0] != "backend" || parsed.Tags[1] != "urgent" {
+		t.Fatalf("parsed tags mismatch: %+v", parsed.Tags)
+	}
 	if parsed.DefaultKind != cfg.DefaultKind || parsed.DefaultStatus != cfg.DefaultStatus {
 		t.Fatalf("parsed defaults mismatch: %+v", parsed)
 	}
 	if _, ok := parsed.Views["active"]; !ok {
 		t.Fatalf("parsed views mismatch: %+v", parsed.Views)
+	}
+	if len(parsed.Views["active"].Tags) != 1 || parsed.Views["active"].Tags[0] != "backend" {
+		t.Fatalf("parsed view tags mismatch: %+v", parsed.Views["active"].Tags)
 	}
 	if _, ok := parsed.OutputPresets["focus"]; !ok {
 		t.Fatalf("parsed output presets mismatch: %+v", parsed.OutputPresets)
@@ -141,6 +149,17 @@ func TestConfigValidationRejectsUnknownStatusInView(t *testing.T) {
 	}
 }
 
+func TestConfigValidationRejectsUnknownTagInView(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Tags = []string{"backend"}
+	cfg.Views["bad"] = TaskView{
+		Tags: []string{"unknown"},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for unknown view tag")
+	}
+}
+
 func TestConfigValidationOutputPreset(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.OutputPresets["bad"] = OutputPreset{
@@ -149,5 +168,20 @@ func TestConfigValidationOutputPreset(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "next does not support format") {
 		t.Fatalf("expected invalid output preset format error, got: %v", err)
+	}
+}
+
+func TestConfigAppendMissingTags(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Tags = []string{"backend"}
+	changed := cfg.AppendMissingTags([]string{"backend", "urgent", " urgent "})
+	if !changed {
+		t.Fatal("expected config tags to change")
+	}
+	if len(cfg.Tags) != 2 || cfg.Tags[1] != "urgent" {
+		t.Fatalf("unexpected tags: %+v", cfg.Tags)
+	}
+	if cfg.AppendMissingTags([]string{"backend"}) {
+		t.Fatal("expected no change for existing tags")
 	}
 }

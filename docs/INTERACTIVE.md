@@ -54,8 +54,14 @@ Task candidate line format:
 1. Input `Title` (required)
 2. Select `Kind`
 3. Select `Status`
-4. Review screen (`Title`/`Kind`/`Status`/`Due`/`Repeat`/`Parent`)
+4. Review screen (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`)
 5. Select `Create task` or `Cancel`
+
+Tags selector supports:
+
+- toggle existing config tags
+- add a new freeform tag
+- clear selected tags
 
 Parent candidates are rendered as tree labels (without IDs by default), for example:
 
@@ -83,7 +89,7 @@ The type selection screen includes this warning:
 
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
-2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
+2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
 3. `set` shows change preview before apply
 
 ## mv Interactive Flow

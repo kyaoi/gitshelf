@@ -22,6 +22,7 @@ Core keys:
 
 - `kinds`
 - `statuses`
+- `tags`
 - `link_types`
 - `default_kind`
 - `default_status`
@@ -30,6 +31,7 @@ Optional saved views:
 
 ```toml
 [views."active"]
+tags = ["backend"]
 not_statuses = ["done", "cancelled"]
 
 [views."only_done"]
@@ -38,7 +40,7 @@ statuses = ["done"]
 
 Supported view keys:
 
-- `kinds`, `statuses`, `not_kinds`, `not_statuses`
+- `kinds`, `statuses`, `tags`, `not_kinds`, `not_statuses`, `not_tags`
 - `ready`, `blocked_by_deps`
 - `due_before`, `due_after`, `overdue`, `no_due`
 - `parent`, `search`, `limit`
@@ -67,6 +69,7 @@ limit = 20
   - `title`
   - `kind`
   - `status`
+  - `tags` (optional list)
   - `created_at`
   - `updated_at`
 - Optional:
@@ -93,12 +96,13 @@ Key order is stable:
 2. `title`
 3. `kind`
 4. `status`
-5. `due_on` (if present)
-6. `repeat_every` (if present)
-7. `archived_at` (if present)
-8. `parent` (if present)
-9. `created_at`
-10. `updated_at`
+5. `tags` (if present)
+6. `due_on` (if present)
+7. `repeat_every` (if present)
+8. `archived_at` (if present)
+9. `parent` (if present)
+10. `created_at`
+11. `updated_at`
 
 Timestamps use RFC3339.
 
@@ -124,6 +128,7 @@ Duplicate `(to, type)` is removed on write.
 - `title` must be non-empty
 - `kind` must exist in config `kinds`
 - `status` must exist in config `statuses`
+- each `tag` must exist in config `tags`
 - `due_on` must match `YYYY-MM-DD` when present
 - `repeat_every` must match `<N>d|<N>w|<N>m|<N>y` when present
 - `archived_at` must be RFC3339 when present
@@ -138,6 +143,8 @@ Duplicate `(to, type)` is removed on write.
 - `type` must exist in config `link_types` (`depends_on`, `related`)
 - destination task must exist
 - duplicate `(type, to)` is invalid
+
+`add` / `set` with new tags auto-append them to config `tags` (catalog is append-only; unused tags are kept).
 
 ### Link Direction
 
