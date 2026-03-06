@@ -65,7 +65,7 @@ go build -o shelf ./cmd/shelf
 Global display flags:
 
 - `--show-id`, `-i`: show IDs in `ls` / `tree` / interactive task selectors
-- `--preview-body`, `-p`: show selected task body preview in interactive selectors
+- task selectors always show body preview by default (`(empty body)` when body is empty)
 
 Color output:
 
