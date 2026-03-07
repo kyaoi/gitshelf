@@ -1,160 +1,60 @@
-# COMMANDS (CLI Specification)
+# COMMANDS
 
-For a task-oriented explanation of when to use each command, see `docs/COMMAND_GUIDE.md`.
+Current public CLI surface for `shelf`.
 
 ## Common
 
-- All commands support `--root <dir>` to explicitly select the project root (directory that contains `.shelf/`).
-- If `--root` is omitted, commands search upward from the current directory for `.shelf/`.
-- If local `.shelf/` is not found, commands fall back to global config `default_root`.
-- If `.shelf/` cannot be found, commands fail with a non-zero exit code.
-- `init` is the only command that does not require existing `.shelf/`.
-- `completion` is also available without existing `.shelf/`.
-- `--show-id`, `-i`: show IDs in list/tree/link-like text outputs and interactive task selectors.
-- Task selectors always show a body preview (or `(empty body)`).
-- Enum selectors and non-selection commands do not show body preview.
-- Colorized output is enabled by default on TTY.
-- Set `NO_COLOR=1` to disable color output.
-- Set `CLICOLOR_FORCE=1` to force color output.
+- `--root <dir>` selects the project root that contains `.shelf/`
+- if `--root` is omitted, `shelf` searches upward from the current directory
+- if no local `.shelf/` is found, `shelf` falls back to the global `default_root`
+- `init` and `completion` do not require an existing `.shelf/`
+- `--show-id`, `-i` enables task IDs in text output and task selectors
+
+## shelf
+
+- on TTY: opens `Cockpit` in `calendar` mode
+- on non-TTY: prints help
 
 ## shelf init
 
-Initialize `.shelf/` layout.
+Initialize or refresh the current shelf.
 
-- Creates:
-  - `.shelf/config.toml`
-  - `.shelf/tasks/`
-  - `.shelf/edges/`
-- Existing directories are preserved.
-- Existing `config.toml` is preserved unless `--force` is passed.
-- `--global` writes global config (`GlobalConfigPath`) and initializes `.shelf/` under `default_root`.
+Creates and keeps only:
 
-Flags:
+- `.shelf/config.toml`
+- `.shelf/tasks/`
+- `.shelf/edges/`
 
-- `--force`: overwrite `config.toml` with defaults.
-- `--global`: initialize global default root + global config.
+Also removes legacy directories when present:
 
-## shelf add
-
-Create a task.
-
-- Non-interactive mode: `--title` is required.
-- Interactive mode (TTY only): guided steps (Kind -> Status -> Review) then review/edit (`Title`/`Tags`/`Due`/`Repeat`/`Parent`) before create.
+- `.shelf/templates/`
+- `.shelf/history/`
 
 Flags:
 
-- `--title <str>`
-- `--kind <kind>` (defaults to config `default_kind`)
-- `--status <status>` (defaults to config `default_status`)
-- `--tag <tag>` (repeatable; free input, new tags are added to config catalog)
-- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>` (optional)
-- `--repeat-every <N>d|<N>w|<N>m|<N>y>` (optional)
-- `--parent <id|root>`
-- `--body <str>`
+- `--force`: rewrite `config.toml` with defaults
+- `--global`: initialize the global default root and global config
 
-Output includes full ID for copy-paste.
+## shelf completion
 
-## shelf capture
-
-Quick capture command for inbox queue.
-
-- Always creates `kind=inbox` and `status=open`
-- Accepts title by positional args (`capture <title...>`) or `--title`
-- If title is missing:
-  - TTY: prompt for title
-  - non-TTY: fail with `<title> を指定してください`
-
-Flags:
-
-- `--title <str>`
-- `--tag <tag>` (repeatable)
-- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
-- `--body <str>`
-
-## shelf triage
-
-Process inbox queue (`kind=inbox`, `status=open` by default).
-
-Modes:
-
-- interactive (TTY): per-task action menu (`edit`/status changes/`archive`/`skip`)
-- auto (non-TTY friendly): batch action via `--auto`
-
-Flags:
-
-- `--kind <kind>` (default: `inbox`)
-- `--status <status>` (default: `open`)
-- `--limit <n>` (default: `20`)
-- `--auto <done|start|block|cancel|reopen|archive>`
-
-If `--auto` is omitted in non-TTY, command fails.
-
-## shelf template
-
-Save and expand reusable task trees.
+Generate shell completion.
 
 Subcommands:
 
-- `shelf template list|ls [--json]`
-- `shelf template save <name> <id>`
-- `shelf template show <name> [--json]`
-- `shelf template apply <name> [--parent <id|root> --title-prefix <str>]`
-- `shelf template delete|rm <name>`
-
-`template save` stores the selected subtree under `.shelf/templates/<name>.json`.
-`template apply` recreates tasks in preorder and restores parent-child structure.
-
-## shelf calendar
-
-Due-date calendar view.
-
-- default start: current week Monday
-- default statuses: `open`, `in_progress`, `blocked`
-- default mode: Cockpit `calendar` mode
-- default range follows config `[commands.calendar]`
-- requires TTY unless `--json` is used
-- keybindings:
-  - `Tab` / `Shift+Tab`: move between `main` and the right sidebar
-  - `Ctrl+H` / `Ctrl+L`: switch to the previous / next cockpit mode
-  - `C` / `T` / `B` / `R` / `N`: switch cockpit mode
-  - `t`: jump the calendar focus to today
-  - `h` / `l`: move by day in calendar mode, move the sidebar calendar by day when the right pane is focused, otherwise switch review/now tabs or move board columns
-  - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/now
-  - `[` / `]`: jump by month inside the current range
-  - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/now, or move board columns
-  - `PgUp` / `PgDn`, `Ctrl+U` / `Ctrl+D`: scroll the body while keeping the header fixed
-  - `Home` / `End`: jump to the top or bottom of the scrollable body
-  - `1..6`: jump directly to a section when available
-  - `a`: add a new task on the focused day using config defaults
-  - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
-  - `Enter`: toggle compact/detailed inspector
-  - `e`: open selected task in the configured editor
-  - `z`: open snooze presets for the selected task
-  - `r`: reload
-  - `q`: close help first, otherwise quit
-  - `Esc` / `Ctrl+C`: quit
-
-Flags:
-
-- `--start <YYYY-MM-DD|today|tomorrow>`
-- `--days <n>` (explicit day range)
-- `--months <n>` (whole-month range from the month containing `--start`)
-- `--years <n>` (whole-year range from the year containing `--start`)
-- `--status <status>` (repeatable)
-- `--json`
-
-Rules:
-
-- exactly one of `--days` / `--months` / `--years` may be specified
-- if none is specified, config `[commands.calendar]` is used
+- `completion bash`
+- `completion zsh`
+- `completion fish`
+- `completion powershell`
 
 ## shelf cockpit
 
-Main Cockpit workspace entry point.
+Main TUI workspace.
 
-- TTY only
-- opens the shared workspace used by `calendar`, `tree`, `board`, `review`, and `now`
-- starting mode is controlled by `--mode`
+Aliases:
+
+- `cp`
+
+TTY only.
 
 Flags:
 
@@ -163,7 +63,7 @@ Flags:
 - `--days <n>`
 - `--months <n>`
 - `--years <n>`
-- `--limit <n>`: maximum items per non-focused section
+- `--limit <n>`
 - `--kind <kind>` (repeatable)
 - `--status <status>` (repeatable)
 - `--tag <tag>` (repeatable)
@@ -171,546 +71,107 @@ Flags:
 - `--not-status <status>` (repeatable)
 - `--not-tag <tag>` (repeatable)
 
-## shelf board
+## Launcher Commands
 
-Cockpit workspace launcher for `board` mode.
+These commands are thin wrappers around `shelf cockpit --mode ...`.
 
-- TTY only
-- columns follow configured `statuses`
-- once opened, the same cockpit shell can switch to `calendar` / `tree` / `review` / `now` with `C/T/B/R/N`
+### shelf calendar
 
-## shelf estimate
+Aliases:
 
-Show or update estimate/spent work metadata.
+- `cal`
 
-Flags:
+Starts Cockpit in `calendar` mode.
 
-- `--set <duration>` (set estimate, e.g. `2h30m`)
-- `--spent <duration>` (set spent)
-- `--add-spent <duration>` (increment spent)
-- `--clear-estimate`
-- `--clear-spent`
-- `--json`
+### shelf tree
 
-## shelf track
+Aliases:
 
-Timer commands.
+- `tr`
 
-Subcommands:
+Starts Cockpit in `tree` mode.
 
-- `shelf track start <id>`
-- `shelf track stop <id>`
-- `shelf track show [id] [--json]`
+### shelf board
 
-## shelf notify
+Aliases:
 
-Run a local shell command for active tasks due today or overdue.
+- `kb`
 
-Environment variables passed to the shell command:
+Starts Cockpit in `board` mode.
 
-- `SHELF_TASK_ID`
-- `SHELF_TASK_SHORT_ID`
-- `SHELF_TASK_TITLE`
-- `SHELF_TASK_KIND`
-- `SHELF_TASK_STATUS`
-- `SHELF_TASK_DUE_ON`
+### shelf review
 
-Flags:
+Aliases:
 
-- `--command <shell>`
-- `--dry-run`
+- `rv`
 
-## shelf github
+Starts Cockpit in `review` mode.
 
-Manage GitHub links attached to tasks.
+### shelf now
 
-Subcommands:
+Aliases:
 
-- `shelf github link <id> --url <issue-or-pr-url>`
-- `shelf github unlink <id> --url <issue-or-pr-url>`
-- `shelf github show <id> [--json]`
+- `nw`
+- `today`
+- `td`
 
-Supported URLs:
+Starts Cockpit in `now` mode.
 
-- `https://github.com/<owner>/<repo>/issues/<number>`
-- `https://github.com/<owner>/<repo>/pull/<number>`
+All launcher commands accept the same Cockpit flags:
 
-URLs are stored in canonical form without query string or fragment.
+- `--start`
+- `--days`
+- `--months`
+- `--years`
+- `--limit`
+- `--kind`
+- `--status`
+- `--tag`
+- `--not-kind`
+- `--not-status`
+- `--not-tag`
 
-## shelf sync github
-
-Synchronize linked task metadata from GitHub.
-
-- `shelf sync github <id>`
-- `shelf sync github --all`
-
-Behavior:
-
-- fetches the first linked GitHub URL for each selected task
-- updates task `title` from the GitHub title
-- maps GitHub `state=open` to task `status=open`
-- maps GitHub `state=closed` to task `status=done`
-
-Environment:
-
-- `GITHUB_TOKEN`: optional bearer token
-- `GITSHELF_GITHUB_API_URL`: optional API base override (default `https://api.github.com`)
-
-## shelf review
-
-Compact daily review dashboard.
-
-Sections:
-
-- `Inbox`: `kind=inbox`, `status=open`
-- `Overdue`: active tasks with `due_on < today`
-- `Today`: active tasks with `due_on = today`
-- `Blocked`: tasks with `status=blocked` or unresolved `depends_on`
-- `Ready`: actionable non-inbox tasks
-
-TTY behavior:
-
-- on TTY, opens Cockpit in `review` mode
-- use `--plain` to force the legacy text summary
-- non-TTY stays on the legacy text path unless `--json` is used
-
-Flags:
-
-- `--limit <n>`: maximum items per section (default: `5`)
-- `--plain`: force plain text output even on TTY
-- `--json`
+All launcher commands are TTY-only.
 
 ## shelf ls
 
-Flat task list.
-ID is omitted from default display. Parent is shown as `root` or parent title.
+Read-only task listing for scripts and quick inspection.
 
 Flags:
 
-- `--view <name>` (built-in: `active|ready|blocked|overdue`, or config view)
-- `--preset <name>` (output preset for `ls`)
-- `--kind <kind>` (repeatable include filter)
-- `--status <status>` (repeatable include filter)
-- `--tag <tag>` (repeatable include filter)
-- `--not-kind <kind>` (repeatable exclude filter)
-- `--not-status <status>` (repeatable exclude filter)
-- `--not-tag <tag>` (repeatable exclude filter)
-- `--ready` (actionable tasks only)
-- `--blocked-by-deps` (tasks blocked by unresolved `depends_on`)
-- `--due-before <YYYY-MM-DD>`
-- `--due-after <YYYY-MM-DD>`
+- `--kind <kind>` (repeatable)
+- `--status <status>` (repeatable)
+- `--tag <tag>` (repeatable)
+- `--not-kind <kind>` (repeatable)
+- `--not-status <status>` (repeatable)
+- `--not-tag <tag>` (repeatable)
+- `--ready`
+- `--blocked-by-deps`
+- `--due-before <date>`
+- `--due-after <date>`
 - `--overdue`
 - `--no-due`
 - `--parent <id|root>`
-- `--limit <n>` (default: 50)
-- `--search <query>` (title/body partial match)
+- `--search <text>`
+- `--limit <n>`
+- `--include-archived`
+- `--only-archived`
+- `--format compact|detail|kanban`
 - `--json`
 
-Default ordering is ULID ascending (creation order).
-Unknown `kind` / `status` / `tag` values return an error.
-
-Examples:
-
-- `shelf ls --kind todo --status open`
-- `shelf ls --tag backend`
-- `shelf ls --not-status done --not-status cancelled`
-- `shelf ls --not-tag wip`
-- `shelf ls --status open --status in_progress --status blocked`
-- `shelf ls --kind todo --not-status done --not-status cancelled`
-- `shelf ls --ready --overdue`
-- `shelf ls --json`
+Unknown kind/status/tag values fail fast.
 
 ## shelf next
 
-List actionable tasks (`open`/`in_progress` and unblocked by dependencies).
+Read-only shortlist of actionable tasks.
 
 Flags:
 
-- `--view <name>` (built-in or config view)
-- `--preset <name>` (output preset for `next`)
-- `--limit <n>` (default: 50)
+- `--limit <n>`
 - `--json`
 
-## shelf view
+## Notes
 
-Manage saved views in `.shelf/config.toml`.
+The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/link/archive/history/import/export/github/view/doctor.
 
-Subcommands:
-
-- `shelf view list|ls [--json]`
-- `shelf view show <name> [--json]`
-- `shelf view set <name> [filter flags...]`
-- `shelf view copy <src> <dst>`
-- `shelf view rename <src> <dst>`
-- `shelf view merge <dst> --from <name> --from <name> [--strategy overlay|union]`
-- `shelf view delete|rm <name>`
-
-`view set` supports:
-
-- `--kind`, `--status`, `--tag`, `--not-kind`, `--not-status`, `--not-tag` (repeatable)
-- `--ready`, `--blocked-by-deps`
-- `--due-before`, `--due-after`, `--overdue`, `--no-due`
-- `--parent`, `--search`, `--limit`
-
-Rules:
-
-- built-in views (`active|ready|blocked|overdue`) cannot be overwritten/deleted
-- at least one filter flag is required for `view set`
-
-## shelf preset
-
-Manage output presets in `.shelf/config.toml`.
-
-Subcommands:
-
-- `shelf preset list|ls [--json]`
-- `shelf preset show <name> [--json]`
-- `shelf preset set <name> --command <ls|tree|next|agenda|today> [--format ... --view ... --limit ...]`
-- `shelf preset delete|rm <name>`
-
-## shelf agenda
-
-Due-oriented daily list.
-
-Default target statuses are `open`, `in_progress`, `blocked`.
-
-Flags:
-
-- `--view <name>` (built-in or config view)
-- `--preset <name>` (output preset for `agenda`)
-- `--days <n>` (upcoming range, default 7)
-- `--kind <kind>` (repeatable include filter)
-- `--status <status>` (repeatable include filter)
-- `--tag <tag>` (repeatable include filter)
-- `--not-kind <kind>` (repeatable exclude filter)
-- `--not-status <status>` (repeatable exclude filter)
-- `--not-tag <tag>` (repeatable exclude filter)
-- `--json`
-
-## shelf now
-
-Show only overdue + today tasks.
-
-Aliases: `today`, `td`, `nw`
-
-Default target statuses are `open`, `in_progress`, `blocked`.
-
-TTY behavior:
-
-- on TTY, opens Cockpit in `now` mode
-- use `--plain` to force the legacy text summary
-- `--carry-over` stays on the legacy batch flow
-- non-TTY stays on the legacy text path unless `--json` is used
-
-Flags:
-
-- `--view <name>` (built-in or config view)
-- `--preset <name>` (output preset for `today`)
-- `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
-- `--format <compact|detail>`
-- `--plain`
-- `--json`
-- `--include-archived`
-- `--only-archived`
-- `--carry-over` (move overdue active tasks to today)
-- `--yes` (required on non-TTY with `--carry-over`)
-
-## shelf tree
-
-Render tree based on `parent`.
-ID is omitted from tree output by default.
-
-TTY behavior:
-
-- on TTY, opens Cockpit in `tree` mode unless `--plain` or `--json` is specified
-- use `--plain` to force legacy text tree output
-
-Flags:
-
-- `--view <name>` (built-in or config view; due/readiness views are rejected)
-- `--preset <name>` (output preset for `tree`)
-- `--from <id|root>` (default: `root`)
-- `--max-depth <n>` (`0` means unlimited)
-- `--kind <kind>` (repeatable include filter)
-- `--status <status>` (repeatable include filter)
-- `--not-kind <kind>` (repeatable exclude filter)
-- `--not-status <status>` (repeatable exclude filter)
-- `--plain`
-- `--json`
-
-## shelf show <id>
-
-Show task details:
-
-- front matter fields
-- body (freeform notes)
-- hierarchy path + subtree
-- outbound and inbound link summary
-
-Flags:
-
-- `--no-body` (hide body section)
-- `--only-body` (print body only)
-- `--json`
-
-## shelf explain <id>
-
-Explain why a task matches or does not match built-in views and default command filters.
-
-Also prints current readiness (`ready`, unresolved `depends_on`).
-
-Flags:
-
-- `--view <name>` (add custom/built-in view explanation)
-- `--json`
-
-## shelf edit [id]
-
-Open task file (`.shelf/tasks/<id>.md`) in editor.
-
-- Editor resolution order: `$VISUAL` -> `$EDITOR` -> `vi`
-- Opens the whole task file (front matter + body)
-- If `<id>` is omitted:
-  - TTY: task selector is shown
-  - non-TTY: command fails with `<id> を指定してください`
-
-## shelf set <id>
-
-Update task fields.
-
-Flags:
-
-- `--title <str>`
-- `--kind <kind>`
-- `--status <status>`
-- `--tag <tag>` (repeatable add)
-- `--untag <tag>` (repeatable remove)
-- `--clear-tags`
-- `--due <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>`
-- `--clear-due`
-- `--repeat-every <N>d|<N>w|<N>m|<N>y>`
-- `--clear-repeat`
-- `--parent <id|root>`
-- `--body <str>` (replace body)
-- `--append-body <str>` (append text)
-
-Parent updates validate existence and reject cycles.
-When no update flags are passed on TTY, `set` opens an interactive multi-field editor.
-Interactive `set` includes `Body (replace)` and `Body (append)`, then shows a review step before apply.
-
-## shelf snooze <id>
-
-Adjust task due date.
-
-Behavior:
-
-- if only `--by` is provided, shift current `due_on` by relative days
-- if only `--to` is provided, normalize and set the new `due_on`
-- if neither is provided:
-  - TTY: choose from presets such as `today`, `tomorrow`, `+3 days`, `next-week`, or switch to custom `by` / `to`
-  - non-TTY: fail with an explicit error
-
-Flags:
-
-- `--by <Nd>` (relative day shift, e.g. `2d`, `-1d`)
-- `--to <YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days>` (absolute set)
-
-Rules:
-
-- at most one of `--by` or `--to` may be provided
-- if `<id>` is omitted and TTY is available, task selector is shown
-
-## shelf archive <id>
-
-Set `archived_at` to current local RFC3339 timestamp.
-
-## shelf unarchive <id>
-
-Clear `archived_at`.
-
-## shelf mv <id>
-
-Thin wrapper of `set` for parent updates.
-
-Flags:
-
-- `--parent <id|root>` (required)
-
-## shelf done <id>
-
-Shortcut for `set --status done`.
-
-Recurring tasks (`repeat_every` present):
-
-- `--recurring-action create`: mark current task done and create next task
-- `--recurring-action reopen`: keep same task and advance due/status to open
-
-On non-TTY, recurring `done` requires `--recurring-action`.
-
-## shelf start <id>
-
-Shortcut for `set --status in_progress`.
-
-## shelf block <id>
-
-Shortcut for `set --status blocked`.
-
-## shelf cancel <id>
-
-Shortcut for `set --status cancelled`.
-
-## shelf reopen <id>
-
-Shortcut for `set --status open`.
-
-## shelf link
-
-Create outbound link.
-
-- Non-interactive mode requires `--from --to --type`.
-- Interactive mode (TTY only): source -> destination -> type.
-
-Flags:
-
-- `--from <id>`
-- `--to <id>`
-- `--type <link_type>`
-
-Supported link types:
-
-- `depends_on`
-- `related`
-
-Output keeps direction explicit:
-
-`Linked: A --depends_on--> B`
-
-With `--show-id`, short IDs are included.
-
-## shelf unlink
-
-Remove outbound link.
-
-- Non-interactive mode requires `--from --to --type`.
-- Interactive mode (TTY only) lets users select existing outbound edge from a source task.
-
-Flags:
-
-- `--from <id>`
-- `--to <id>`
-- `--type <link_type>`
-
-## shelf links <id>
-
-Show links of a task:
-
-- outbound: from `.shelf/edges/<id>.toml`
-- inbound: reverse lookup by scanning all edge files
-
-Flags:
-
-- `--transitive` (show recursive `depends_on` closure)
-- `--suggest` (show candidate `related` links instead of current links)
-- `--limit <n>` (maximum suggestions, default `5`)
-- `--json`
-
-## shelf deps <id>
-
-Show `depends_on` prerequisites and dependents of a task.
-
-Flags:
-
-- `--transitive` (recursive closure)
-- `--reverse` (print dependents first)
-- `--graph` (render ASCII graph)
-- `--suggest` (show candidate `depends_on` links instead of current graph/list)
-- `--limit <n>` (maximum suggestions, default `5`)
-- `--json`
-
-## shelf export
-
-Export full `.shelf` data as JSON (`config`, `tasks`, `edges`).
-
-Flags:
-
-- `--out <path>` (`-` for stdout)
-
-## shelf import
-
-Import full `.shelf` data from JSON export format.
-
-This operation replaces current `tasks`/`edges` and writes `config`.
-Undo snapshot is taken before import.
-
-Flags:
-
-- `--in <path>` (`-` for stdin)
-- `--validate-only` (validate payload only)
-- `--dry-run` (show summary without write)
-- `--merge` (merge into current shelf; incoming wins on conflicts)
-- `--replace` (replace current shelf; default mode)
-
-## shelf undo
-
-Restore last snapshot taken by mutating commands (`add/set/mv/done/start/block/cancel/reopen/snooze/archive/unarchive/link/unlink/import`).
-
-Flags:
-
-- `--steps <n>` (default: 1)
-
-## shelf redo
-
-Re-apply undone mutating actions.
-
-Flags:
-
-- `--steps <n>` (default: 1)
-
-## shelf history
-
-Show mutating action history (`apply`/`undo`/`redo`) from `.shelf/history/actions.log`.
-
-Flags:
-
-- `--limit <n>` (default: 50)
-- `--json`
-
-### shelf history show <entry|snapshot_id>
-
-Show details for one history entry (index from `history` list output or snapshot ID).
-
-Flags:
-
-- `--json`
-
-## shelf doctor
-
-Integrity checker for `.shelf/`:
-
-- task parent existence
-- parent cycle detection
-- unknown `kind` / `status`
-- edge destination existence
-- unknown `link_type`
-- duplicate edge detection
-- edge source existence
-
-Outputs file path + task ID + issue message for manual fixes.
-
-Flags:
-
-- `--fix` (apply safe normalization before checks)
-- `--strict` (emit additional warnings, e.g. `todo` without `due_on`)
-- `--json`
-
-Doctor output includes per-issue `hint` text for common recovery paths.
-Mutating commands acquire `.shelf/.write.lock` to prevent concurrent writes.
-
-## shelf completion
-
-Generate shell completions:
-
-- `shelf completion bash`
-- `shelf completion zsh`
-- `shelf completion fish`
-- `shelf completion powershell`
+Those operations are expected to happen inside Cockpit.

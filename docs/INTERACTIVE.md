@@ -1,160 +1,113 @@
-# INTERACTIVE (TTY Selection Spec)
+# INTERACTIVE
 
-Interactive mode is available only when stdin/stdout are TTY.
-If not TTY, users must provide required flags.
+Current interactive behavior for the Cockpit-first `shelf` tool.
 
-## Supported Commands
+## Main Rule
 
-- `shelf add` (when `--title` is omitted)
-- `shelf link` (when `--from/--to/--type` are omitted)
-- `shelf unlink` (when `--from/--to/--type` are omitted)
-- `shelf show` (when `<id>` is omitted)
-- `shelf explain` (when `<id>` is omitted)
-- `shelf edit` (when `<id>` is omitted)
-- `shelf set` (when `<id>` is omitted)
-- `shelf snooze` (when `<id>` is omitted or `--by/--to` is omitted)
-- `shelf mv` (when `<id>` and/or `--parent` is omitted)
-- `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
-- `shelf links` (when `<id>` is omitted)
-- `shelf triage` (without `--auto`)
-- `shelf board` (TTY only, Cockpit `board` mode)
-- `shelf calendar` (TTY only, Cockpit `calendar` mode unless `--json`)
-- `shelf tree` (TTY only, Cockpit `tree` mode unless `--plain` / `--json`)
-- `shelf cockpit` (TTY only, main Cockpit workspace entry point)
+Interactive daily work happens inside `Cockpit`.
 
-## Key Bindings
+You normally enter it through one of these commands:
 
-- `j` / `k`: move selection down/up
-- `Enter`: confirm
-- `/`: search mode
+- `shelf`
+- `shelf cockpit`
+- `shelf calendar`
+- `shelf tree`
+- `shelf board`
+- `shelf review`
+- `shelf now`
+
+All of those open the same TUI workspace with different starting modes.
+
+## Shared Cockpit Navigation
+
+- `C`: calendar mode
+- `T`: tree mode
+- `B`: board mode
+- `R`: review mode
+- `N`: now mode
+- `Ctrl+H` / `Ctrl+L`: previous / next mode
+- `Tab` / `Shift+Tab`: move focus between panes
 - `?`: toggle help overlay
-- `Esc`:
-  - in search mode: clear search and leave search mode
-  - otherwise: cancel selection
-- `q`: cancel selection (outside search mode)
-- `Ctrl+C`: cancel selection
-- Arrow up/down are also supported.
-- Long option lists scroll automatically with the cursor and show the visible range in the search line.
-
-## Search
-
-- `/` enters incremental search.
-- Search matches option label/search text (task title and short/full ID).
-- Result list updates as user types.
-
-## Display
-
-Task candidate line format:
-
-- default: `{tree-prefix}{title}` (IDs hidden)
-- with `--show-id`: `[{short}] {tree-prefix}{title}`
-
-- Default: task selectors hide IDs and prefer hierarchical labels.
-- `--show-id` / `-i`: include short IDs in selector labels.
-- Task selectors always show selected task body preview (`(empty body)` when empty).
-- Enum selectors intentionally render without body preview.
-- Selected row, prompt, help line, and preview header are colorized on TTY.
-- `NO_COLOR=1` disables colors (`CLICOLOR_FORCE=1` overrides non-TTY detection).
-
-## add Interactive Flow
-
-1. Select `Kind`
-2. Select `Status`
-3. Review screen (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`)
-4. Choose `Create task` / `Cancel`, or use `Ctrl+S` / `Ctrl+Enter` to create directly
-
-Notes:
-- `Title` is edited in the review screen instead of a separate first step.
-- `Title` is still required; trying to create without it prompts for a title.
-
-Tags selector supports:
-
-- toggle existing config tags
-- add a new freeform tag
-- clear selected tags
-
-Parent candidates are rendered as tree labels (without IDs by default), for example:
-
-`(root)`
-`週目標`
-`├─ 月曜日`
-`│  └─ 英単語100個`
-
-## link Interactive Flow
-
-1. Select source task
-2. Select destination task
-3. Select link type
-
-The type selection screen includes this warning:
-
-`A depends_on B = B must be done before A`
-
-## unlink Interactive Flow
-
-1. Select source task
-2. Select existing outbound edge to remove
-
-## show / explain / edit / set / done / links / snooze Interactive Flow
-
-1. Select target task by ID/title
-   - Uses hierarchical tree-style labels without IDs by default
-2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
-3. (`snooze` only, when `--by` and `--to` are both omitted) choose a preset like `Today` / `Tomorrow` / `By +3 days`, or choose `Custom by days` / `Custom date token`
-4. `set` shows change preview before apply
-
-## mv Interactive Flow
-
-1. Select target task by ID/title (when `<id>` omitted)
-2. Select new parent (`(root)` or another task) when `--parent` omitted
-
-## triage Interactive Flow
-
-1. Load triage targets by `--kind` + `--status` (default `inbox/open`)
-2. For each task choose one action:
-   - `Edit fields` (same editor as `set` interactive)
-   - `Set status ...`
-   - `Archive task`
-   - `Skip` / `Quit triage`
-
-## board TUI
-
-- `shelf board` now opens the shared Cockpit in `board` mode
-- status columns follow config order
-- use `C/T/B/R/N` to switch modes without leaving the shell
-
-## calendar TUI
-
-- used by `shelf cockpit`, `shelf calendar`, `shelf tree`, `shelf board`, and also by `shelf review` / `shelf now` on TTY unless `--plain` or `--json` is specified
-- layout is `main + right sidebar`
-- `Ctrl+H` / `Ctrl+L`: switch to the previous / next mode
-- `C/T/B/R/N`: switch modes
-- `t`: jump the calendar focus to today
-- `Tab` / `Shift+Tab`: move between panes
-- `h` / `l`: move by one day in calendar mode, move the sidebar calendar by one day when the right pane is focused, or switch review/now tabs / board columns otherwise
-- in `tree` mode, `h` collapses the current subtree (or jumps to the parent when already collapsed/leaf) and `l` expands the current subtree
-- `j` / `k`: move by one week in calendar mode, move the sidebar calendar by one week when the right pane is focused, or move rows in tree/board/review/now
-- `[` / `]`: move by one month inside the current range
-- `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
-- in `calendar` mode, the month grid is larger and the focused-day task list lives above the inspector
-- in non-calendar modes, the right sidebar shows a compact calendar above the inspector; focus it with `Tab` to move the date directly
-- `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/now, or move board columns
-- `now` mode shows `Focused Day`, `Overdue`, and `Today` side by side in the main pane
-- the header and mode tabs stay fixed at the top
-- `PgUp` / `PgDn` or `Ctrl+U` / `Ctrl+D`: scroll the body
-- `Home` / `End`: jump to the top or bottom of the body
-- `1..6`: jump directly to a visible section
-- `v`: toggle a single multi-select mark in tree/board modes
-- `u`: clear all marks in tree/board modes
-- `V`: start/finish continuous range selection in tree/board modes; move to expand the marked range without clearing previously marked tasks
-- `Ctrl+[` leaves transient modes and returns to the normal cockpit state without quitting
-- `m`: in tree mode, move the current task or marked tasks under the currently highlighted task; move mode also exposes `(root)` as a target
-- `a`: open inline add composer for the focused day
-- `o` / `i` / `b` / `d` / `c`: set the selected task, or all marked tree/board tasks, to `open` / `in_progress` / `blocked` / `done` / `cancelled`
-- `Enter`: toggle compact/detailed inspector
-- `e`: open the selected task in the configured editor
-- `z`: open snooze presets for the selected task
-- `r`: reload task data
 - `q`: close help first, otherwise quit
-- `Esc` / `Ctrl+C`: quit
-- moving beyond the current window shifts the calendar range automatically
+- `Esc` / `Ctrl+C`: quit or leave transient state
+- `Ctrl+[` : return to normal state from transient overlays
+
+## Calendar Mode
+
+Main keys:
+
+- `t`: jump to today
+- `h` / `l`: move by day
+- `j` / `k`: move by week
+- `[` / `]`: move by month
+- `n` / `p`: cycle tasks on the focused day
+- `a`: create from the current context
+- `A`: quick capture
+
+## Tree Mode
+
+Main keys:
+
+- `h`: collapse current subtree, or move to parent
+- `l`: expand current subtree
+- `m`: move selected task or marked tasks
+- `v`: toggle mark on the current task
+- `V`: start or stop range marking
+- `u`: clear all marks
+
+## Board Mode
+
+Main keys:
+
+- `h` / `l`: move between columns
+- `j` / `k`: move within a column
+- `v`: toggle mark on the current task
+- `V`: start or stop range marking
+- `u`: clear all marks
+
+## Review / Now Modes
+
+These are compact operational views inside the same workspace.
+
+- `review`: inbox / overdue / blocked / ready scan
+- `now`: focused execution view for today
+
+## Common Task Actions
+
+These actions operate on the selected task, or on marked tasks when multi-select is active.
+
+- `o`: set `open`
+- `i`: set `in_progress`
+- `b`: set `blocked`
+- `d`: set `done`
+- `c`: set `cancelled`
+- `x`: archive toggle
+- `z`: snooze presets
+- `e`: open the task file in `$VISUAL`, `$EDITOR`, then `vi`
+- `L`: open the edge file for the selected task
+- `Enter`: toggle compact / detailed inspector
+- `r`: reload
+
+## Add / Capture
+
+- `a`: create using the current mode context
+  - calendar / review / now: use focused day as the due date default
+  - tree: use selected task as the parent default
+  - board: use selected column status as the status default
+- `A`: quick capture (`kind=inbox`, `status=open`)
+
+## Scrolling
+
+- fixed header stays on screen
+- body scroll:
+  - `PgUp` / `PgDn`
+  - `Ctrl+U` / `Ctrl+D`
+  - `Home` / `End`
+
+## Selector Behavior
+
+Long task selectors scroll automatically.
+
+- tree-style labels are used where hierarchy matters
+- `(root)` appears as an explicit move target where relevant
+- `q`, `Esc`, and `Ctrl+C` cancel plain selectors

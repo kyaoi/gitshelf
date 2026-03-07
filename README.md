@@ -1,21 +1,20 @@
 # gitshelf
 
-`gitshelf` is a lightweight Git-friendly CLI task manager.
+`gitshelf` is a Git-friendly task manager centered around one TUI workspace: `Cockpit`.
 
 - CLI command: `shelf`
-- Data root: `.shelf/`
-- Tasks: `.shelf/tasks/<id>.md` (flat files, one task per file)
-- Links: `.shelf/edges/<src_id>.toml` (outbound edges only)
-- Tree: represented by each task's `parent`
-- Extra relations: represented by links (`depends_on`, `related`)
+- Main entry: `shelf` or `shelf cockpit`
+- Storage root: `.shelf/`
+- Tasks: `.shelf/tasks/<id>.md`
+- Links: `.shelf/edges/<src_id>.toml`
 
 ## Documentation
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-- Detailed command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
-- Current workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
-- Storage and invariants: [`docs/STORAGE.md`](docs/STORAGE.md)
+- Command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
+- Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
+- Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
 
 ## Install
@@ -27,166 +26,53 @@ go build -o shelf ./cmd/shelf
 ## Quick Start
 
 ```bash
-# Initialize in current directory
+# initialize
 ./shelf init
 
-# Start from the main workspace on TTY
+# main workspace
 ./shelf
-./shelf capture "Call vendor"
 ./shelf cockpit
-./shelf triage
-./shelf review
-./shelf now
 
-# Update and move
-./shelf add --title "Weekly Goal"
-./shelf add --title "Monday Plan" --parent root
-./shelf set <task-id> --status done
-./shelf mv <task-id> --parent root
-./shelf start <task-id>
-./shelf block <task-id>
-./shelf cancel <task-id>
-./shelf snooze <task-id> --by 2d
-
-# Launcher commands into Cockpit
+# cockpit launchers
 ./shelf calendar
 ./shelf tree
 ./shelf board
+./shelf review
+./shelf now
 
-# Direct inspection and file editing
-./shelf ls
-./shelf show <task-id>
-./shelf edit <task-id>
-./shelf explain <task-id>
+# script-friendly queries
+./shelf ls --status open --json
+./shelf next
 
-# Link tasks
-./shelf link --from <a> --to <b> --type depends_on
-./shelf links <a> --transitive
-./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
-./shelf sync github <task-id>
-
-# Templates, views, backup, and history
-./shelf template save weekly-plan <task-id>
-./shelf template apply weekly-plan --parent root
-./shelf view list
-./shelf view set focus --ready --limit 20
-./shelf preset set ls_focus --command ls --view active --format detail --limit 20
-./shelf deps <task-id> --transitive
-./shelf deps <task-id> --graph --transitive
-./shelf export --out backup.json
-./shelf import --validate-only --in backup.json
-./shelf import --merge --in backup.json
-./shelf undo
-./shelf redo
-./shelf history
-./shelf history show 1
+# shell completion
 ./shelf completion zsh
-
-# Estimate, tracking, and notifications
-./shelf estimate <task-id> --set 2h --spent 30m
-./shelf track start <task-id>
-./shelf track stop <task-id>
-./shelf notify --command 'notify-send gitshelf \"$SHELF_TASK_TITLE\"'
-
-# Initialize global shelf (writes global config + creates global .shelf)
-./shelf init --global
-
-# Check integrity
-./shelf doctor
-./shelf doctor --fix
-./shelf doctor --strict
 ```
 
-## Commands
+## Command Surface
 
-- `shelf init [--root <dir>] [--force]`
-- `shelf add [--root <dir>] [--title ... --kind ... --status ... --tag ... --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --repeat-every <N>d|<N>w|<N>m|<N>y --parent <id|root> --body ...]`
-- `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
-- `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
-- `shelf template list|save|show|apply|delete [--root <dir>] ...`
-- `shelf cockpit|cp [--root <dir>] [--mode calendar|tree|board|review|now --start <date> --days N | --months N | --years N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ...]`
-  - main Cockpit workspace entry point
-- `shelf calendar|cal [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
-  - opens Cockpit in `calendar` mode by default
-  - use `--json` for non-TTY contexts
-- `shelf board|kb [--root <dir>] [--show-id]`
-- `shelf review|rv [--root <dir>] [--limit N --plain --json]`
-- `shelf now|nw|today|td [--root <dir>] [--preset <name> --view <name> --carry-over --yes --kind ... --status ... --not-kind ... --not-status ... --plain --json]`
-- `shelf tree|tr [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --plain --json]`
-- `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
-- `shelf track start|stop|show [--root <dir>] ...`
-- `shelf notify [--root <dir>] [--command <shell> --dry-run]`
-- `shelf github link|unlink|show [--root <dir>] ...`
-- `shelf sync github [id] [--root <dir>] [--all]`
-- `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
-- `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
-- `shelf preset list|show|set|delete [--root <dir>] ...`
-- `shelf next [--root <dir>] [--view <name> --limit N --json]`
-- `shelf agenda [--root <dir>] [--preset <name> --view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
-- `shelf explain <id> [--root <dir>] [--view <name> --json]`
-- `shelf edit [id] [--root <dir>]`
-- `shelf set <id> [--root <dir>] [--title ... --kind ... --status ... --tag ... --untag ... --clear-tags --due YYYY-MM-DD|today|tomorrow|+Nd|-Nd|next-week|this-week|mon..sun|next-mon..next-sun|in N days --clear-due --repeat-every ... --clear-repeat --parent ... --body ... --append-body ...]`
-- `shelf snooze <id> [--root <dir>] (--by <Nd> | --to YYYY-MM-DD|today|tomorrow)`
-- `shelf archive <id> [--root <dir>]`
-- `shelf unarchive <id> [--root <dir>]`
-- `shelf mv <id> --parent <id|root> [--root <dir>]`
-- `shelf done <id> [--root <dir>] [--recurring-action create|reopen]`
-- `shelf start <id> [--root <dir>]`
-- `shelf block <id> [--root <dir>]`
-- `shelf cancel <id> [--root <dir>]`
-- `shelf reopen <id> [--root <dir>]`
-- `shelf link [--root <dir>] [--from ... --to ... --type ...]`
-- `shelf unlink [--root <dir>] [--from ... --to ... --type ...]`
-- `shelf links <id> [--root <dir>] [--transitive --suggest --limit N --json]`
-- `shelf deps <id> [--root <dir>] [--transitive --reverse --graph --suggest --limit N --json]`
-- `shelf export [--root <dir>] [--out <path>|-]`
-- `shelf import [--root <dir>] [--in <path>|- --validate-only --dry-run --merge --replace]`
-- `shelf undo [--root <dir>]`
-- `shelf redo [--root <dir>]`
-- `shelf history [--root <dir>] [--limit N --json]`
-- `shelf history show <entry|snapshot_id> [--root <dir>] [--json]`
-- `shelf completion bash|zsh|fish|powershell`
-- `shelf doctor [--root <dir>] [--fix --strict --json]`
+Only these top-level commands are part of the current public CLI surface:
 
-Global display flags:
+- `shelf init`
+- `shelf completion`
+- `shelf cockpit`
+- `shelf calendar`
+- `shelf tree`
+- `shelf board`
+- `shelf review`
+- `shelf now` (`today` remains an alias)
+- `shelf ls`
+- `shelf next`
 
-- `--show-id`, `-i`: show IDs in list/tree/link-like text outputs and interactive task selectors
-- task selectors always show body preview by default (`(empty body)` when body is empty)
-- enum selectors and non-selection commands never show body preview
+Everything else is expected to happen inside Cockpit.
 
-Color output:
+## Cockpit-First Usage
 
-- TTY output is colorized by default for readability.
-- `NO_COLOR=1` disables color.
-- `CLICOLOR_FORCE=1` forces color even when output is not a TTY.
+`Cockpit` is the main workspace.
 
-## Kind and Status
-
-- `kind`: task category (`todo`, `idea`, `memo`, `inbox`, ...)
-- `status`: task progress (`open`, `in_progress`, `blocked`, `done`, `cancelled`)
-- `tag`: freeform label (case-preserving, trim-only normalization)
-- new tags entered in `add`/`set` are auto-added to config `tags` catalog
-- `due_on` (`YYYY-MM-DD`): optional for all kinds (`todo`/`memo`/`idea` etc.)
-- `repeat_every` (`<N>d|<N>w|<N>m|<N>y`): optional recurring interval
-- `archived_at` (RFC3339): set by `archive`, cleared by `unarchive`
-- `github_urls`: optional list of linked GitHub issue / pull request URLs
-- CLI input for due also accepts `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon..sun`, `next-mon..next-sun`, `in N days` and stores normalized date
-
-## GitHub Sync
-
-- `shelf github link <id> --url <issue-or-pr-url>` stores a canonical GitHub URL on the task
-- `shelf github unlink <id> --url <issue-or-pr-url>` removes one linked URL
-- `shelf github show <id> [--json]` prints linked URLs
-- `shelf sync github <id>` or `shelf sync github --all` fetches GitHub issue state and updates:
-  - `title` from GitHub title
-  - `status` from GitHub state (`open` -> `open`, `closed` -> `done`)
-- GitHub API base can be overridden with `GITSHELF_GITHUB_API_URL`
-- `GITHUB_TOKEN` is used automatically when present
-
-## Cockpit
-
-`shelf cockpit` is the main TUI workspace. `calendar`, `tree`, `board`, `review`, and `now` are launcher commands that open `cockpit` in different starting modes. Running `shelf` without a subcommand opens the same workspace on TTY.
+- `shelf` on TTY opens `Cockpit`
+- `shelf cockpit` opens it explicitly
+- `calendar/tree/board/review/now` are just launcher presets for the same workspace
+- creating, editing, moving, snoozing, linking, archiving, and status changes are handled inside the TUI
 
 Recommended starting point:
 
@@ -194,230 +80,30 @@ Recommended starting point:
 shelf
 ```
 
-Main modes:
+## Current Data Model
 
-- `calendar`: date-first view
-- `tree`: parent-child navigator
-- `board`: status columns
-- `review`: Inbox / Overdue / Today / Blocked / Ready
-- `now`: Focused Day / Overdue / Today
+Task metadata uses:
 
-Mode switching inside the TUI:
+- `title`
+- `kind`
+- `status`
+- `tags`
+- `due_on`
+- `repeat_every`
+- `archived_at`
+- `parent`
+- timestamps
 
-- `C`: calendar
-- `T`: tree
-- `B`: board
-- `R`: review
-- `N`: now
-
-`shelf review` is a compact dashboard for daily check-ins. It groups active tasks into:
-
-- `Inbox`
-- `Overdue`
-- `Today`
-- `Blocked`
-- `Ready`
-
-On TTY, `shelf review`, `shelf now`, `shelf tree`, and `shelf board` open Cockpit with different starting modes.
-Use `--plain` to force the legacy text summary, or `--json` for scripting.
-`shelf now` follows the same rule, except `--carry-over` stays on the legacy batch flow. `shelf today` remains as an alias.
-
-## Link Types
-
-Supported `link_types` are only:
+Links use only:
 
 - `depends_on`
 - `related`
 
-`derived_from` is not used.
-
-## ls Filter Examples
+## Quality Checks
 
 ```bash
-./shelf ls --kind todo --status open
-./shelf ls --tag backend
-./shelf ls --not-status done --not-status cancelled
-./shelf ls --not-tag wip
-./shelf ls --status open --status in_progress --status blocked
-./shelf ls --kind todo --not-status done --not-status cancelled
-./shelf ls --ready --overdue
-./shelf ls --blocked-by-deps
-./shelf ls --view active
-./shelf ls --include-archived
-./shelf ls --json
+gofmt -w .
+go test ./...
+go test -race ./...
+go vet ./...
 ```
-
-`ls` / `tree` output omits IDs by default for readability.
-Use `show` to inspect full metadata and hierarchy details.
-
-## Interactive by Default for Omitted Args
-
-When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts interactively instead of failing.
-
-- `add`: omitted `--title`
-- `link` / `unlink`: omitted required flags
-- `show` / `set` / `done` / `links`: omitted `<id>`
-- `mv`: omitted `<id>` and/or `--parent`
-
-`add` interactive flow starts with `Kind -> Status`, then a review screen for `Title`/`Tags`/`Due`/`Repeat`/`Parent` edits before final create.
-`set` interactive flow uses an editable field session with change preview before apply.
-
-Task selectors always show body preview. Enum selectors intentionally do not.
-
-## Saved Views
-
-`--view <name>` can use:
-
-- built-in views: `active`, `ready`, `blocked`, `overdue`
-- custom views from `.shelf/config.toml`:
-
-```toml
-[views."only_done"]
-statuses = ["done"]
-[commands.calendar]
-default_range_unit = "days"
-default_days = 14
-default_months = 6
-default_years = 2
-```
-
-You can also manage this from CLI:
-
-```bash
-./shelf view list
-./shelf view show only_done
-./shelf view set only_done --status done
-./shelf view copy only_done only_done_copy
-./shelf view rename only_done_copy done_only
-./shelf view merge done_union --from only_done --from active --strategy union
-./shelf view delete only_done
-```
-
-Output presets:
-
-```bash
-./shelf preset set ls_focus --command ls --view active --format detail --limit 20
-./shelf ls --preset ls_focus
-```
-
-In non-TTY mode, interactive prompts are disabled and missing values produce clear errors.
-
-## Global Shelf and Fallback
-
-gitshelf supports a global default root configured at:
-
-- `~/.config/gitshelf/config.toml` (Linux default location via `os.UserConfigDir()`)
-
-Global config format:
-
-```toml
-default_root = "/abs/path/to/store"
-```
-
-Resolution order for commands:
-
-1. Use `--root` when provided.
-2. Otherwise search upward from cwd for `.shelf/config.toml`.
-3. If not found, use global config `default_root`.
-4. If global config is missing, command fails with guidance to run:
-   - `shelf init --global`
-
-## Storage Format
-
-```text
-.shelf/
-  config.toml
-  tasks/
-    <id>.md
-  edges/
-    <src_id>.toml
-  templates/
-    <name>.json
-  .write.lock
-  history/
-    index.json
-    actions.log
-    snapshots/
-```
-
-Task file format (`.shelf/tasks/<id>.md`):
-
-```md
-+++
-id = "01..."
-title = "Example"
-kind = "todo"
-status = "open"
-tags = ["backend", "urgent"] # optional
-due_on = "2026-03-31" # optional
-estimate_minutes = 120 # optional
-spent_minutes = 30 # optional
-timer_started_at = "2026-03-31T11:22:33+09:00" # optional
-repeat_every = "1w" # optional
-archived_at = "2026-03-31T11:22:33+09:00" # optional
-parent = "01..." # optional
-created_at = "2026-03-05T12:34:56+09:00"
-updated_at = "2026-03-05T12:34:56+09:00"
-+++
-
-Body text...
-```
-
-Task files are split into:
-
-- front matter: structured metadata (`title`, `kind`, `status`, `tags`, `estimate/spent/timer`, `due_on`, `parent`, timestamps)
-- body: freeform notes (`details`, `supplements`, `progress logs`, `ideas`, `references`)
-
-`shelf show <id>` displays both metadata and body so the task context stays in one place.
-
-Edge file format (`.shelf/edges/<src_id>.toml`):
-
-```toml
-[[edge]]
-to = "01..."
-type = "depends_on"
-```
-
-## FAQ
-
-### What does `depends_on` mean?
-
-`A depends_on B` means `B` must be completed before `A`.
-The CLI always displays it as:
-
-`A --depends_on--> B`
-
-### Is interactive mode always available?
-
-No. Interactive mode is enabled only when stdin/stdout are TTY.
-In non-TTY mode, required flags must be provided.
-
-## Local Quality Gate (mise + lefthook)
-
-```bash
-mise install
-mise run hooks-install
-mise run hooks-pre-commit
-mise run hooks-pre-push
-```
-
-Hooks:
-
-- `pre-commit`: staged gofmt check + `go test ./...`
-- `pre-push`: `go test ./...`, `go test -race ./...`, `go vet ./...`
-
-## Automated Backup Script
-
-```bash
-SHELF_ROOT=/path/to/repo ./scripts/backup_shelf.sh
-```
-
-Environment variables:
-
-- `SHELF_BIN` (default: `shelf`)
-- `SHELF_BACKUP_DIR` (default: `${SHELF_ROOT}/.shelf/backups`)
-- `SHELF_BACKUP_KEEP` (default: `30`)
-
-### Can I move `.shelf`?
-
-Use `--root <dir>` on every command to target a specific project root.
