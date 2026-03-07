@@ -115,7 +115,9 @@ Due-date calendar view.
 - requires TTY unless `--json` is used
 - keybindings:
   - `Tab` / `Shift+Tab`: move between `main` and the right sidebar
-  - `C` / `T` / `B` / `R` / `Y`: switch cockpit mode
+  - `Ctrl+H` / `Ctrl+L`: switch to the previous / next cockpit mode
+  - `C` / `T` / `B` / `R` / `N`: switch cockpit mode
+  - `t`: jump the calendar focus to today
   - `h` / `l`: move by day in calendar mode, move the sidebar calendar by day when the right pane is focused, otherwise switch review/now tabs or move board columns
   - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/now
   - `[` / `]`: jump by month inside the current range

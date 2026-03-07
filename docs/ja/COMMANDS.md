@@ -106,7 +106,9 @@ subcommand:
 - 非TTYでは `--json` を使う
 - 主な操作:
   - `Tab` / `Shift+Tab`: `main` と右 sidebar を切り替え
+  - `Ctrl+H` / `Ctrl+L`: 前 / 次の cockpit mode へ切り替え
   - `C` / `T` / `B` / `R` / `N`: mode 切り替え
+  - `t`: calendar focus を今日へ移動
   - `h` / `l`: calendar mode では日移動、右 sidebar に focus があるときは sidebar calendar を日移動、それ以外では review/now tab 切り替えまたは board 列移動
   - `j` / `k`: calendar mode では週移動、右 sidebar に focus があるときは sidebar calendar を週移動、それ以外では tree/board/review/now の行移動
   - `[` / `]`: 月移動

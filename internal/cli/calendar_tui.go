@@ -227,6 +227,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "shift+tab":
 			m.prevPane()
 			return m, nil
+		case "ctrl+h":
+			m.cycleMode(-1)
+			return m, nil
+		case "ctrl+l":
+			m.cycleMode(1)
+			return m, nil
 		case "pgdown", "ctrl+d":
 			m.scrollBody(m.bodyPageStep())
 			return m, nil
@@ -238,6 +244,10 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "end":
 			m.bodyScroll = 1 << 30
+			return m, nil
+		case "t":
+			m.moveFocusToDate(time.Now().Local())
+			m.message = "jumped to today"
 			return m, nil
 		case "left", "h":
 			if m.usesSidebarCalendarNav() {
@@ -441,7 +451,7 @@ func (m calendarTUIModel) View() string {
 	body := lipgloss.JoinHorizontal(lipgloss.Top, main, gap, right)
 	topParts := []string{
 		renderCockpitHeader(m, focused),
-		renderCalendarModeTabs(m.mode),
+		renderCalendarModeTabs(m.mode, max(20, m.width-2)),
 	}
 	bottomParts := make([]string, 0, 4)
 	if m.showHelp {
@@ -674,6 +684,31 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.bodyScroll = 0
 	m.rebuildModeState()
 	m.message = fmt.Sprintf("mode: %s", mode)
+}
+
+func (m *calendarTUIModel) cycleMode(delta int) {
+	order := []calendarMode{
+		calendarModeCalendar,
+		calendarModeTree,
+		calendarModeBoard,
+		calendarModeReview,
+		calendarModeNow,
+	}
+	index := 0
+	for i, mode := range order {
+		if mode == m.mode {
+			index = i
+			break
+		}
+	}
+	index += delta
+	if index < 0 {
+		index = len(order) - 1
+	}
+	if index >= len(order) {
+		index = 0
+	}
+	m.switchMode(order[index])
 }
 
 func (m *calendarTUIModel) rebuildBoardColumns() {
@@ -1607,6 +1642,15 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
 }
 
+func calendarPanelStyle(totalWidth int, borderColor lipgloss.Color) lipgloss.Style {
+	style := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(0, 1)
+	innerWidth := max(1, totalWidth-style.GetHorizontalFrameSize())
+	return style.Width(innerWidth)
+}
+
 func renderCalendarViewport(topParts []string, body string, bottomParts []string, totalHeight int, scroll int) string {
 	sections := make([]string, 0, 3)
 	topBlock := strings.Join(topParts, "\n\n")
@@ -1689,7 +1733,7 @@ func renderCalendarLegend() string {
 	return strings.Join([]string{item(lipgloss.Color("203"), "blocked"), item(lipgloss.Color("220"), "in_progress"), item(lipgloss.Color("81"), "open"), item(lipgloss.Color("78"), "done"), item(lipgloss.Color("245"), "cancelled")}, "  ")
 }
 
-func renderCalendarModeTabs(mode calendarMode) string {
+func renderCalendarModeTabs(mode calendarMode, width int) string {
 	tabs := []struct {
 		mode  calendarMode
 		label string
@@ -1715,7 +1759,7 @@ func renderCalendarModeTabs(mode calendarMode) string {
 		}
 		parts = append(parts, style.Render(tab.label))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
+	return trimLine(lipgloss.JoinHorizontal(lipgloss.Left, parts...), width)
 }
 
 func renderCalendarSectionTabs(sections []calendarSection, selected int, width int) string {
@@ -1747,11 +1791,7 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	if active {
 		borderColor = lipgloss.Color("45")
 	}
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1).
-		Width(width)
+	boxStyle := calendarPanelStyle(width, borderColor)
 
 	if m.mode == calendarModeTree {
 		parts := []string{
@@ -1824,11 +1864,7 @@ func countSectionItems(sections []calendarSection, target calendarSectionID) int
 func renderCalendarSidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int) string {
 	focusedSection := m.focusedDaySection()
 	dayList := renderCalendarActiveSection(focusedSection, m.sectionRows, m.showID, width)
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("45")).
-		Padding(0, 1).
-		Width(width)
+	boxStyle := calendarPanelStyle(width, lipgloss.Color("45"))
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	focusedPane := boxStyle.Render(strings.Join([]string{
@@ -1856,11 +1892,7 @@ func renderCalendarMiniSidebar(m calendarTUIModel, width int, active bool) strin
 	if active {
 		borderColor = lipgloss.Color("45")
 	}
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1).
-		Width(width)
+	boxStyle := calendarPanelStyle(width, borderColor)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	return boxStyle.Render(strings.Join([]string{
@@ -1945,7 +1977,7 @@ func renderCalendarGridPane(month calendarMonthView, focusedDate string, width i
 	if active {
 		borderColor = lipgloss.Color("45")
 	}
-	containerStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1).Width(width)
+	containerStyle := calendarPanelStyle(width, borderColor)
 	content := renderCalendarMonth(month, focusedDate, max(42, width-4), true)
 	return containerStyle.Render(content)
 }
@@ -2188,7 +2220,7 @@ func renderCalendarSectionsPane(sections []calendarSection, sectionIndex int, se
 }
 
 func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTaskBody bool, taskByID map[string]shelf.Task, readiness map[string]shelf.TaskReadiness, outboundCount map[string]int, inboundCount map[string]int, width int) string {
-	boxStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Padding(0, 1).Width(width)
+	boxStyle := calendarPanelStyle(width, lipgloss.Color("240"))
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))

@@ -817,6 +817,81 @@ func TestSidebarCalendarNavigationMovesFocusedDate(t *testing.T) {
 	}
 }
 
+func TestCalendarTJumpToToday(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Today task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  time.Now().Local().Format("2006-01-02"),
+	}); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, startOfWeek(time.Now().Local()).AddDate(0, 0, -7), 21, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	calendarModel := updatedModel.(calendarTUIModel)
+	if calendarModel.focusedDayLabel() != time.Now().Local().Format("2006-01-02") {
+		t.Fatalf("expected t to jump to today, got %s", calendarModel.focusedDayLabel())
+	}
+}
+
+func TestCtrlHLCyclesModes(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeCalendar,
+		sectionRows:   map[calendarSectionID]int{},
+		boardRowIndex: map[int]int{},
+		readiness:     map[string]shelf.TaskReadiness{},
+		taskByID:      map[string]shelf.Task{},
+		titleByID:     map[string]string{},
+		outboundCount: map[string]int{},
+		inboundCount:  map[string]int{},
+		days:          []calendarDay{{Date: time.Now().Local().Format("2006-01-02")}},
+	}
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlL})
+	calendarModel := updatedModel.(calendarTUIModel)
+	if calendarModel.mode != calendarModeTree {
+		t.Fatalf("expected ctrl+l to move to next mode, got %s", calendarModel.mode)
+	}
+	updatedModel, _ = calendarModel.Update(tea.KeyMsg{Type: tea.KeyCtrlH})
+	calendarModel = updatedModel.(calendarTUIModel)
+	if calendarModel.mode != calendarModeCalendar {
+		t.Fatalf("expected ctrl+h to move to previous mode, got %s", calendarModel.mode)
+	}
+}
+
+func TestCalendarViewFitsWindowWidth(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Focused task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	}); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.width = 120
+	model.height = 24
+	rendered := model.View()
+	for _, line := range strings.Split(strings.TrimSuffix(rendered, "\n"), "\n") {
+		if lipgloss.Width(line) > model.width {
+			t.Fatalf("view line exceeds width %d: %d %q", model.width, lipgloss.Width(line), line)
+		}
+	}
+}
+
 func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 	today := time.Now().Local().Format("2006-01-02")
 	model := calendarTUIModel{

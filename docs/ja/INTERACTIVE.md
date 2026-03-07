@@ -140,7 +140,9 @@ type 選択画面では、次の注意文を出します。
 - `shelf cockpit` / `shelf calendar` / `shelf tree` / `shelf board` で共通利用されます
 - `shelf review` / `shelf now` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
 - レイアウトは `main + right sidebar` です
+- `Ctrl+H` / `Ctrl+L`: 前 / 次の mode へ切り替え
 - `C/T/B/R/N`: mode 切り替え
+- `t`: calendar focus を今日へ移動
 - `Tab` / `Shift+Tab`: ペイン切り替え
 - `h` / `l`: calendar mode では1日移動、右 sidebar に focus があるときは sidebar calendar を1日移動、それ以外では review/now tab 切り替えまたは board 列移動
 - `j` / `k`: calendar mode では1週移動、右 sidebar に focus があるときは sidebar calendar を1週移動、それ以外では tree/board/review/now の行移動
