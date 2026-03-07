@@ -1570,23 +1570,65 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 		Padding(0, 1).
 		Width(width)
 
-	parts := []string{
-		renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)),
-	}
 	if m.mode == calendarModeTree {
-		parts = []string{renderCockpitTreePane(m.treeRows, m.treeRowIndex, max(20, width-4))}
+		parts := []string{
+			renderCockpitContextStrip(m, max(24, width-4)),
+			renderCockpitTreePane(m.treeRows, m.treeRowIndex, max(20, width-4)),
+		}
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
 	if m.mode == calendarModeBoard {
-		parts = []string{renderCockpitBoardPane(m.boardColumns, m.boardColumnIdx, m.boardRowIndex, m.showID, max(20, width-4))}
+		parts := []string{
+			renderCockpitContextStrip(m, max(24, width-4)),
+			renderCockpitBoardPane(m.boardColumns, m.boardColumnIdx, m.boardRowIndex, m.showID, max(20, width-4)),
+		}
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
+	parts := make([]string, 0, 4)
+	if m.mode != calendarModeCalendar {
+		parts = append(parts, renderCockpitContextStrip(m, max(24, width-4)))
+	}
+	parts = append(parts, renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)))
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
 		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
 	}
 	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
 	return boxStyle.Render(strings.Join(parts, "\n\n"))
+}
+
+func renderCockpitContextStrip(m calendarTUIModel, width int) string {
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	parts := []string{
+		"Focus " + m.focusedDayLabel(),
+	}
+	switch m.mode {
+	case calendarModeReview:
+		parts = append(parts,
+			fmt.Sprintf("Inbox %d", countSectionItems(m.sections, calendarSectionInbox)),
+			fmt.Sprintf("Overdue %d", countSectionItems(m.sections, calendarSectionOverdue)),
+			fmt.Sprintf("Today %d", countSectionItems(m.sections, calendarSectionToday)),
+			fmt.Sprintf("Blocked %d", countSectionItems(m.sections, calendarSectionBlocked)),
+			fmt.Sprintf("Ready %d", countSectionItems(m.sections, calendarSectionReady)),
+		)
+	case calendarModeToday:
+		parts = append(parts,
+			fmt.Sprintf("Overdue %d", countSectionItems(m.sections, calendarSectionOverdue)),
+			fmt.Sprintf("Today %d", countSectionItems(m.sections, calendarSectionToday)),
+		)
+	default:
+		parts = append(parts, fmt.Sprintf("Visible %d", len(m.visibleTasks)))
+	}
+	return mutedStyle.Render(trimLine(strings.Join(parts, "  ·  "), width))
+}
+
+func countSectionItems(sections []calendarSection, target calendarSectionID) int {
+	for _, section := range sections {
+		if section.ID == target {
+			return len(section.Items)
+		}
+	}
+	return 0
 }
 
 func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {
@@ -1736,7 +1778,7 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	key := cell.Date.Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
 	contentWidth := max(6, cellWidth)
-	style := lipgloss.NewStyle().Width(contentWidth).Height(3)
+	style := lipgloss.NewStyle().Width(contentWidth).Height(2)
 	switch {
 	case key == focusedDate:
 		style = style.Background(lipgloss.Color("25")).Foreground(lipgloss.Color("255")).Bold(true)
@@ -1751,17 +1793,15 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	}
 	dayLabel := fmt.Sprintf("%2d", cell.Date.Day())
 	if key == today {
-		dayLabel += " •"
+		dayLabel += "*"
 	}
 	countLine := ""
 	if cell.TaskCount > 0 {
-		if cell.TaskCount == 1 {
-			countLine = "1 due"
-		} else {
-			countLine = fmt.Sprintf("%d due", cell.TaskCount)
-		}
+		countLine = fmt.Sprintf("• %d", cell.TaskCount)
+	} else if cell.InRange {
+		countLine = "·"
 	}
-	lines := []string{padOrTrim(dayLabel, contentWidth), padOrTrim(countLine, contentWidth), padOrTrim(cell.Date.Format("2006-01-02"), contentWidth)}
+	lines := []string{padOrTrim(dayLabel, contentWidth), padOrTrim(countLine, contentWidth)}
 	return style.Render(strings.Join(lines, "\n"))
 }
 

@@ -217,6 +217,9 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 	if got := lipgloss.Width(rendered); got != 14 {
 		t.Fatalf("unexpected rendered width: %d", got)
 	}
+	if strings.Contains(rendered, "2026-03-09") {
+		t.Fatalf("calendar cell should not render full date anymore: %q", rendered)
+	}
 }
 
 func TestCalendarApplyStatusChange(t *testing.T) {
@@ -578,5 +581,33 @@ func TestRenderCockpitHeaderIsSingleLine(t *testing.T) {
 	}
 	if !strings.Contains(header, "?:help") {
 		t.Fatalf("expected compact help hint, got: %q", header)
+	}
+}
+
+func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
+	today := time.Now().Local().Format("2006-01-02")
+	model := calendarTUIModel{
+		mode: calendarModeReview,
+		days: []calendarDay{
+			{Date: today},
+		},
+		visibleTasks: []shelf.Task{
+			{ID: "01A", Title: "Inbox", Kind: "inbox", Status: "open"},
+			{ID: "01B", Title: "Today", Kind: "todo", Status: "open", DueOn: today},
+		},
+		sections: []calendarSection{
+			{ID: calendarSectionFocusedDay, Title: "Focused Day"},
+			{ID: calendarSectionInbox, Title: "Inbox", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Inbox"}}}},
+			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
+		},
+		sectionRows: map[calendarSectionID]int{},
+	}
+	month := calendarMonthView{Label: "March 2026"}
+	rendered := renderCalendarMainPane(model, month, 90, true)
+	if strings.Contains(rendered, "March 2026") {
+		t.Fatalf("review pane should not render month grid label: %q", rendered)
+	}
+	if !strings.Contains(rendered, "Focus ") || !strings.Contains(rendered, "Inbox 1") {
+		t.Fatalf("review pane should render context strip: %q", rendered)
 	}
 }
