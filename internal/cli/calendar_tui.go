@@ -399,23 +399,50 @@ func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model,
 		m.message = "no task selected"
 		return m, nil
 	}
+	updatedTask := task
 	err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-status"); err != nil {
 			return err
 		}
-		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{Status: &nextStatus})
+		var err error
+		updatedTask, err = shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{Status: &nextStatus})
 		return err
 	})
 	if err != nil {
 		m.message = err.Error()
 		return m, nil
 	}
-	if err := m.reload(); err != nil {
-		m.message = err.Error()
+	if calendarStatusIncluded(m.statuses, nextStatus) {
+		if err := m.reload(); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+		m.message = fmt.Sprintf("%s -> %s", task.Title, nextStatus)
 		return m, nil
 	}
-	m.message = fmt.Sprintf("%s -> %s", task.Title, nextStatus)
+	m.replaceSelectedTask(updatedTask)
+	m.message = fmt.Sprintf("%s -> %s (current filter excludes it; visible until reload)", task.Title, nextStatus)
 	return m, nil
+}
+
+func calendarStatusIncluded(statuses []shelf.Status, target shelf.Status) bool {
+	for _, status := range statuses {
+		if status == target {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *calendarTUIModel) replaceSelectedTask(task shelf.Task) {
+	day := m.focusedDay()
+	if day == nil || len(day.Tasks) == 0 {
+		return
+	}
+	if m.taskIndex < 0 || m.taskIndex >= len(day.Tasks) {
+		return
+	}
+	day.Tasks[m.taskIndex] = task
 }
 
 func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMonthView {

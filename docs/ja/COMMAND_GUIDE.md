@@ -180,6 +180,7 @@ due date カレンダービューです。
 - フォーカス中の日付には task 一覧と本文プレビューが出ます。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
+- 現在の filter から外れる status に変えても、context を失わないよう reload まではその場に残します。
 
 ### `shelf board`
 

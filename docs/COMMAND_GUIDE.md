@@ -192,6 +192,7 @@ Notes:
 - The focused day has a task list and a body preview panel.
 - You can edit or snooze the selected task directly from the TUI.
 - You can also change the selected task status directly with `o/i/b/d/c`.
+- If you change a task to a status outside the current filter, calendar keeps it visible until the next reload so context is not lost.
 
 ### `shelf board`
 

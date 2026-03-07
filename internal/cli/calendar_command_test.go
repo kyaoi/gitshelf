@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -182,5 +183,45 @@ func TestCalendarApplyStatusChange(t *testing.T) {
 	}
 	if calendarModel.message == "" {
 		t.Fatal("expected status change message")
+	}
+}
+
+func TestCalendarApplyStatusChangeKeepsTaskVisibleWhenFilteredOut(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	updatedModel, _ := model.applyStatusChange("done")
+	calendarModel := updatedModel.(calendarTUIModel)
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Fatalf("unexpected status: %s", updated.Status)
+	}
+	if len(calendarModel.days) == 0 || len(calendarModel.days[0].Tasks) != 1 {
+		t.Fatalf("expected task to stay visible in current view: %+v", calendarModel.days)
+	}
+	if calendarModel.days[0].Tasks[0].Status != "done" {
+		t.Fatalf("expected visible task status to update: %+v", calendarModel.days[0].Tasks[0])
+	}
+	if !strings.Contains(calendarModel.message, "visible until reload") {
+		t.Fatalf("unexpected message: %s", calendarModel.message)
 	}
 }
