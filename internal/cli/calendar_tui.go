@@ -413,7 +413,7 @@ func (m calendarTUIModel) View() string {
 
 	focused, _ := m.focusedDate()
 	month := buildCalendarMonthView(m.days, focused)
-	mainWidth, inspectorWidth := m.layoutWidths()
+	mainWidth, gapWidth, inspectorWidth := m.layoutColumns()
 
 	main := renderCalendarMainPane(m, month, mainWidth, m.pane == calendarPaneMain)
 	selectedTask, selectedTaskOK := m.selectedTask()
@@ -424,7 +424,8 @@ func (m calendarTUIModel) View() string {
 		right = renderCalendarSecondarySidebarPane(m, selectedTask, selectedTaskOK, inspectorWidth, m.pane == calendarPaneInspector)
 	}
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, main, right)
+	gap := lipgloss.NewStyle().Width(gapWidth).Render("")
+	body := lipgloss.JoinHorizontal(lipgloss.Top, main, gap, right)
 	parts := []string{
 		renderCockpitHeader(m, focused),
 		renderCalendarModeTabs(m.mode),
@@ -446,24 +447,41 @@ func (m calendarTUIModel) View() string {
 }
 
 func (m calendarTUIModel) layoutWidths() (int, int) {
+	main, _, inspector := m.layoutColumns()
+	return main, inspector
+}
+
+func (m calendarTUIModel) layoutColumns() (int, int, int) {
 	if m.width <= 0 {
 		if m.mode == calendarModeCalendar {
-			return 102, 40
+			return 91, 1, 48
 		}
-		return 88, 54
+		return 88, 1, 54
 	}
 	usable := max(96, m.width-2)
-	inspectorRatio := 34
 	if m.mode == calendarModeCalendar {
-		inspectorRatio = 27
+		gap := max(1, usable/100)
+		main := usable * 65 / 100
+		inspector := usable - main - gap
+		if main < 56 {
+			main = 56
+			inspector = usable - main - gap
+		}
+		if inspector < 36 {
+			inspector = 36
+			main = usable - inspector - gap
+		}
+		return main, gap, inspector
 	}
+	inspectorRatio := 34
 	inspector := max(36, usable*inspectorRatio/100)
-	main := usable - inspector
+	gap := 1
+	main := usable - inspector - gap
 	if main < 56 {
 		main = 56
-		inspector = usable - main
+		inspector = usable - main - gap
 	}
-	return main, inspector
+	return main, gap, inspector
 }
 
 func (m calendarTUIModel) usesSidebarCalendarNav() bool {
@@ -1835,8 +1853,7 @@ func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex 
 		style := lipgloss.NewStyle().Width(columnWidth)
 		rendered = append(rendered, style.Render(strings.Join(lines, "\n")))
 	}
-	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
-	return strings.Join(rendered, separator)
+	return joinFixedColumns(rendered, " │ ")
 }
 
 func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {
@@ -1899,8 +1916,7 @@ func renderCalendarTriptychSections(sections []calendarSection, selected int, se
 			renderCalendarSectionColumn(&section, i == selected, sectionRows, showID, columnWidth),
 		))
 	}
-	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
-	return strings.Join(rendered, separator)
+	return joinFixedColumns(rendered, " │ ")
 }
 
 func renderCalendarSectionColumn(section *calendarSection, active bool, sectionRows map[calendarSectionID]int, showID bool, width int) string {
@@ -1941,6 +1957,24 @@ func renderCalendarSectionColumn(section *calendarSection, active bool, sectionR
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func joinFixedColumns(columns []string, separator string) string {
+	if len(columns) == 0 {
+		return ""
+	}
+	if len(columns) == 1 {
+		return columns[0]
+	}
+	separatorView := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(separator)
+	parts := make([]string, 0, len(columns)*2-1)
+	for i, column := range columns {
+		if i > 0 {
+			parts = append(parts, separatorView)
+		}
+		parts = append(parts, column)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }
 
 func renderBoardTaskMeta(task shelf.Task) string {

@@ -224,9 +224,9 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 
 func TestCalendarLayoutUsesNarrowerTallerMainGrid(t *testing.T) {
 	model := calendarTUIModel{mode: calendarModeCalendar, width: 140}
-	mainWidth, inspectorWidth := model.layoutWidths()
-	if mainWidth >= 104 {
-		t.Fatalf("calendar main pane should be slightly narrower now, got main=%d inspector=%d", mainWidth, inspectorWidth)
+	mainWidth, gapWidth, inspectorWidth := model.layoutColumns()
+	if mainWidth != 89 || gapWidth != 1 || inspectorWidth != 48 {
+		t.Fatalf("calendar layout should use 65:1:34 ratio at width=140, got main=%d gap=%d inspector=%d", mainWidth, gapWidth, inspectorWidth)
 	}
 	rendered := renderCalendarCell(calendarMonthCell{
 		Date:           time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local),
@@ -237,6 +237,36 @@ func TestCalendarLayoutUsesNarrowerTallerMainGrid(t *testing.T) {
 	}, "2026-03-09", 12, false)
 	if got := lipgloss.Height(rendered); got != 4 {
 		t.Fatalf("calendar mode cells should be taller, got height=%d", got)
+	}
+}
+
+func TestNowTriptychKeepsColumnOrderWithEmptySection(t *testing.T) {
+	rendered := renderCalendarTriptychSections([]calendarSection{
+		{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+		{ID: calendarSectionOverdue, Title: "Overdue"},
+		{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
+	}, 0, map[calendarSectionID]int{}, false, 96)
+	if !strings.Contains(rendered, "Focused Day 1") || !strings.Contains(rendered, "Overdue 0") || !strings.Contains(rendered, "Today 1") {
+		t.Fatalf("triptych should keep all column headers visible: %q", rendered)
+	}
+	if !strings.Contains(rendered, "│") {
+		t.Fatalf("triptych should render fixed separators between columns: %q", rendered)
+	}
+}
+
+func TestBoardPaneKeepsEmptyColumnsFixed(t *testing.T) {
+	rendered := renderCockpitBoardPane([]boardColumn{
+		{Status: "open", Tasks: []shelf.Task{{ID: "01A", Title: "Open", Kind: "todo", Status: "open"}}},
+		{Status: "blocked", Tasks: nil},
+		{Status: "done", Tasks: []shelf.Task{{ID: "01B", Title: "Done", Kind: "todo", Status: "done"}}},
+	}, 0, map[int]int{0: 0, 1: 0, 2: 0}, false, 96)
+	for _, want := range []string{"open 1", "blocked 0", "done 1", "(none)"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("board pane should keep fixed columns, missing %q in %q", want, rendered)
+		}
+	}
+	if !strings.Contains(rendered, "│") {
+		t.Fatalf("board pane should render fixed separators between columns: %q", rendered)
 	}
 }
 
