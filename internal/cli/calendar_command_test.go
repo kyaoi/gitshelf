@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
@@ -547,5 +548,35 @@ func TestCalendarBoardModeMovesAcrossColumns(t *testing.T) {
 	model.moveBoardColumn(1)
 	if task, ok := model.selectedTask(); !ok || task.ID != doneTask.ID {
 		t.Fatalf("unexpected selected task after moveBoardColumn: %+v ok=%t", task, ok)
+	}
+}
+
+func TestCalendarHelpToggle(t *testing.T) {
+	model := calendarTUIModel{}
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	toggled := updatedModel.(calendarTUIModel)
+	if !toggled.showHelp {
+		t.Fatal("expected help overlay to toggle on")
+	}
+	updatedModel, _ = toggled.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	toggled = updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected help overlay to toggle off")
+	}
+}
+
+func TestRenderCockpitHeaderIsSingleLine(t *testing.T) {
+	model := calendarTUIModel{
+		mode:     calendarModeCalendar,
+		days:     []calendarDay{{Date: "2026-03-09"}, {Date: "2026-03-10"}},
+		statuses: []shelf.Status{"open", "in_progress", "blocked"},
+		width:    120,
+	}
+	header := renderCockpitHeader(model, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local))
+	if strings.Contains(header, "\n") {
+		t.Fatalf("expected single-line header, got: %q", header)
+	}
+	if !strings.Contains(header, "?:help") {
+		t.Fatalf("expected compact help hint, got: %q", header)
 	}
 }

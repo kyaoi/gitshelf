@@ -118,6 +118,7 @@ type calendarTUIModel struct {
 	width          int
 	height         int
 	message        string
+	showHelp       bool
 	showTaskBody   bool
 	snoozeMode     bool
 	snoozeIndex    int
@@ -322,6 +323,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "C":
 			m.switchMode(calendarModeCalendar)
 			return m, nil
+		case "?":
+			m.showHelp = !m.showHelp
+			return m, nil
 		case "T":
 			m.switchMode(calendarModeTree)
 			return m, nil
@@ -386,22 +390,19 @@ func (m calendarTUIModel) View() string {
 	month := buildCalendarMonthView(m.days, focused)
 	mainWidth, inspectorWidth := m.layoutWidths()
 
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
-
-	header := []string{
-		headerStyle.Render(fmt.Sprintf("Daily Cockpit [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("Tab: pane  C/T/B/R/Y: mode  h/l: day-tab-column  j/k: week-row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
-		metaStyle.Render(fmt.Sprintf("Pane: %s  Focused: %s  Filter: %s", m.paneLabel(), focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
-	}
-
 	main := renderCalendarMainPane(m, month, mainWidth, m.pane == calendarPaneMain)
 	selectedTask, selectedTaskOK := m.selectedTask()
 	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, main, right)
-	parts := []string{strings.Join(header, "\n"), renderCalendarModeTabs(m.mode), body}
+	parts := []string{
+		renderCockpitHeader(m, focused),
+		renderCalendarModeTabs(m.mode),
+		body,
+	}
+	if m.showHelp {
+		parts = append(parts, renderCockpitHelpOverlay(m.mode))
+	}
 	if m.snoozeMode {
 		parts = append(parts, renderCalendarSnoozePicker(m.snoozeIndex))
 	}
@@ -1465,6 +1466,39 @@ func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMon
 	return calendarMonthView{Label: focusDate.Format("January 2006"), Weeks: weeks}
 }
 
+func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
+	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
+	parts := []string{
+		titleStyle.Render("Daily Cockpit"),
+		accentStyle.Render("[" + strings.ToUpper(string(m.mode)) + "]"),
+		metaStyle.Render("Focus " + focused.Format("Mon 2006-01-02")),
+		metaStyle.Render(fmt.Sprintf("Range %s..%s", m.days[0].Date, m.days[len(m.days)-1].Date)),
+		metaStyle.Render("Filter " + formatCalendarStatusFilter(m.statuses)),
+		metaStyle.Render("?:help"),
+	}
+	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
+}
+
+func renderCockpitHelpOverlay(mode calendarMode) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("141")).
+		Padding(0, 1)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	lines := []string{
+		titleStyle.Render("Help"),
+		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
+		"Tab: pane  C/T/B/R/Y: mode  ?: close",
+		"h/l: move  j/k: move rows or weeks  n/p: tabs or columns",
+		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
+		"Enter: details  q/Esc/Ctrl+C: quit",
+	}
+	return boxStyle.Render(strings.Join(lines, "\n"))
+}
+
 func renderCalendarLegend() string {
 	item := func(color lipgloss.Color, label string) string {
 		return lipgloss.NewStyle().Foreground(color).Render("■ " + label)
@@ -1484,13 +1518,11 @@ func renderCalendarModeTabs(mode calendarMode) string {
 		{calendarModeToday, "Today"},
 	}
 	activeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
-		Background(lipgloss.Color("25")).
+		Foreground(lipgloss.Color("81")).
 		Bold(true).
 		Padding(0, 1)
 	idleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245")).
-		Background(lipgloss.Color("236")).
 		Padding(0, 1)
 	parts := make([]string, 0, len(tabs))
 	for _, tab := range tabs {
@@ -1504,18 +1536,20 @@ func renderCalendarModeTabs(mode calendarMode) string {
 }
 
 func renderCalendarSectionTabs(sections []calendarSection, selected int, width int) string {
+	if len(sections) == 0 {
+		return ""
+	}
 	activeStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("255")).
-		Background(lipgloss.Color("63")).
+		Background(lipgloss.Color("24")).
 		Bold(true).
 		Padding(0, 1)
 	idleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245")).
-		Background(lipgloss.Color("238")).
 		Padding(0, 1)
 	parts := make([]string, 0, len(sections))
 	for i, section := range sections {
-		label := fmt.Sprintf("%d:%s(%d)", i+1, section.Title, len(section.Items))
+		label := fmt.Sprintf("%s %d", section.Title, len(section.Items))
 		style := idleStyle
 		if i == selected {
 			style = activeStyle
@@ -1782,7 +1816,7 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 	lines := []string{titleStyle.Render("Inspector")}
 	if !ok {
-		lines = append(lines, mutedStyle.Render("No task selected"), mutedStyle.Render("Focused Day section か review/today section から task を選んでください"))
+		lines = append(lines, mutedStyle.Render("No task selected"), mutedStyle.Render("main pane から task を選択してください"))
 		return boxStyle.Render(strings.Join(lines, "\n"))
 	}
 	label := task.Title
@@ -1799,27 +1833,6 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 	}
 	path := buildTaskPath(task, taskByID)
 	lines = append(lines, fmt.Sprintf("%s %s", labelStyle.Render("path:"), trimLine(path, max(20, width-6))))
-	if task.EstimateMin > 0 || task.SpentMin > 0 {
-		lines = append(lines, fmt.Sprintf("estimate=%s  spent=%s", shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin)))
-	}
-	if strings.TrimSpace(task.TimerStart) != "" {
-		lines = append(lines, fmt.Sprintf("timer=%s", task.TimerStart))
-	}
-	lines = append(lines, fmt.Sprintf("links=out:%d in:%d", outboundCount[task.ID], inboundCount[task.ID]))
-	if info, exists := readiness[task.ID]; exists {
-		if len(info.UnresolvedDependsOn) > 0 {
-			labels := make([]string, 0, len(info.UnresolvedDependsOn))
-			for _, depID := range info.UnresolvedDependsOn {
-				if title := strings.TrimSpace(taskByID[depID].Title); title != "" {
-					labels = append(labels, title)
-				} else {
-					labels = append(labels, depID)
-				}
-			}
-			lines = append(lines, fmt.Sprintf("depends_on=%s", strings.Join(labels, ", ")))
-		}
-		lines = append(lines, fmt.Sprintf("ready=%t", info.Ready))
-	}
 	body := strings.TrimSpace(task.Body)
 	if body == "" {
 		lines = append(lines, mutedStyle.Render("(empty body)"))
@@ -1828,10 +1841,31 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 	bodyLines := strings.Split(body, "\n")
 	maxLines := 4
 	if showTaskBody {
-		maxLines = 14
-		lines = append(lines, mutedStyle.Render("full body preview"))
+		maxLines = 12
+		lines = append(lines, mutedStyle.Render("details expanded"))
+		if task.EstimateMin > 0 || task.SpentMin > 0 {
+			lines = append(lines, fmt.Sprintf("estimate=%s  spent=%s", shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin)))
+		}
+		if strings.TrimSpace(task.TimerStart) != "" {
+			lines = append(lines, fmt.Sprintf("timer=%s", task.TimerStart))
+		}
+		lines = append(lines, fmt.Sprintf("links=out:%d in:%d", outboundCount[task.ID], inboundCount[task.ID]))
+		if info, exists := readiness[task.ID]; exists {
+			if len(info.UnresolvedDependsOn) > 0 {
+				labels := make([]string, 0, len(info.UnresolvedDependsOn))
+				for _, depID := range info.UnresolvedDependsOn {
+					if title := strings.TrimSpace(taskByID[depID].Title); title != "" {
+						labels = append(labels, title)
+					} else {
+						labels = append(labels, depID)
+					}
+				}
+				lines = append(lines, fmt.Sprintf("depends_on=%s", strings.Join(labels, ", ")))
+			}
+			lines = append(lines, fmt.Sprintf("ready=%t", info.Ready))
+		}
 	} else {
-		lines = append(lines, mutedStyle.Render("compact body preview"))
+		lines = append(lines, mutedStyle.Render("compact details"))
 	}
 	if len(bodyLines) > maxLines {
 		bodyLines = append(bodyLines[:maxLines], "...")
