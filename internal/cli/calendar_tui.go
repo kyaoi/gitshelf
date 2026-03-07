@@ -1923,13 +1923,24 @@ func renderCalendarSectionColumn(section *calendarSection, active bool, sectionR
 	if section == nil {
 		return ""
 	}
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("250")).
+		Background(lipgloss.Color("236")).
+		Padding(0, 1).
+		Width(max(12, width))
 	if active {
-		titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
+		titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color("24")).
+			Padding(0, 1).
+			Width(max(12, width))
 	}
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
-	lines := []string{titleStyle.Render(fmt.Sprintf("%s %d", section.Title, len(section.Items)))}
+	header := trimLine(fmt.Sprintf("%s %d", section.Title, len(section.Items)), max(8, width-2))
+	lines := []string{titleStyle.Render(header)}
 	if len(section.Items) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))
 		return strings.Join(lines, "\n")
