@@ -26,9 +26,15 @@ shelf link --from 01JWORD... --to 01JBOOK... --type depends_on
 shelf tree --from 01JWEEK...
 ```
 
+## ls のフィルタ
+```sh
+shelf ls --kind todo --status open
+shelf ls --not-status done --not-status cancelled
+```
+
 ## done にする
 ```sh
-shelf set 01JWORD... --state done
+shelf set 01JWORD... --status done
 ```
 
 ## links 確認

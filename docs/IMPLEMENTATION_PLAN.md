@@ -35,7 +35,7 @@
 
 ## GS-05: add（非対話）
 - `--title` 必須で作成
-- kind/state/parent 検証
+- kind/status/parent 検証
 - 原子的更新
 
 受け入れ条件:
@@ -59,7 +59,7 @@
 - 週→曜日→タスクが表示できる
 
 ## GS-08: set / mv
-- set: title/kind/state/body更新
+- set: title/kind/status/body更新
 - mv: parent付け替え（循環拒否）
 
 受け入れ条件:

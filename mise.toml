@@ -1,0 +1,12 @@
+[tools]
+go = "1.26.0"
+lefthook = "latest"
+
+[tasks.hooks-install]
+run = "lefthook install"
+
+[tasks.hooks-pre-commit]
+run = "lefthook run pre-commit"
+
+[tasks.hooks-pre-push]
+run = "lefthook run pre-push"

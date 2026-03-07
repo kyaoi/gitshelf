@@ -5,7 +5,7 @@
   1) id
   2) title
   3) kind
-  4) state
+  4) status
   5) parent（あれば）
   6) created_at
   7) updated_at
