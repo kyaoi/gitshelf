@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -31,69 +30,22 @@ type reviewPayload struct {
 }
 
 func newReviewCommand(ctx *commandContext) *cobra.Command {
-	var (
-		limit  int
-		asJSON bool
-		plain  bool
-	)
+	var flags cockpitLaunchFlags
 	cmd := &cobra.Command{
 		Use:     "review",
 		Aliases: []string{"rv"},
-		Short:   "Show a daily review of inbox, due, blocked, and ready tasks",
+		Short:   "Open Cockpit in review mode",
 		Example: "  shelf review\n" +
 			"  shelf review --limit 10\n" +
-			"  shelf review --plain\n" +
-			"  shelf review --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			if resolveReviewOutputMode(dailyCockpitIsTTY(), asJSON, plain) == dailyCockpitOutputTUI {
-				startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
-				if err != nil {
-					return err
-				}
-				filter := shelf.TaskFilter{
-					Statuses: activeStatusFilter(),
-					Limit:    0,
-				}
-				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, filter.Statuses, calendarTUIOptions{
-					Mode:         calendarModeReview,
-					ShowID:       ctx.showID,
-					SectionLimit: limit,
-					Filter:       filter,
-				})
+			"  shelf review --status open --status blocked",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if !dailyCockpitIsTTY() {
+				return fmt.Errorf("review はTTYが必要です")
 			}
-			payload, err := buildReviewPayload(ctx.rootDir, limit)
-			if err != nil {
-				return err
-			}
-			if asJSON {
-				data, err := json.MarshalIndent(payload, "", "  ")
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(data))
-				return nil
-			}
-
-			fmt.Printf(
-				"%s inbox=%d overdue=%d today=%d blocked=%d ready=%d\n",
-				uiHeading("review:"),
-				len(payload.Inbox),
-				len(payload.Overdue),
-				len(payload.Today),
-				len(payload.Blocked),
-				len(payload.Ready),
-			)
-			printReviewSection(ctx, "Inbox", payload.Inbox)
-			printReviewSection(ctx, "Overdue", payload.Overdue)
-			printReviewSection(ctx, "Today", payload.Today)
-			printReviewSection(ctx, "Blocked", payload.Blocked)
-			printReviewSection(ctx, "Ready", payload.Ready)
-			return nil
+			return runCockpitLaunch(ctx, cmd, calendarModeReview, flags)
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", 5, "Maximum items per section (0 means unlimited)")
-	cmd.Flags().BoolVar(&plain, "plain", false, "Force plain text output even on TTY")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	addCockpitLaunchFlags(cmd, &flags)
 	return cmd
 }
 

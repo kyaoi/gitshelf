@@ -1,13 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
@@ -18,74 +16,26 @@ type calendarDay struct {
 }
 
 func newCalendarCommand(ctx *commandContext) *cobra.Command {
-	var (
-		start    string
-		days     int
-		months   int
-		years    int
-		statuses []string
-		asJSON   bool
-	)
+	var flags cockpitLaunchFlags
 
 	cmd := &cobra.Command{
 		Use:     "calendar",
 		Aliases: []string{"cal"},
 		Short:   "Open Cockpit in calendar mode",
-		Long: "Open Cockpit in calendar mode.\n\n" +
-			"If no explicit range flag is set, config [commands.calendar]\n" +
-			"default_range_unit/default_days/default_months/default_years decides the range.",
+		Long:    "Open Cockpit in calendar mode.",
 		Example: "  shelf calendar\n" +
 			"  shelf calendar --months 3\n" +
 			"  shelf calendar --start 2026-03-09 --days 14\n" +
-			"  shelf calendar --status open --status blocked --json",
+			"  shelf calendar --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := shelf.LoadConfig(ctx.rootDir)
-			if err != nil {
-				return err
+			if !dailyCockpitIsTTY() {
+				return errors.New("calendar はTTYが必要です")
 			}
-			startDate, err := resolveCalendarStart(start)
-			if err != nil {
-				return err
-			}
-			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, years, cfg.Commands.Calendar, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"), cmd.Flags().Changed("years"))
-			if err != nil {
-				return err
-			}
-			selectedStatuses := toStatuses(statuses)
-			if len(selectedStatuses) == 0 {
-				selectedStatuses = []shelf.Status{"open", "in_progress", "blocked"}
-			}
-
-			tasks, err := shelf.ListTasks(ctx.rootDir, shelf.TaskFilter{
-				Statuses: selectedStatuses,
-				Limit:    0,
-			})
-			if err != nil {
-				return err
-			}
-
-			calendar := buildCalendarDays(tasks, rangeStart, dayCount)
-			if asJSON {
-				data, err := json.MarshalIndent(calendar, "", "  ")
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(data))
-				return nil
-			}
-			if !interactive.IsTTY() {
-				return errors.New("calendar はTTYが必要です。非TTYでは --json を使ってください")
-			}
-			return runCalendarTUI(ctx.rootDir, rangeStart, dayCount, selectedStatuses, ctx.showID)
+			return runCockpitLaunch(ctx, cmd, calendarModeCalendar, flags)
 		},
 	}
 
-	cmd.Flags().StringVar(&start, "start", "", "Anchor date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
-	cmd.Flags().IntVar(&days, "days", 0, "Render an explicit day range")
-	cmd.Flags().IntVar(&months, "months", 0, "Render an explicit month range from the month containing --start")
-	cmd.Flags().IntVar(&years, "years", 0, "Render an explicit year range from the year containing --start")
-	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	addCockpitLaunchFlags(cmd, &flags)
 	return cmd
 }
 

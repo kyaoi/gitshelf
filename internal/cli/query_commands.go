@@ -18,8 +18,6 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		notKinds        []string
 		notStatuses     []string
 		notTags         []string
-		presetName      string
-		view            string
 		includeArchived bool
 		onlyArchived    bool
 		format          string
@@ -43,20 +41,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --tag backend --not-tag wip\n" +
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "ls")
-			if err != nil {
-				return err
-			}
-			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
-			format = applyPresetString(format, cmd.Flags().Changed("format"), outputPreset.Format)
-			limit = applyPresetInt(limit, cmd.Flags().Changed("limit"), outputPreset.Limit)
-
+		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban"}); err != nil {
-				return err
-			}
-			viewPreset, err := resolveTaskView(ctx.rootDir, view)
-			if err != nil {
 				return err
 			}
 
@@ -79,17 +65,6 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Limit:           limit,
 				Search:          search,
 			}
-			filter = mergeTaskFilterWithView(filter, viewPreset, map[string]bool{
-				"ready":           cmd.Flags().Changed("ready"),
-				"blocked-by-deps": cmd.Flags().Changed("blocked-by-deps"),
-				"due-before":      cmd.Flags().Changed("due-before"),
-				"due-after":       cmd.Flags().Changed("due-after"),
-				"overdue":         cmd.Flags().Changed("overdue"),
-				"no-due":          cmd.Flags().Changed("no-due"),
-				"parent":          cmd.Flags().Changed("parent"),
-				"search":          cmd.Flags().Changed("search"),
-				"limit":           cmd.Flags().Changed("limit"),
-			})
 
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
@@ -111,10 +86,6 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					Kind        string   `json:"kind"`
 					Status      string   `json:"status"`
 					Tags        []string `json:"tags,omitempty"`
-					GitHubURLs  []string `json:"github_urls,omitempty"`
-					EstimateMin int      `json:"estimate_minutes,omitempty"`
-					SpentMin    int      `json:"spent_minutes,omitempty"`
-					TimerStart  string   `json:"timer_started_at,omitempty"`
 					DueOn       string   `json:"due_on,omitempty"`
 					RepeatEvery string   `json:"repeat_every,omitempty"`
 					ArchivedAt  string   `json:"archived_at,omitempty"`
@@ -133,10 +104,6 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						Tags:        task.Tags,
-						GitHubURLs:  task.GitHubURLs,
-						EstimateMin: task.EstimateMin,
-						SpentMin:    task.SpentMin,
-						TimerStart:  task.TimerStart,
 						DueOn:       task.DueOn,
 						RepeatEvery: task.RepeatEvery,
 						ArchivedAt:  task.ArchivedAt,
@@ -215,7 +182,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					if task.RepeatEvery != "" {
 						repeatText = task.RepeatEvery
 					}
-					fmt.Printf("%s kind=%s status=%s tags=%s github=%d estimate=%s spent=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), len(task.GitHubURLs), shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+					fmt.Printf("%s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
 					continue
 				}
 				fmt.Printf("%s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
@@ -230,8 +197,6 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStatuses, "not-status", nil, "Exclude status (repeatable)")
 	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
-	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for ls")
-	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban")
@@ -250,37 +215,17 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		presetName      string
-		view            string
-		includeArchived bool
-		onlyArchived    bool
-		limit           int
-		asJSON          bool
+		limit  int
+		asJSON bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List actionable tasks (ready to work on)",
 		Example: "  shelf next\n" +
-			"  shelf next --limit 20\n" +
-			"  shelf next --view active",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "next")
-			if err != nil {
-				return err
-			}
-			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
-			limit = applyPresetInt(limit, cmd.Flags().Changed("limit"), outputPreset.Limit)
-			preset, err := resolveTaskView(ctx.rootDir, view)
-			if err != nil {
-				return err
-			}
-
-			filter := mergeTaskFilterWithView(shelf.TaskFilter{Limit: 0}, preset, map[string]bool{
-				"limit": true,
-			})
-			filter.IncludeArchived = includeArchived
-			filter.OnlyArchived = onlyArchived
+			"  shelf next --limit 20",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			filter := shelf.TaskFilter{Limit: 0}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
 				return err
@@ -378,10 +323,6 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for next")
-	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
-	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
-	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
@@ -661,201 +602,24 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newTreeCommand(ctx *commandContext) *cobra.Command {
-	var (
-		from            string
-		maxDepth        int
-		presetName      string
-		view            string
-		includeArchived bool
-		onlyArchived    bool
-		format          string
-		kinds           []string
-		statuses        []string
-		tags            []string
-		notKinds        []string
-		notStats        []string
-		notTags         []string
-		plain           bool
-		asJSON          bool
-	)
+	var flags cockpitLaunchFlags
 
 	cmd := &cobra.Command{
 		Use:     "tree",
 		Aliases: []string{"tr"},
-		Short:   "Show task tree",
+		Short:   "Open Cockpit in tree mode",
 		Example: "  shelf tree\n" +
-			"  shelf tree --plain\n" +
 			"  shelf tree --kind todo --not-status done --tag backend\n" +
-			"  shelf tree --from root --max-depth 2 --json",
+			"  shelf tree --months 3 --status open",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "tree")
-			if err != nil {
-				return err
+			if !dailyCockpitIsTTY() {
+				return fmt.Errorf("tree はTTYが必要です")
 			}
-			view = applyPresetString(view, cmd.Flags().Changed("view"), outputPreset.View)
-			format = applyPresetString(format, cmd.Flags().Changed("format"), outputPreset.Format)
-
-			if err := validateFormat(format, []string{"compact", "detail"}); err != nil {
-				return err
-			}
-			cfg, err := shelf.LoadConfig(ctx.rootDir)
-			if err != nil {
-				return err
-			}
-			for _, kind := range toKinds(kinds) {
-				if err := cfg.ValidateKind(kind); err != nil {
-					return err
-				}
-			}
-			for _, kind := range toKinds(notKinds) {
-				if err := cfg.ValidateKind(kind); err != nil {
-					return err
-				}
-			}
-			for _, status := range toStatuses(statuses) {
-				if err := cfg.ValidateStatus(status); err != nil {
-					return err
-				}
-			}
-			for _, status := range toStatuses(notStats) {
-				if err := cfg.ValidateStatus(status); err != nil {
-					return err
-				}
-			}
-			for _, tag := range parseTagFlagValues(tags) {
-				if err := cfg.ValidateTag(tag); err != nil {
-					return err
-				}
-			}
-			for _, tag := range parseTagFlagValues(notTags) {
-				if err := cfg.ValidateTag(tag); err != nil {
-					return err
-				}
-			}
-
-			fromID := ""
-			if strings.TrimSpace(from) != "" && !strings.EqualFold(from, "root") {
-				fromID = from
-			}
-			treeOpts := shelf.TreeOptions{
-				FromID:          fromID,
-				Kinds:           toKinds(kinds),
-				Statuses:        toStatuses(statuses),
-				Tags:            parseTagFlagValues(tags),
-				NotKinds:        toKinds(notKinds),
-				NotStatuses:     toStatuses(notStats),
-				NotTags:         parseTagFlagValues(notTags),
-				IncludeArchived: includeArchived,
-				OnlyArchived:    onlyArchived,
-				MaxDepth:        maxDepth,
-			}
-			preset, err := resolveTaskView(ctx.rootDir, view)
-			if err != nil {
-				return err
-			}
-			filter := shelf.TaskFilter{
-				Kinds:           toKinds(kinds),
-				Statuses:        toStatuses(statuses),
-				Tags:            parseTagFlagValues(tags),
-				NotKinds:        toKinds(notKinds),
-				NotStatuses:     toStatuses(notStats),
-				NotTags:         parseTagFlagValues(notTags),
-				IncludeArchived: includeArchived,
-				OnlyArchived:    onlyArchived,
-				Limit:           0,
-			}
-			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
-				"limit": true,
-			})
-			treeOpts, err = treeOptionsFromFilter(treeOpts, filter)
-			if err != nil {
-				return err
-			}
-			if resolveTreeOutputMode(dailyCockpitIsTTY(), asJSON, plain) == dailyCockpitOutputTUI {
-				startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
-				if err != nil {
-					return err
-				}
-				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, cfg.Statuses, calendarTUIOptions{
-					Mode:   calendarModeTree,
-					ShowID: ctx.showID,
-					Filter: filter,
-				})
-			}
-			nodes, err := shelf.BuildTree(ctx.rootDir, treeOpts)
-			if err != nil {
-				return err
-			}
-
-			if asJSON {
-				type jsonTreeNode struct {
-					ID          string         `json:"id"`
-					Title       string         `json:"title"`
-					Kind        string         `json:"kind"`
-					Status      string         `json:"status"`
-					Tags        []string       `json:"tags,omitempty"`
-					GitHubURLs  []string       `json:"github_urls,omitempty"`
-					DueOn       string         `json:"due_on,omitempty"`
-					RepeatEvery string         `json:"repeat_every,omitempty"`
-					ArchivedAt  string         `json:"archived_at,omitempty"`
-					Parent      string         `json:"parent,omitempty"`
-					Children    []jsonTreeNode `json:"children,omitempty"`
-				}
-				var convert func(node shelf.TreeNode) jsonTreeNode
-				convert = func(node shelf.TreeNode) jsonTreeNode {
-					children := make([]jsonTreeNode, 0, len(node.Children))
-					for _, child := range node.Children {
-						children = append(children, convert(child))
-					}
-					return jsonTreeNode{
-						ID:          node.Task.ID,
-						Title:       node.Task.Title,
-						Kind:        string(node.Task.Kind),
-						Status:      string(node.Task.Status),
-						Tags:        node.Task.Tags,
-						GitHubURLs:  node.Task.GitHubURLs,
-						DueOn:       node.Task.DueOn,
-						RepeatEvery: node.Task.RepeatEvery,
-						ArchivedAt:  node.Task.ArchivedAt,
-						Parent:      node.Task.Parent,
-						Children:    children,
-					}
-				}
-
-				rows := make([]jsonTreeNode, 0, len(nodes))
-				for _, node := range nodes {
-					rows = append(rows, convert(node))
-				}
-				data, err := json.MarshalIndent(rows, "", "  ")
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(data))
-				return nil
-			}
-
-			for i, node := range nodes {
-				printTreeNode(node, "", i == len(nodes)-1, ctx.showID, format)
-			}
-			return nil
+			return runCockpitLaunch(ctx, cmd, calendarModeTree, flags)
 		},
 	}
 
-	cmd.Flags().StringVar(&from, "from", "root", "Start from task ID or root")
-	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "Maximum depth (0 means unlimited)")
-	cmd.Flags().StringVar(&presetName, "preset", "", "Apply output preset for tree")
-	cmd.Flags().StringVar(&view, "view", "", "Apply built-in view preset (active|ready|blocked|overdue)")
-	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
-	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail")
-	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
-	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
-	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Include tag (repeatable)")
-	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
-	cmd.Flags().StringArrayVar(&notStats, "not-status", nil, "Exclude status (repeatable)")
-	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
-	cmd.Flags().BoolVar(&plain, "plain", false, "Force plain text output even on TTY")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	addCockpitLaunchFlags(cmd, &flags)
 	return cmd
 }
 

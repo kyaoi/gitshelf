@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -135,6 +136,7 @@ type calendarTUIModel struct {
 	snoozeIndex    int
 	addMode        bool
 	addTitle       string
+	addCaptureMode bool
 }
 
 func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) error {
@@ -374,12 +376,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.jumpSectionRowEnd()
 			}
 			return m, nil
-		case "[", "H":
+		case "[":
 			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
 				m.moveFocusByMonths(-1)
 			}
 			return m, nil
-		case "]", "L":
+		case "]":
 			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
 				m.moveFocusByMonths(1)
 			}
@@ -455,12 +457,13 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showTaskBody = !m.showTaskBody
 			}
 			return m, nil
-		case "e":
+		case "e", "E":
 			return m.openEditorForSelectedTask()
 		case "a":
-			m.addMode = true
-			m.addTitle = ""
-			m.message = "新規 task title を入力"
+			m.beginAddMode(false)
+			return m, nil
+		case "A":
+			m.beginAddMode(true)
 			return m, nil
 		case "z":
 			if _, ok := m.selectedTask(); !ok {
@@ -473,6 +476,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "m":
 			return m.beginMoveSelection()
+		case "L":
+			return m.openEditorForSelectedTaskEdges()
 		case "r":
 			if err := m.reload(); err != nil {
 				m.message = err.Error()
@@ -480,6 +485,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = "reloaded"
 			}
 			return m, nil
+		case "x":
+			return m.toggleArchivedState()
 		case "o":
 			return m.applyStatusChange("open")
 		case "i":
@@ -679,6 +686,7 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "esc":
 		m.addMode = false
 		m.addTitle = ""
+		m.addCaptureMode = false
 		m.message = "新規 task 作成をキャンセルしました"
 		return m, nil
 	case "enter":
@@ -687,12 +695,13 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.message = "title は必須です"
 			return m, nil
 		}
-		if err := m.createTaskOnFocusedDay(title); err != nil {
+		if err := m.createTaskFromAddMode(title); err != nil {
 			m.message = err.Error()
 			return m, nil
 		}
 		m.addMode = false
 		m.addTitle = ""
+		m.addCaptureMode = false
 		return m, nil
 	case "backspace":
 		if len(m.addTitle) > 0 {
@@ -1807,12 +1816,81 @@ func (m calendarTUIModel) openEditorForSelectedTask() (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
-	day := m.focusedDay()
-	if day == nil {
-		return fmt.Errorf("選択中の日付がありません")
+func (m calendarTUIModel) openEditorForSelectedTaskEdges() (tea.Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.message = "選択中の task がありません"
+		return m, nil
 	}
-	input := shelf.AddTaskInput{Title: title, Kind: m.defaultKind, Status: m.defaultStatus, DueOn: day.Date}
+	editorCmd, err := resolveEditorCommand(os.LookupEnv)
+	if err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	args := strings.Fields(strings.TrimSpace(editorCmd))
+	if len(args) == 0 {
+		m.message = "editor command is empty"
+		return m, nil
+	}
+	edgePath := filepath.Join(shelf.EdgesDir(m.rootDir), task.ID+".toml")
+	if _, err := os.Stat(edgePath); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(edgePath, []byte(""), 0o644); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+	}
+	args = append(args, edgePath)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			return calendarEditorFinishedMsg{Err: normalizeEditorExecError(err)}
+		}
+		return calendarEditorFinishedMsg{}
+	})
+}
+
+func (m *calendarTUIModel) beginAddMode(capture bool) {
+	m.addMode = true
+	m.addTitle = ""
+	m.addCaptureMode = capture
+	if capture {
+		m.message = "capture title を入力"
+		return
+	}
+	m.message = "新規 task title を入力"
+}
+
+func (m *calendarTUIModel) createTaskFromAddMode(title string) error {
+	input := shelf.AddTaskInput{
+		Title:  title,
+		Kind:   m.defaultKind,
+		Status: m.defaultStatus,
+	}
+	if m.addCaptureMode {
+		input.Kind = "inbox"
+		input.Status = "open"
+	} else {
+		switch m.mode {
+		case calendarModeCalendar, calendarModeReview, calendarModeNow:
+			day := m.focusedDay()
+			if day == nil {
+				return fmt.Errorf("選択中の日付がありません")
+			}
+			input.DueOn = day.Date
+		case calendarModeTree:
+			if task, ok := m.selectedTask(); ok {
+				input.Parent = task.ID
+			}
+		case calendarModeBoard:
+			if len(m.boardColumns) > 0 && m.boardColumnIdx >= 0 && m.boardColumnIdx < len(m.boardColumns) {
+				input.Status = m.boardColumns[m.boardColumnIdx].Status
+			}
+		}
+	}
 	created := shelf.Task{}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-add"); err != nil {
@@ -1824,28 +1902,56 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 	}); err != nil {
 		return err
 	}
-	if calendarStatusIncluded(m.statuses, created.Status) {
-		if err := m.reload(); err != nil {
-			return err
+	if err := m.reload(); err != nil {
+		return err
+	}
+	if m.addCaptureMode {
+		if !calendarStatusIncluded(m.statuses, created.Status) {
+			m.replaceTaskInVisibleState(created)
+			m.insertTaskOnFocusedDay(created)
+			m.rebuildModeState()
+			m.selectTaskByID(created.ID)
+			m.message = fmt.Sprintf("Captured %s (current filter excludes it; visible until reload)", created.Title)
+			return nil
 		}
 		m.selectTaskByID(created.ID)
+		m.message = fmt.Sprintf("Captured %s", created.Title)
+		return nil
+	}
+	if !calendarStatusIncluded(m.statuses, created.Status) {
+		m.replaceTaskInVisibleState(created)
+		m.insertTaskOnFocusedDay(created)
+		m.rebuildModeState()
+		m.selectTaskByID(created.ID)
+		m.message = fmt.Sprintf("Created %s on %s (current filter excludes it; visible until reload)", created.Title, created.DueOn)
+		if strings.TrimSpace(created.DueOn) == "" {
+			m.message = fmt.Sprintf("Created %s (current filter excludes it; visible until reload)", created.Title)
+		}
+		return nil
+	}
+	m.selectTaskByID(created.ID)
+	if strings.TrimSpace(created.DueOn) != "" {
 		m.message = fmt.Sprintf("Created %s on %s", created.Title, created.DueOn)
 		return nil
 	}
-	m.visibleTasks = append(m.visibleTasks, created)
-	m.taskByID[created.ID] = created
-	m.titleByID[created.ID] = created.Title
-	m.insertTaskOnFocusedDay(created)
-	m.rebuildModeState()
-	m.selectTaskByID(created.ID)
-	m.message = fmt.Sprintf("Created %s on %s (current filter excludes it; visible until reload)", created.Title, created.DueOn)
+	m.message = fmt.Sprintf("Created %s", created.Title)
 	return nil
+}
+
+func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
+	m.addCaptureMode = false
+	return m.createTaskFromAddMode(title)
 }
 
 func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	if m.mode != calendarModeTree {
-		m.message = "move は Tree mode で使ってください"
-		return m, nil
+		task, ok := m.selectedTask()
+		if !ok {
+			m.message = "move 対象の task がありません"
+			return m, nil
+		}
+		m.switchMode(calendarModeTree)
+		m.selectTaskByID(task.ID)
 	}
 	if m.rangeMarkMode {
 		m.rangeMarkMode = false
@@ -1860,6 +1966,51 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	m.moveMode = true
 	m.moveSourceIDs = append([]string{}, taskIDs...)
 	m.message = fmt.Sprintf("move target を選択して Enter (%d task)", len(taskIDs))
+	return m, nil
+}
+
+func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "no task selected"
+		return m, nil
+	}
+	now := time.Now().Format(time.RFC3339)
+	updatedTasks := make([]shelf.Task, 0, len(taskIDs))
+	action := "archived"
+	err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-archive"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			task := m.taskByID[taskID]
+			nextArchivedAt := now
+			if strings.TrimSpace(task.ArchivedAt) != "" {
+				nextArchivedAt = ""
+				action = "unarchived"
+			}
+			updatedTask, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{ArchivedAt: &nextArchivedAt})
+			if err != nil {
+				return err
+			}
+			updatedTasks = append(updatedTasks, updatedTask)
+		}
+		return nil
+	})
+	if err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	if err := m.reload(); err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	m.clearMarkedSelection()
+	if len(updatedTasks) == 1 {
+		m.message = fmt.Sprintf("%s %s", action, updatedTasks[0].Title)
+		return m, nil
+	}
+	m.message = fmt.Sprintf("%s %d task(s)", action, len(updatedTasks))
 	return m, nil
 }
 
@@ -2892,12 +3043,6 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 	if showTaskBody {
 		maxLines = 12
 		lines = append(lines, mutedStyle.Render("details expanded"))
-		if task.EstimateMin > 0 || task.SpentMin > 0 {
-			lines = append(lines, fmt.Sprintf("estimate=%s  spent=%s", shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin)))
-		}
-		if strings.TrimSpace(task.TimerStart) != "" {
-			lines = append(lines, fmt.Sprintf("timer=%s", task.TimerStart))
-		}
 		lines = append(lines, fmt.Sprintf("links=out:%d in:%d", outboundCount[task.ID], inboundCount[task.ID]))
 		if info, exists := readiness[task.ID]; exists {
 			if len(info.UnresolvedDependsOn) > 0 {
