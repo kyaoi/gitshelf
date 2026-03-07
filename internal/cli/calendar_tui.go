@@ -115,6 +115,9 @@ type calendarTUIModel struct {
 	boardColumnIdx int
 	boardRowIndex  map[int]int
 	selectedTaskID string
+	markedTaskIDs  map[string]struct{}
+	moveMode       bool
+	moveSourceIDs  []string
 	pane           calendarPane
 	width          int
 	height         int
@@ -172,6 +175,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		pane:          calendarPaneMain,
 		sectionRows:   map[calendarSectionID]int{},
 		boardRowIndex: map[int]int{},
+		markedTaskIDs: map[string]struct{}{},
 		readiness:     map[string]shelf.TaskReadiness{},
 		taskByID:      map[string]shelf.Task{},
 		titleByID:     map[string]string{},
@@ -217,6 +221,17 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.snoozeMode {
 			return m.updateSnoozeMode(msg)
+		}
+		if m.moveMode {
+			switch msg.String() {
+			case "ctrl+c", "esc", "q", "m":
+				m.moveMode = false
+				m.moveSourceIDs = nil
+				m.message = "move をキャンセルしました"
+				return m, nil
+			case "enter":
+				return m.applyMoveSelection()
+			}
 		}
 		if m.showHelp && msg.String() == "q" {
 			m.showHelp = false
@@ -390,7 +405,16 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "N":
 			m.switchMode(calendarModeNow)
 			return m, nil
-		case "enter", "v":
+		case "enter":
+			if _, ok := m.selectedTask(); ok {
+				m.showTaskBody = !m.showTaskBody
+			}
+			return m, nil
+		case "v":
+			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
+				m.toggleMarkedSelection()
+				return m, nil
+			}
 			if _, ok := m.selectedTask(); ok {
 				m.showTaskBody = !m.showTaskBody
 			}
@@ -411,6 +435,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.snoozeIndex = 0
 			m.message = "期限変更プリセットを選択"
 			return m, nil
+		case "m":
+			return m.beginMoveSelection()
 		case "r":
 			if err := m.reload(); err != nil {
 				m.message = err.Error()
@@ -647,6 +673,7 @@ func (m *calendarTUIModel) reload() error {
 		m.taskByID[task.ID] = task
 		m.titleByID[task.ID] = task.Title
 	}
+	m.pruneMarkedSelection(visibleTasks)
 
 	m.days = buildCalendarDays(visibleTasks, m.startDate, m.daysCount)
 	if len(m.days) == 0 {
@@ -665,6 +692,21 @@ func (m *calendarTUIModel) reload() error {
 	m.selectedTaskID = selectedTaskID
 	m.rebuildModeState()
 	return nil
+}
+
+func (m *calendarTUIModel) pruneMarkedSelection(visibleTasks []shelf.Task) {
+	if len(m.markedTaskIDs) == 0 {
+		return
+	}
+	visible := make(map[string]struct{}, len(visibleTasks))
+	for _, task := range visibleTasks {
+		visible[task.ID] = struct{}{}
+	}
+	for taskID := range m.markedTaskIDs {
+		if _, ok := visible[taskID]; !ok {
+			delete(m.markedTaskIDs, taskID)
+		}
+	}
 }
 
 func (m *calendarTUIModel) rebuildModeState() {
@@ -687,8 +729,79 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.sectionIndex = 0
 	m.treeRowIndex = 0
 	m.bodyScroll = 0
+	m.moveMode = false
+	m.moveSourceIDs = nil
 	m.rebuildModeState()
 	m.message = fmt.Sprintf("mode: %s", mode)
+}
+
+func (m calendarTUIModel) markedCount() int {
+	return len(m.markedTaskIDs)
+}
+
+func (m calendarTUIModel) isMarkedTask(taskID string) bool {
+	_, ok := m.markedTaskIDs[taskID]
+	return ok
+}
+
+func (m *calendarTUIModel) toggleMarkedSelection() {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.message = "選択中の task がありません"
+		return
+	}
+	if m.markedTaskIDs == nil {
+		m.markedTaskIDs = map[string]struct{}{}
+	}
+	if _, exists := m.markedTaskIDs[task.ID]; exists {
+		delete(m.markedTaskIDs, task.ID)
+		m.message = fmt.Sprintf("unmarked: %s", task.Title)
+		return
+	}
+	m.markedTaskIDs[task.ID] = struct{}{}
+	m.message = fmt.Sprintf("marked %d task(s)", len(m.markedTaskIDs))
+}
+
+func (m calendarTUIModel) activeTaskIDs() []string {
+	if len(m.markedTaskIDs) > 0 {
+		return m.orderedMarkedTaskIDs()
+	}
+	task, ok := m.selectedTask()
+	if !ok {
+		return nil
+	}
+	return []string{task.ID}
+}
+
+func (m calendarTUIModel) orderedMarkedTaskIDs() []string {
+	ordered := make([]string, 0, len(m.markedTaskIDs))
+	appendIfMarked := func(taskID string) {
+		if _, ok := m.markedTaskIDs[taskID]; ok {
+			ordered = append(ordered, taskID)
+		}
+	}
+	switch m.mode {
+	case calendarModeTree:
+		for _, row := range m.treeRows {
+			appendIfMarked(row.Task.ID)
+		}
+	case calendarModeBoard:
+		for _, column := range m.boardColumns {
+			for _, task := range column.Tasks {
+				appendIfMarked(task.ID)
+			}
+		}
+	default:
+		for taskID := range m.markedTaskIDs {
+			ordered = append(ordered, taskID)
+		}
+		sort.Strings(ordered)
+	}
+	return ordered
+}
+
+func (m *calendarTUIModel) clearMarkedSelection() {
+	m.markedTaskIDs = map[string]struct{}{}
 }
 
 func (m *calendarTUIModel) cycleMode(delta int) {
@@ -1459,6 +1572,99 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 	return nil
 }
 
+func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
+	if m.mode != calendarModeTree {
+		m.message = "move は Tree mode で使ってください"
+		return m, nil
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "move 対象の task がありません"
+		return m, nil
+	}
+	m.moveMode = true
+	m.moveSourceIDs = append([]string{}, taskIDs...)
+	m.message = fmt.Sprintf("move target を選択して Enter (%d task)", len(taskIDs))
+	return m, nil
+}
+
+func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
+	if m.mode != calendarModeTree {
+		m.moveMode = false
+		m.moveSourceIDs = nil
+		m.message = "move は Tree mode で使ってください"
+		return m, nil
+	}
+	target, ok := m.selectedTask()
+	if !ok {
+		m.message = "move 先の task がありません"
+		return m, nil
+	}
+	sources := append([]string{}, m.moveSourceIDs...)
+	if len(sources) == 0 {
+		sources = m.activeTaskIDs()
+	}
+	if len(sources) == 0 {
+		m.moveMode = false
+		m.message = "move 対象の task がありません"
+		return m, nil
+	}
+	for _, sourceID := range sources {
+		if sourceID == target.ID {
+			m.message = "自分自身の下には移動できません"
+			return m, nil
+		}
+		if isDescendantTask(m.taskByID, target.ID, sourceID) {
+			m.message = "子孫 task の下には移動できません"
+			return m, nil
+		}
+	}
+
+	updated := make([]shelf.Task, 0, len(sources))
+	err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "tree-move"); err != nil {
+			return err
+		}
+		for _, sourceID := range sources {
+			task, err := shelf.SetTask(m.rootDir, sourceID, shelf.SetTaskInput{Parent: &target.ID})
+			if err != nil {
+				return err
+			}
+			updated = append(updated, task)
+		}
+		return nil
+	})
+	if err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	if err := m.reload(); err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	m.moveMode = false
+	m.moveSourceIDs = nil
+	m.clearMarkedSelection()
+	m.selectTaskByID(target.ID)
+	m.message = fmt.Sprintf("moved %d task(s) under %s", len(updated), target.Title)
+	return m, nil
+}
+
+func isDescendantTask(tasks map[string]shelf.Task, candidateID string, ancestorID string) bool {
+	current := strings.TrimSpace(candidateID)
+	for current != "" {
+		if current == ancestorID {
+			return true
+		}
+		task, ok := tasks[current]
+		if !ok {
+			return false
+		}
+		current = strings.TrimSpace(task.Parent)
+	}
+	return false
+}
+
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 	task, ok := m.selectedTask()
 	if !ok {
@@ -1496,19 +1702,27 @@ func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 }
 
 func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model, tea.Cmd) {
-	task, ok := m.selectedTask()
-	if !ok {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
 		m.message = "no task selected"
 		return m, nil
 	}
-	updatedTask := task
+	titles := make([]string, 0, len(taskIDs))
+	updatedTasks := make([]shelf.Task, 0, len(taskIDs))
 	err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-status"); err != nil {
 			return err
 		}
-		var err error
-		updatedTask, err = shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{Status: &nextStatus})
-		return err
+		for _, taskID := range taskIDs {
+			task := m.taskByID[taskID]
+			updatedTask, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{Status: &nextStatus})
+			if err != nil {
+				return err
+			}
+			titles = append(titles, task.Title)
+			updatedTasks = append(updatedTasks, updatedTask)
+		}
+		return nil
 	})
 	if err != nil {
 		m.message = err.Error()
@@ -1519,15 +1733,35 @@ func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model,
 			m.message = err.Error()
 			return m, nil
 		}
-		m.selectTaskByID(updatedTask.ID)
-		m.message = fmt.Sprintf("%s -> %s", task.Title, nextStatus)
+		m.clearMarkedSelection()
+		m.selectTaskByID(updatedTasks[0].ID)
+		m.message = formatBatchStatusMessage(titles, nextStatus, false)
 		return m, nil
 	}
-	m.replaceTaskInVisibleState(updatedTask)
+	for _, updatedTask := range updatedTasks {
+		m.replaceTaskInVisibleState(updatedTask)
+	}
 	m.rebuildModeState()
-	m.selectTaskByID(updatedTask.ID)
-	m.message = fmt.Sprintf("%s -> %s (current filter excludes it; visible until reload)", task.Title, nextStatus)
+	m.clearMarkedSelection()
+	m.selectTaskByID(updatedTasks[0].ID)
+	m.message = formatBatchStatusMessage(titles, nextStatus, true)
 	return m, nil
+}
+
+func formatBatchStatusMessage(titles []string, nextStatus shelf.Status, filteredOut bool) string {
+	if len(titles) == 0 {
+		return ""
+	}
+	if len(titles) == 1 {
+		if filteredOut {
+			return fmt.Sprintf("%s -> %s (current filter excludes it; visible until reload)", titles[0], nextStatus)
+		}
+		return fmt.Sprintf("%s -> %s", titles[0], nextStatus)
+	}
+	if filteredOut {
+		return fmt.Sprintf("%d tasks -> %s (current filter excludes them; visible until reload)", len(titles), nextStatus)
+	}
+	return fmt.Sprintf("%d tasks -> %s", len(titles), nextStatus)
 }
 
 func calendarStatusIncluded(statuses []shelf.Status, target shelf.Status) bool {
@@ -1644,6 +1878,12 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 		metaStyle.Render("Filter " + formatCalendarStatusFilter(m.statuses)),
 		metaStyle.Render("?:help"),
 	}
+	if m.markedCount() > 0 {
+		parts = append(parts, accentStyle.Render(fmt.Sprintf("Marked %d", m.markedCount())))
+	}
+	if m.moveMode {
+		parts = append(parts, accentStyle.Render("Move Target"))
+	}
 	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
 }
 
@@ -1753,7 +1993,8 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
-		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
+		"v: mark in tree/board  m: move in tree  o/i/b/d/c: status",
+		"a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q: close help or quit  Esc/Ctrl+C: quit",
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
@@ -1829,14 +2070,14 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	if m.mode == calendarModeTree {
 		parts := []string{
 			renderCockpitContextStrip(m, max(24, width-4)),
-			renderCockpitTreePane(m.treeRows, m.treeRowIndex, max(20, width-4)),
+			renderCockpitTreePane(m.treeRows, m.treeRowIndex, m.markedTaskIDs, m.moveMode, max(20, width-4)),
 		}
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
 	if m.mode == calendarModeBoard {
 		parts := []string{
 			renderCockpitContextStrip(m, max(24, width-4)),
-			renderCockpitBoardPane(m.boardColumns, m.boardColumnIdx, m.boardRowIndex, m.showID, max(20, width-4)),
+			renderCockpitBoardPane(m.boardColumns, m.boardColumnIdx, m.boardRowIndex, m.markedTaskIDs, m.showID, max(20, width-4)),
 		}
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
@@ -1937,17 +2178,24 @@ func renderCalendarMiniSidebar(m calendarTUIModel, width int, height int, active
 	}, "\n"))
 }
 
-func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {
+func renderCockpitTreePane(rows []cockpitTreeRow, selected int, marked map[string]struct{}, moveMode bool, width int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	lines := []string{titleStyle.Render("Tree")}
+	if moveMode {
+		lines = append(lines, mutedStyle.Render("move target を選んで Enter"))
+	}
 	if len(rows) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))
 		return strings.Join(lines, "\n")
 	}
 	for i, row := range rows {
-		label := trimLine(row.Label, max(20, width))
+		marker := " "
+		if _, ok := marked[row.Task.ID]; ok {
+			marker = "*"
+		}
+		label := trimLine(marker+" "+row.Label, max(20, width))
 		meta := trimLine(row.Meta, max(18, width-2))
 		if i == selected {
 			lines = append(lines, selectedStyle.Render("> "+label))
@@ -1960,7 +2208,7 @@ func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) strin
 	return strings.Join(lines, "\n")
 }
 
-func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex map[int]int, showID bool, width int) string {
+func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex map[int]int, marked map[string]struct{}, showID bool, width int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
@@ -1989,6 +2237,9 @@ func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex 
 			label := task.Title
 			if showID {
 				label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
+			}
+			if _, ok := marked[task.ID]; ok {
+				label = "* " + label
 			}
 			meta := trimLine(renderBoardTaskMeta(task), max(14, columnWidth-2))
 			prefix := "  "

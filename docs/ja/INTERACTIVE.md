@@ -156,8 +156,10 @@ type 選択画面では、次の注意文を出します。
 - `PgUp` / `PgDn` または `Ctrl+U` / `Ctrl+D`: body をスクロール
 - `Home` / `End`: body の先頭 / 末尾へ移動
 - `1..6`: 見えている section へ直接ジャンプ
+- `v`: tree / board mode で multi-select の mark を切り替え
+- `m`: tree mode で、現在 task または mark 済み task を現在選択中 task の下へ移動
 - `a`: focused day 用の inline add composer を開く
-- `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
+- `o` / `i` / `b` / `d` / `c`: 選択 task、または tree / board mode で mark 済みの複数 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
 - `Enter`: compact / detailed inspector の切り替え
 - `e`: 選択 task を editor で開く
 - `z`: 選択 task の snooze プリセットを開く

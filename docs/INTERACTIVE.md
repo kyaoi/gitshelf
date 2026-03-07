@@ -139,8 +139,10 @@ The type selection screen includes this warning:
 - `PgUp` / `PgDn` or `Ctrl+U` / `Ctrl+D`: scroll the body
 - `Home` / `End`: jump to the top or bottom of the body
 - `1..6`: jump directly to a visible section
+- `v`: toggle multi-select marks in tree/board modes
+- `m`: in tree mode, move the current task or marked tasks under the currently highlighted task
 - `a`: open inline add composer for the focused day
-- `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
+- `o` / `i` / `b` / `d` / `c`: set the selected task, or all marked tree/board tasks, to `open` / `in_progress` / `blocked` / `done` / `cancelled`
 - `Enter`: toggle compact/detailed inspector
 - `e`: open the selected task in the configured editor
 - `z`: open snooze presets for the selected task
