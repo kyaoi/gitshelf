@@ -13,6 +13,7 @@
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
 - Detailed command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
+- Current workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 - Storage and invariants: [`docs/STORAGE.md`](docs/STORAGE.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
@@ -28,6 +29,9 @@ go build -o shelf ./cmd/shelf
 ```bash
 # Initialize in current directory
 ./shelf init
+
+# Open Cockpit directly on TTY
+./shelf
 
 # Initialize global shelf (writes global config + creates global .shelf)
 ./shelf init --global
@@ -252,7 +256,7 @@ When required args/flags are omitted and stdin/stdout are TTY, gitshelf prompts 
 - `show` / `set` / `done` / `links`: omitted `<id>`
 - `mv`: omitted `<id>` and/or `--parent`
 
-`add` interactive flow starts with a guided wizard (Title -> Kind -> Status), then a review screen for Tags/Due/Repeat/Parent edits before final create.
+`add` interactive flow starts with `Kind -> Status`, then a review screen for `Title`/`Tags`/`Due`/`Repeat`/`Parent` edits before final create.
 `set` interactive flow uses an editable field session with change preview before apply.
 
 Task selectors always show body preview. Enum selectors intentionally do not.

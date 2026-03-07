@@ -4,6 +4,7 @@
 
 - 正式な CLI 仕様: [`COMMANDS.md`](COMMANDS.md)
 - ここで扱う内容: 目的、使い分け、典型パターン
+- 現行の使い方の流れ: [`WORKFLOWS.md`](WORKFLOWS.md)
 
 ## 早見表
 

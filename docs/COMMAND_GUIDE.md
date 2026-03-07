@@ -4,6 +4,7 @@ Practical guide for deciding which `shelf` command to use, why it exists, and ho
 
 `docs/COMMANDS.md` is the CLI specification.
 This file is the operator guide.
+For end-to-end usage patterns, see `docs/WORKFLOWS.md`.
 
 ## Quick Routing
 

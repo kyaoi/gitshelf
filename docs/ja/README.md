@@ -13,6 +13,7 @@
 
 - CLI 仕様: [`COMMANDS.md`](COMMANDS.md)
 - 詳細コマンドガイド: [`COMMAND_GUIDE.md`](COMMAND_GUIDE.md)
+- 現行ワークフローガイド: [`WORKFLOWS.md`](WORKFLOWS.md)
 - 保存形式と不変条件: [`STORAGE.md`](STORAGE.md)
 - 対話 UI 仕様: [`INTERACTIVE.md`](INTERACTIVE.md)
 - 全体仕様: [`SPEC.md`](SPEC.md)
@@ -37,6 +38,9 @@ go build -o shelf ./cmd/shelf
 ```bash
 # 現在のディレクトリで初期化
 ./shelf init
+
+# TTY ではそのまま Cockpit を開ける
+./shelf
 
 # すぐにメモを積む
 ./shelf capture "Call vendor"
