@@ -122,14 +122,15 @@ The type selection screen includes this warning:
 ## calendar TUI
 
 - used by `shelf cockpit`, `shelf calendar`, `shelf tree`, `shelf board`, and also by `shelf review` / `shelf today` on TTY unless `--plain` or `--json` is specified
-- layout is `main + inspector`
+- layout is `main + right sidebar`
 - `C/T/B/R/Y`: switch modes
 - `Tab` / `Shift+Tab`: move between panes
-- `h` / `l`: move by one day, switch review/today tabs, or move board columns
-- `j` / `k`: move by one week in calendar mode, or move rows in tree/board/review/today
+- `h` / `l`: move by one day in calendar mode, move the sidebar calendar by one day when the right pane is focused, or switch review/today tabs / board columns otherwise
+- `j` / `k`: move by one week in calendar mode, move the sidebar calendar by one week when the right pane is focused, or move rows in tree/board/review/today
 - `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
-- in `calendar` mode, the month grid is larger and the focused-day task list lives below the inspector
+- in `calendar` mode, the month grid is larger and the focused-day task list lives above the inspector
+- in non-calendar modes, the right sidebar shows a compact calendar above the inspector; focus it with `Tab` to move the date directly
 - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/today, or move board columns
 - `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day

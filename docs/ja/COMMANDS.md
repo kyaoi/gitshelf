@@ -105,10 +105,10 @@ subcommand:
 - 既定レンジは config `[commands.calendar]` に従う
 - 非TTYでは `--json` を使う
 - 主な操作:
-  - `Tab` / `Shift+Tab`: `main` と `inspector` を切り替え
+  - `Tab` / `Shift+Tab`: `main` と右 sidebar を切り替え
   - `C` / `T` / `B` / `R` / `Y`: mode 切り替え
-  - `h` / `l`: 日移動、review/today tab 切り替え、または board 列移動
-  - `j` / `k`: calendar mode では週移動、tree/board/review/today では行移動
+  - `h` / `l`: calendar mode では日移動、右 sidebar に focus があるときは sidebar calendar を日移動、それ以外では review/today tab 切り替えまたは board 列移動
+  - `j` / `k`: calendar mode では週移動、右 sidebar に focus があるときは sidebar calendar を週移動、それ以外では tree/board/review/today の行移動
   - `[` / `]`: 月移動
   - `n` / `p`: calendar mode では focused day task 切り替え、review/today では tab 切り替え、board では列移動
   - `1..6`: section へ直接ジャンプ

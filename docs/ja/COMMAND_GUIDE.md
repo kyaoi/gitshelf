@@ -188,8 +188,9 @@ due date カレンダービューです。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - `--years` で年単位レンジも開けます。
 - shared Daily Cockpit shell を開きます。
-- レイアウトは `main + inspector` で、mode tab を切り替えながら使います。
-- calendar mode では month grid を大きく取り、`Focused Day` task list は inspector の下に出します。
+- レイアウトは `main + right sidebar` で、mode tab を切り替えながら使います。
+- calendar mode では month grid を大きく取り、`Focused Day` task list は inspector の上に出します。
+- calendar 以外の mode では、右 sidebar に小さな calendar を inspector の上へ表示します。`Tab` で右 sidebar に focus して `h/j/k/l/[ ]` で日付を直接動かせます。
 - `C/T/B/R/Y` で `calendar` / `tree` / `board` / `review` / `today` を切り替えます。
 - `n/p` で calendar mode の focused day task を切り替え、review/today では tab、board では列を切り替えます。`1..6` で section へ直接ジャンプできます。
 - `review` / `today` では focused date の文脈は残しますが、full month grid は常時出しません。

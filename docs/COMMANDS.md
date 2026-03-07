@@ -114,10 +114,10 @@ Due-date calendar view.
 - default range follows config `[commands.calendar]`
 - requires TTY unless `--json` is used
 - keybindings:
-  - `Tab` / `Shift+Tab`: move between `main` and `inspector`
+  - `Tab` / `Shift+Tab`: move between `main` and the right sidebar
   - `C` / `T` / `B` / `R` / `Y`: switch cockpit mode
-  - `h` / `l`: move by day, switch review/today tabs, or move board columns
-  - `j` / `k`: move by week in calendar mode, or move rows in tree/board/review/today
+  - `h` / `l`: move by day in calendar mode, move the sidebar calendar by day when the right pane is focused, otherwise switch review/today tabs or move board columns
+  - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/today
   - `[` / `]`: jump by month inside the current range
   - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/today, or move board columns
   - `1..6`: jump directly to a section when available

@@ -200,8 +200,9 @@ Notes:
 - `--months` opens whole-month ranges such as one month or three months.
 - `--years` opens whole-year ranges.
 - The TUI is the shared Daily Cockpit shell.
-- Layout is now `main + inspector`, with mode tabs instead of a fixed three-column layout.
-- In calendar mode, the month grid is larger and the `Focused Day` task list sits below the inspector.
+- Layout is now `main + right sidebar`, with mode tabs instead of a fixed three-column layout.
+- In calendar mode, the month grid is larger and the `Focused Day` task list sits above the inspector.
+- In non-calendar modes, the right sidebar shows a small calendar above the inspector. Focus it with `Tab` and move dates directly with `h/j/k/l/[ ]`.
 - `C/T/B/R/Y` switches between `calendar`, `tree`, `board`, `review`, and `today`.
 - `n/p` switches focused-day tasks in calendar mode, switches tabs in review/today, and moves columns in board; `1..6` jumps directly when a section exists.
 - `review` / `today` keep the focused date context, but do not render the full month grid all the time.
