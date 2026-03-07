@@ -502,4 +502,50 @@ func TestCalendarSwitchModeKeepsSelectedTaskWhenPossible(t *testing.T) {
 	if model.selectedTaskID != task.ID {
 		t.Fatalf("expected selected task preserved in tree mode, got %s", model.selectedTaskID)
 	}
+	model.switchMode(calendarModeBoard)
+	if model.mode != calendarModeBoard {
+		t.Fatalf("unexpected mode: %s", model.mode)
+	}
+	if model.selectedTaskID != task.ID {
+		t.Fatalf("expected selected task preserved in board mode, got %s", model.selectedTaskID)
+	}
+}
+
+func TestCalendarBoardModeMovesAcrossColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	openTask, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Open task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  time.Now().Local().Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	doneTask, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Done task",
+		Kind:   "todo",
+		Status: "done",
+		DueOn:  time.Now().Local().Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 7, []shelf.Status{"open", "done"}, calendarTUIOptions{
+		Mode:   calendarModeBoard,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open", "done"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	if task, ok := model.selectedTask(); !ok || task.ID != openTask.ID {
+		t.Fatalf("unexpected initial selected task: %+v ok=%t", task, ok)
+	}
+	model.moveBoardColumn(1)
+	if task, ok := model.selectedTask(); !ok || task.ID != doneTask.ID {
+		t.Fatalf("unexpected selected task after moveBoardColumn: %+v ok=%t", task, ok)
+	}
 }

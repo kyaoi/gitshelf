@@ -110,6 +110,9 @@ type calendarTUIModel struct {
 	sectionRows    map[calendarSectionID]int
 	treeRows       []cockpitTreeRow
 	treeRowIndex   int
+	boardColumns   []boardColumn
+	boardColumnIdx int
+	boardRowIndex  map[int]int
 	selectedTaskID string
 	pane           calendarPane
 	width          int
@@ -165,6 +168,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		showID:        opts.ShowID,
 		pane:          calendarPaneMain,
 		sectionRows:   map[calendarSectionID]int{},
+		boardRowIndex: map[int]int{},
 		readiness:     map[string]shelf.TaskReadiness{},
 		taskByID:      map[string]shelf.Task{},
 		titleByID:     map[string]string{},
@@ -223,6 +227,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "left", "h":
 			if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-1)
+			} else if m.mode == calendarModeBoard {
+				m.moveBoardColumn(-1)
 			} else {
 				m.moveSectionSelection(-1)
 			}
@@ -230,19 +236,31 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right", "l":
 			if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(1)
+			} else if m.mode == calendarModeBoard {
+				m.moveBoardColumn(1)
 			} else {
 				m.moveSectionSelection(1)
 			}
 			return m, nil
 		case "up":
+			if m.mode == calendarModeBoard {
+				m.moveBoardRow(-1)
+				return m, nil
+			}
 			m.moveSectionRow(-1)
 			return m, nil
 		case "down":
+			if m.mode == calendarModeBoard {
+				m.moveBoardRow(1)
+				return m, nil
+			}
 			m.moveSectionRow(1)
 			return m, nil
 		case "k":
 			if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-7)
+			} else if m.mode == calendarModeBoard {
+				m.moveBoardRow(-1)
 			} else {
 				m.moveSectionRow(-1)
 			}
@@ -250,6 +268,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "j":
 			if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(7)
+			} else if m.mode == calendarModeBoard {
+				m.moveBoardRow(1)
 			} else {
 				m.moveSectionRow(1)
 			}
@@ -258,6 +278,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == calendarModeCalendar {
 				m.dayIndex = 0
 				m.rebuildSections()
+			} else if m.mode == calendarModeBoard {
+				m.jumpBoardRowStart()
 			} else {
 				m.jumpSectionRowStart()
 			}
@@ -268,6 +290,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.dayIndex = len(m.days) - 1
 					m.rebuildSections()
 				}
+			} else if m.mode == calendarModeBoard {
+				m.jumpBoardRowEnd()
 			} else {
 				m.jumpSectionRowEnd()
 			}
@@ -279,10 +303,18 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveFocusByMonths(1)
 			return m, nil
 		case "n":
-			m.moveSectionSelection(1)
+			if m.mode == calendarModeBoard {
+				m.moveBoardColumn(1)
+			} else {
+				m.moveSectionSelection(1)
+			}
 			return m, nil
 		case "p":
-			m.moveSectionSelection(-1)
+			if m.mode == calendarModeBoard {
+				m.moveBoardColumn(-1)
+			} else {
+				m.moveSectionSelection(-1)
+			}
 			return m, nil
 		case "1", "2", "3", "4", "5", "6":
 			m.jumpToSection(int(msg.String()[0] - '1'))
@@ -292,6 +324,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "T":
 			m.switchMode(calendarModeTree)
+			return m, nil
+		case "B":
+			m.switchMode(calendarModeBoard)
 			return m, nil
 		case "R":
 			m.switchMode(calendarModeReview)
@@ -357,7 +392,7 @@ func (m calendarTUIModel) View() string {
 
 	header := []string{
 		headerStyle.Render(fmt.Sprintf("Daily Cockpit [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("Tab: pane  C/T/R/Y: mode  h/l: day or tab  j/k: week or row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
+		helpStyle.Render("Tab: pane  C/T/B/R/Y: mode  h/l: day-tab-column  j/k: week-row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
 		metaStyle.Render(fmt.Sprintf("Pane: %s  Focused: %s  Filter: %s", m.paneLabel(), focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
 	}
 
@@ -535,6 +570,10 @@ func (m *calendarTUIModel) rebuildModeState() {
 		m.rebuildTreeRows()
 		return
 	}
+	if m.mode == calendarModeBoard {
+		m.rebuildBoardColumns()
+		return
+	}
 	m.rebuildSections()
 }
 
@@ -547,6 +586,32 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.treeRowIndex = 0
 	m.rebuildModeState()
 	m.message = fmt.Sprintf("mode: %s", mode)
+}
+
+func (m *calendarTUIModel) rebuildBoardColumns() {
+	m.boardColumns = buildBoardColumns(m.statuses, m.visibleTasks)
+	for i := range m.boardColumns {
+		if _, ok := m.boardRowIndex[i]; !ok {
+			m.boardRowIndex[i] = 0
+		}
+	}
+	if len(m.boardColumns) == 0 {
+		m.boardColumnIdx = 0
+		m.selectedTaskID = ""
+		return
+	}
+	if m.selectedTaskID != "" {
+		for colIdx, column := range m.boardColumns {
+			for rowIdx, task := range column.Tasks {
+				if task.ID == m.selectedTaskID {
+					m.boardColumnIdx = colIdx
+					m.boardRowIndex[colIdx] = rowIdx
+					return
+				}
+			}
+		}
+	}
+	m.clampBoardSelection()
 }
 
 func buildCalendarLinkCounts(rootDir string, tasks []shelf.Task) (map[string]int, map[string]int, error) {
@@ -881,7 +946,7 @@ func (m *calendarTUIModel) clampSectionSelection() {
 }
 
 func (m *calendarTUIModel) moveSectionSelection(delta int) {
-	if m.mode == calendarModeTree {
+	if m.mode == calendarModeTree || m.mode == calendarModeBoard {
 		return
 	}
 	if len(m.sections) == 0 {
@@ -953,7 +1018,7 @@ func (m *calendarTUIModel) jumpSectionRowEnd() {
 }
 
 func (m *calendarTUIModel) jumpToSection(index int) {
-	if m.mode == calendarModeTree {
+	if m.mode == calendarModeTree || m.mode == calendarModeBoard {
 		return
 	}
 	if index < 0 || index >= len(m.sections) {
@@ -964,7 +1029,7 @@ func (m *calendarTUIModel) jumpToSection(index int) {
 }
 
 func (m *calendarTUIModel) currentSection() *calendarSection {
-	if m.mode == calendarModeTree {
+	if m.mode == calendarModeTree || m.mode == calendarModeBoard {
 		return nil
 	}
 	if len(m.sections) == 0 || m.sectionIndex < 0 || m.sectionIndex >= len(m.sections) {
@@ -985,6 +1050,94 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 		m.treeRowIndex = 0
 	}
 	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+}
+
+func (m *calendarTUIModel) clampBoardSelection() {
+	if len(m.boardColumns) == 0 {
+		m.boardColumnIdx = 0
+		m.selectedTaskID = ""
+		return
+	}
+	if m.boardColumnIdx < 0 {
+		m.boardColumnIdx = 0
+	}
+	if m.boardColumnIdx >= len(m.boardColumns) {
+		m.boardColumnIdx = len(m.boardColumns) - 1
+	}
+	column := m.boardColumns[m.boardColumnIdx]
+	maxRow := len(column.Tasks) - 1
+	if maxRow < 0 {
+		m.boardRowIndex[m.boardColumnIdx] = 0
+		m.selectedTaskID = ""
+		return
+	}
+	row := m.boardRowIndex[m.boardColumnIdx]
+	if row < 0 {
+		row = 0
+	}
+	if row > maxRow {
+		row = maxRow
+	}
+	m.boardRowIndex[m.boardColumnIdx] = row
+	m.selectedTaskID = column.Tasks[row].ID
+}
+
+func (m *calendarTUIModel) moveBoardColumn(delta int) {
+	if len(m.boardColumns) == 0 {
+		return
+	}
+	m.boardColumnIdx += delta
+	if m.boardColumnIdx < 0 {
+		m.boardColumnIdx = len(m.boardColumns) - 1
+	}
+	if m.boardColumnIdx >= len(m.boardColumns) {
+		m.boardColumnIdx = 0
+	}
+	m.clampBoardSelection()
+}
+
+func (m *calendarTUIModel) moveBoardRow(delta int) {
+	if len(m.boardColumns) == 0 {
+		return
+	}
+	column := m.boardColumns[m.boardColumnIdx]
+	if len(column.Tasks) == 0 {
+		return
+	}
+	row := m.boardRowIndex[m.boardColumnIdx] + delta
+	if row < 0 {
+		row = len(column.Tasks) - 1
+	}
+	if row >= len(column.Tasks) {
+		row = 0
+	}
+	m.boardRowIndex[m.boardColumnIdx] = row
+	m.selectedTaskID = column.Tasks[row].ID
+}
+
+func (m *calendarTUIModel) jumpBoardRowStart() {
+	if len(m.boardColumns) == 0 {
+		return
+	}
+	column := m.boardColumns[m.boardColumnIdx]
+	if len(column.Tasks) == 0 {
+		return
+	}
+	m.boardRowIndex[m.boardColumnIdx] = 0
+	m.selectedTaskID = column.Tasks[0].ID
+}
+
+func (m *calendarTUIModel) jumpBoardRowEnd() {
+	if len(m.boardColumns) == 0 {
+		return
+	}
+	column := m.boardColumns[m.boardColumnIdx]
+	if len(column.Tasks) == 0 {
+		return
+	}
+	row := len(column.Tasks) - 1
+	m.boardRowIndex[m.boardColumnIdx] = row
+	m.selectedTaskID = column.Tasks[row].ID
 }
 
 func (m *calendarTUIModel) moveFocusByDays(delta int) {
@@ -1047,6 +1200,20 @@ func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
 			return shelf.Task{}, false
 		}
 		return m.treeRows[m.treeRowIndex].Task, true
+	}
+	if m.mode == calendarModeBoard {
+		if len(m.boardColumns) == 0 || m.boardColumnIdx < 0 || m.boardColumnIdx >= len(m.boardColumns) {
+			return shelf.Task{}, false
+		}
+		column := m.boardColumns[m.boardColumnIdx]
+		if len(column.Tasks) == 0 {
+			return shelf.Task{}, false
+		}
+		row := m.boardRowIndex[m.boardColumnIdx]
+		if row < 0 || row >= len(column.Tasks) {
+			return shelf.Task{}, false
+		}
+		return column.Tasks[row], true
 	}
 	section := m.currentSection()
 	if section == nil || len(section.Items) == 0 {
@@ -1119,7 +1286,7 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 	m.taskByID[created.ID] = created
 	m.titleByID[created.ID] = created.Title
 	m.insertTaskOnFocusedDay(created)
-	m.rebuildSections()
+	m.rebuildModeState()
 	m.selectTaskByID(created.ID)
 	m.message = fmt.Sprintf("Created %s on %s (current filter excludes it; visible until reload)", created.Title, created.DueOn)
 	return nil
@@ -1190,7 +1357,7 @@ func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model,
 		return m, nil
 	}
 	m.replaceTaskInVisibleState(updatedTask)
-	m.rebuildSections()
+	m.rebuildModeState()
 	m.selectTaskByID(updatedTask.ID)
 	m.message = fmt.Sprintf("%s -> %s (current filter excludes it; visible until reload)", task.Title, nextStatus)
 	return m, nil
@@ -1246,6 +1413,19 @@ func (m *calendarTUIModel) selectTaskByID(taskID string) {
 		}
 		return
 	}
+	if m.mode == calendarModeBoard {
+		for colIdx, column := range m.boardColumns {
+			for rowIdx, task := range column.Tasks {
+				if task.ID == taskID {
+					m.boardColumnIdx = colIdx
+					m.boardRowIndex[colIdx] = rowIdx
+					return
+				}
+			}
+		}
+		m.clampBoardSelection()
+		return
+	}
 	if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, taskID); ok {
 		m.sectionIndex = secIdx
 		m.sectionRows[m.sections[secIdx].ID] = rowIdx
@@ -1299,6 +1479,7 @@ func renderCalendarModeTabs(mode calendarMode) string {
 	}{
 		{calendarModeCalendar, "Calendar"},
 		{calendarModeTree, "Tree"},
+		{calendarModeBoard, "Board"},
 		{calendarModeReview, "Review"},
 		{calendarModeToday, "Today"},
 	}
@@ -1362,6 +1543,10 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 		parts = []string{renderCockpitTreePane(m.treeRows, m.treeRowIndex, max(20, width-4))}
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
+	if m.mode == calendarModeBoard {
+		parts = []string{renderCockpitBoardPane(m.boardColumns, m.boardColumnIdx, m.boardRowIndex, m.showID, max(20, width-4))}
+		return boxStyle.Render(strings.Join(parts, "\n\n"))
+	}
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
 		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
@@ -1392,6 +1577,53 @@ func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) strin
 		}
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
+}
+
+func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex map[int]int, showID bool, width int) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
+	if len(columns) == 0 {
+		return titleStyle.Render("Board") + "\n" + mutedStyle.Render("(none)")
+	}
+	columnGap := 2
+	columnWidth := max(18, (width-(len(columns)-1)*columnGap)/max(1, len(columns)))
+	if columnWidth < 16 {
+		columnWidth = 16
+	}
+	rendered := make([]string, 0, len(columns))
+	for colIdx, column := range columns {
+		lines := []string{titleStyle.Render(string(column.Status))}
+		if len(column.Tasks) == 0 {
+			lines = append(lines, mutedStyle.Render("(none)"))
+		}
+		currentRow := rowIndex[colIdx]
+		for taskIdx, task := range column.Tasks {
+			label := task.Title
+			if showID {
+				label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
+			}
+			prefix := "  "
+			if colIdx == selectedColumn && taskIdx == currentRow {
+				prefix = "> "
+				label = selectedStyle.Render(trimLine(prefix+label, max(14, columnWidth-2)))
+				lines = append(lines, label)
+			} else {
+				lines = append(lines, prefix+trimLine(label, max(14, columnWidth-2)))
+			}
+		}
+		style := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(0, 1).
+			Width(columnWidth)
+		if colIdx == selectedColumn {
+			style = style.BorderForeground(lipgloss.Color("45"))
+		} else {
+			style = style.BorderForeground(lipgloss.Color("240"))
+		}
+		rendered = append(rendered, style.Render(strings.Join(lines, "\n")))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
 }
 
 func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {
