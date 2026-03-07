@@ -39,7 +39,7 @@ go build -o shelf ./cmd/shelf
 ./shelf triage --auto done
 ./shelf template save weekly-plan <task-id>
 ./shelf template apply weekly-plan --parent root
-./shelf cockpit
+./shelf focus
 ./shelf calendar
 ./shelf board
 ./shelf estimate <task-id> --set 2h --spent 30m
@@ -103,8 +103,8 @@ go build -o shelf ./cmd/shelf
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
-- `shelf cockpit|cp [--root <dir>] [--mode calendar|tree|board|review|now --start <date> --days N | --months N | --years N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ...]`
-  - unified Daily Cockpit launcher
+- `shelf focus|cockpit|cp [--root <dir>] [--mode calendar|tree|board|review|now --start <date> --days N | --months N | --years N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ...]`
+  - main Focus workspace entry point
 - `shelf calendar|cal [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
   - opens Daily Cockpit in `calendar` mode by default
   - use `--json` for non-TTY contexts
@@ -185,7 +185,7 @@ Color output:
 
 ## Daily Cockpit
 
-`shelf cockpit` is the shared TUI shell behind `calendar`, `tree`, `board`, `review`, and `now`.
+`shelf focus` is the main TUI workspace. `calendar`, `tree`, `board`, `review`, and `now` are launcher commands that open `focus` in different starting modes. `cockpit` remains as a compatibility alias.
 
 Main modes:
 

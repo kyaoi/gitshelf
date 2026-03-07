@@ -30,8 +30,8 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "calendar",
 		Aliases: []string{"cal"},
-		Short:   "Show due tasks in a calendar TUI",
-		Long: "Show due tasks in a calendar TUI.\n\n" +
+		Short:   "Open Focus in calendar mode",
+		Long: "Open Focus in calendar mode.\n\n" +
 			"If no explicit range flag is set, config [commands.calendar]\n" +
 			"default_range_unit/default_days/default_months/default_years decides the range.",
 		Example: "  shelf calendar\n" +

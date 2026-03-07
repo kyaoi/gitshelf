@@ -148,12 +148,12 @@ Rules:
 - exactly one of `--days` / `--months` / `--years` may be specified
 - if none is specified, config `[commands.calendar]` is used
 
-## shelf cockpit
+## shelf focus
 
-Unified Daily Cockpit launcher.
+Main Focus workspace entry point.
 
 - TTY only
-- opens the shared shell used by `calendar`, `tree`, `board`, `review`, and `now`
+- opens the shared workspace used by `calendar`, `tree`, `board`, `review`, and `now`
 - starting mode is controlled by `--mode`
 
 Flags:
@@ -173,7 +173,7 @@ Flags:
 
 ## shelf board
 
-Daily Cockpit launcher for `board` mode.
+Focus workspace launcher for `board` mode.
 
 - TTY only
 - columns follow configured `statuses`

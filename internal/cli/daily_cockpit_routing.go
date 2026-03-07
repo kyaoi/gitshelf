@@ -65,3 +65,22 @@ func resolveDailyCockpitRange(rootDir string) (time.Time, int, error) {
 func activeStatusFilter() []shelf.Status {
 	return []shelf.Status{"open", "in_progress", "blocked"}
 }
+
+func runDefaultFocus(ctx *commandContext) error {
+	if !dailyCockpitIsTTY() {
+		return nil
+	}
+	startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
+	if err != nil {
+		return err
+	}
+	statuses := activeStatusFilter()
+	return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, statuses, calendarTUIOptions{
+		Mode:   calendarModeCalendar,
+		ShowID: ctx.showID,
+		Filter: shelf.TaskFilter{
+			Statuses: statuses,
+			Limit:    0,
+		},
+	})
+}

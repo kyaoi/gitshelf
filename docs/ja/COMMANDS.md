@@ -137,14 +137,14 @@ subcommand:
 - `--days` / `--months` / `--years` はどれか1つだけ指定可
 - 未指定時は config `[commands.calendar]` を使う
 
-## `shelf cockpit`
+## `shelf focus`
 
 意味:
-統一 Daily Cockpit を直接起動します。
+主入口の Focus workspace を直接起動します。
 
 前提:
 - TTY 必須
-- `calendar` / `tree` / `board` / `review` / `now` が共通 shell 上で切り替わります
+- `calendar` / `tree` / `board` / `review` / `now` が共通 workspace 上で切り替わります
 
 主なフラグ:
 - `--mode <calendar|tree|board|review|now>`
@@ -163,7 +163,7 @@ subcommand:
 ## `shelf board`
 
 意味:
-Daily Cockpit の `board` mode を開く launcher です。
+Focus workspace の `board` mode を開く launcher です。
 
 前提:
 - TTY 必須

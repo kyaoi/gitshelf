@@ -16,7 +16,7 @@ func newBoardCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "board",
 		Aliases: []string{"kb"},
-		Short:   "Open the Daily Cockpit in board mode",
+		Short:   "Open Focus in board mode",
 		Example: "  shelf board\n" +
 			"  shelf board --show-id",
 		RunE: func(_ *cobra.Command, _ []string) error {
