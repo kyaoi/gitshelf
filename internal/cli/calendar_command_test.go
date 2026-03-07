@@ -150,3 +150,37 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 		t.Fatalf("unexpected rendered width: %d", got)
 	}
 }
+
+func TestCalendarApplyStatusChange(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	updatedModel, _ := model.applyStatusChange("done")
+	calendarModel := updatedModel.(calendarTUIModel)
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Fatalf("unexpected status: %s", updated.Status)
+	}
+	if calendarModel.message == "" {
+		t.Fatal("expected status change message")
+	}
+}

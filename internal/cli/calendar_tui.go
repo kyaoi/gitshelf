@@ -164,6 +164,16 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = "reloaded"
 			}
 			return m, nil
+		case "o":
+			return m.applyStatusChange("open")
+		case "i":
+			return m.applyStatusChange("in_progress")
+		case "b":
+			return m.applyStatusChange("blocked")
+		case "d":
+			return m.applyStatusChange("done")
+		case "c":
+			return m.applyStatusChange("cancelled")
 		}
 	}
 	return m, nil
@@ -184,7 +194,7 @@ func (m calendarTUIModel) View() string {
 
 	header := []string{
 		titleStyle.Render(fmt.Sprintf("Calendar %s .. %s", m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("h/l: 日  j/k: 週  [/]: 月  n/p: task  Enter: 詳細  e: edit  z: snooze  r: reload  q: quit"),
+		helpStyle.Render("h/l: 日  j/k: 週  [/]: 月  n/p: task  o/i/b/d/c: status  Enter: 詳細  e: edit  z: snooze  r: reload  q: quit"),
 		subStyle.Render(fmt.Sprintf("Focused: %s", focusedDate.Format("Mon 2006-01-02"))),
 	}
 
@@ -381,6 +391,31 @@ func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 	}
 	m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDue)
 	return nil
+}
+
+func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.message = "no task selected"
+		return m, nil
+	}
+	err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-status"); err != nil {
+			return err
+		}
+		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{Status: &nextStatus})
+		return err
+	})
+	if err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	if err := m.reload(); err != nil {
+		m.message = err.Error()
+		return m, nil
+	}
+	m.message = fmt.Sprintf("%s -> %s", task.Title, nextStatus)
+	return m, nil
 }
 
 func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMonthView {

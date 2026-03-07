@@ -126,6 +126,7 @@ The type selection screen includes this warning:
 - `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range
 - `n` / `p`: change selected task on the focused day
+- `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
 - `Enter`: expand/collapse selected task body preview
 - `e`: open the selected task in the configured editor
 - `z`: open snooze presets for the selected task

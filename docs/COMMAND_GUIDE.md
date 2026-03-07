@@ -191,6 +191,7 @@ Notes:
 - `--months` lets you open whole-month ranges such as one month or three months.
 - The focused day has a task list and a body preview panel.
 - You can edit or snooze the selected task directly from the TUI.
+- You can also change the selected task status directly with `o/i/b/d/c`.
 
 ### `shelf board`
 

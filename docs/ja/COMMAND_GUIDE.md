@@ -179,6 +179,7 @@ due date カレンダービューです。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - フォーカス中の日付には task 一覧と本文プレビューが出ます。
 - TUI 内から editor 起動や snooze ができます。
+- `o/i/b/d/c` で選択 task の status も直接更新できます。
 
 ### `shelf board`
 

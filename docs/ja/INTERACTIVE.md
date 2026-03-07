@@ -142,6 +142,7 @@ type 選択画面では、次の注意文を出します。
 - `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジの先頭 / 末尾へ移動
 - `n` / `p`: 当日の task を切り替え
+- `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
 - `Enter`: 選択 task の本文プレビュー展開/折りたたみ
 - `e`: 選択 task を editor で開く
 - `z`: 選択 task の snooze プリセットを開く
