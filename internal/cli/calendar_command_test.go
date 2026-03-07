@@ -348,3 +348,102 @@ func TestCalendarCreateTaskOnFocusedDayKeepsFilteredTaskVisible(t *testing.T) {
 		t.Fatalf("unexpected message: %s", model.message)
 	}
 }
+
+func TestBuildCalendarSectionsReviewMode(t *testing.T) {
+	today := time.Now().Local().Format("2006-01-02")
+	overdue := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	rootTasks := []shelf.Task{
+		{ID: "01INBOX", Title: "Inbox", Kind: "inbox", Status: "open"},
+		{ID: "01OVER", Title: "Overdue", Kind: "todo", Status: "open", DueOn: overdue},
+		{ID: "01TODAY", Title: "Today", Kind: "todo", Status: "in_progress", DueOn: today},
+		{ID: "01BLOCK", Title: "Blocked", Kind: "todo", Status: "blocked"},
+		{ID: "01READY", Title: "Ready", Kind: "todo", Status: "open"},
+	}
+	focused := &calendarDay{Date: today, Tasks: []shelf.Task{rootTasks[2]}}
+	readiness := map[string]shelf.TaskReadiness{
+		"01INBOX": {Ready: false},
+		"01OVER":  {Ready: true},
+		"01TODAY": {Ready: true},
+		"01BLOCK": {Ready: false, BlockedByDeps: true, UnresolvedDependsOn: []string{"01OVER"}},
+		"01READY": {Ready: true},
+	}
+	titles := map[string]string{"01OVER": "Overdue"}
+
+	sections := buildCalendarSections(calendarModeReview, focused, rootTasks, readiness, titles, 0)
+	if len(sections) != 6 {
+		t.Fatalf("unexpected section count: %d", len(sections))
+	}
+	if sections[0].ID != calendarSectionFocusedDay || len(sections[0].Items) != 1 {
+		t.Fatalf("unexpected focused day section: %+v", sections[0])
+	}
+	if sections[1].ID != calendarSectionInbox || len(sections[1].Items) != 1 || sections[1].Items[0].Task.ID != "01INBOX" {
+		t.Fatalf("unexpected inbox section: %+v", sections[1])
+	}
+	if sections[2].ID != calendarSectionOverdue || len(sections[2].Items) != 1 || sections[2].Items[0].Task.ID != "01OVER" {
+		t.Fatalf("unexpected overdue section: %+v", sections[2])
+	}
+	if sections[3].ID != calendarSectionToday || len(sections[3].Items) != 1 || sections[3].Items[0].Task.ID != "01TODAY" {
+		t.Fatalf("unexpected today section: %+v", sections[3])
+	}
+	if sections[4].ID != calendarSectionBlocked || len(sections[4].Items) != 1 || !strings.Contains(sections[4].Items[0].Reason, "depends_on") {
+		t.Fatalf("unexpected blocked section: %+v", sections[4])
+	}
+	if sections[5].ID != calendarSectionReady || len(sections[5].Items) != 3 {
+		t.Fatalf("unexpected ready section: %+v", sections[5])
+	}
+}
+
+func TestBuildCalendarSectionsTodayModeHonorsLimit(t *testing.T) {
+	today := time.Now().Local().Format("2006-01-02")
+	overdue := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
+	tasks := []shelf.Task{
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", DueOn: overdue},
+		{ID: "01B", Title: "B", Kind: "todo", Status: "open", DueOn: overdue},
+		{ID: "01C", Title: "C", Kind: "todo", Status: "open", DueOn: today},
+		{ID: "01D", Title: "D", Kind: "todo", Status: "open", DueOn: today},
+	}
+	sections := buildCalendarSections(calendarModeToday, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, 1)
+	if len(sections) != 3 {
+		t.Fatalf("unexpected section count: %d", len(sections))
+	}
+	if len(sections[0].Items) != 2 {
+		t.Fatalf("focused day section should not be limited: %+v", sections[0])
+	}
+	if len(sections[1].Items) != 1 || len(sections[2].Items) != 1 {
+		t.Fatalf("non-focused sections should be limited: %+v", sections)
+	}
+}
+
+func TestCalendarRebuildSectionsPreservesSelectedTask(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(second.ID)
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected second selected before rebuild, got=%s", model.selectedTaskID)
+	}
+	model.rebuildSections()
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected second selected after rebuild, got=%s", model.selectedTaskID)
+	}
+	selected, ok := model.selectedTask()
+	if !ok || selected.ID != second.ID {
+		t.Fatalf("unexpected selected task after rebuild: %+v ok=%t", selected, ok)
+	}
+	if first.ID == second.ID {
+		t.Fatal("expected distinct test tasks")
+	}
+}
