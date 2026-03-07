@@ -106,11 +106,11 @@ subcommand:
 - 非TTYでは `--json` を使う
 - 主な操作:
   - `Tab` / `Shift+Tab`: `main` と右 sidebar を切り替え
-  - `C` / `T` / `B` / `R` / `Y`: mode 切り替え
-  - `h` / `l`: calendar mode では日移動、右 sidebar に focus があるときは sidebar calendar を日移動、それ以外では review/today tab 切り替えまたは board 列移動
-  - `j` / `k`: calendar mode では週移動、右 sidebar に focus があるときは sidebar calendar を週移動、それ以外では tree/board/review/today の行移動
+  - `C` / `T` / `B` / `R` / `N`: mode 切り替え
+  - `h` / `l`: calendar mode では日移動、右 sidebar に focus があるときは sidebar calendar を日移動、それ以外では review/now tab 切り替えまたは board 列移動
+  - `j` / `k`: calendar mode では週移動、右 sidebar に focus があるときは sidebar calendar を週移動、それ以外では tree/board/review/now の行移動
   - `[` / `]`: 月移動
-  - `n` / `p`: calendar mode では focused day task 切り替え、review/today では tab 切り替え、board では列移動
+  - `n` / `p`: calendar mode では focused day task 切り替え、review/now では tab 切り替え、board では列移動
   - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
@@ -139,10 +139,10 @@ subcommand:
 
 前提:
 - TTY 必須
-- `calendar` / `tree` / `board` / `review` / `today` が共通 shell 上で切り替わります
+- `calendar` / `tree` / `board` / `review` / `now` が共通 shell 上で切り替わります
 
 主なフラグ:
-- `--mode <calendar|tree|board|review|today>`
+- `--mode <calendar|tree|board|review|now>`
 - `--start <YYYY-MM-DD|today|tomorrow>`
 - `--days <n>`
 - `--months <n>`
@@ -163,7 +163,7 @@ Daily Cockpit の `board` mode を開く launcher です。
 前提:
 - TTY 必須
 - 列は config の `statuses` に従います
-- 起動後は `C/T/B/R/Y` で他 mode に切り替えられます
+- 起動後は `C/T/B/R/N` で他 mode に切り替えられます
 
 ## `shelf estimate`
 
@@ -334,13 +334,15 @@ subcommand:
 - `--not-status <status>`
 - `--json`
 
-## `shelf today`
+## `shelf now`
 
 意味:
 overdue と today に集中した一覧です。
 
+alias: `today`, `td`, `nw`
+
 TTY時の挙動:
-- TTY では Daily Cockpit を `today` mode で開きます
+- TTY では Daily Cockpit を `now` mode で開きます
 - `--plain` で従来の text summary を維持できます
 - `--carry-over` は従来の batch path のままです
 

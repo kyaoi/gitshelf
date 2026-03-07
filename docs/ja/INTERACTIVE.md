@@ -133,22 +133,23 @@ type 選択画面では、次の注意文を出します。
 
 - `shelf board` は shared Daily Cockpit を `board` mode で開きます
 - status 列は config の順序に従います
-- `C/T/B/R/Y` で他 mode へ切り替えられます
+- `C/T/B/R/N` で他 mode へ切り替えられます
 
 ## `calendar` TUI
 
 - `shelf cockpit` / `shelf calendar` / `shelf tree` / `shelf board` で共通利用されます
-- `shelf review` / `shelf today` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
+- `shelf review` / `shelf now` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
 - レイアウトは `main + right sidebar` です
-- `C/T/B/R/Y`: mode 切り替え
+- `C/T/B/R/N`: mode 切り替え
 - `Tab` / `Shift+Tab`: ペイン切り替え
-- `h` / `l`: calendar mode では1日移動、右 sidebar に focus があるときは sidebar calendar を1日移動、それ以外では review/today tab 切り替えまたは board 列移動
-- `j` / `k`: calendar mode では1週移動、右 sidebar に focus があるときは sidebar calendar を1週移動、それ以外では tree/board/review/today の行移動
+- `h` / `l`: calendar mode では1日移動、右 sidebar に focus があるときは sidebar calendar を1日移動、それ以外では review/now tab 切り替えまたは board 列移動
+- `j` / `k`: calendar mode では1週移動、右 sidebar に focus があるときは sidebar calendar を1週移動、それ以外では tree/board/review/now の行移動
 - `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジ先頭 / 末尾、または section 先頭行 / 末尾行へ移動
 - calendar mode では month grid を大きく表示し、focused day task list は inspector の上に出ます
 - calendar 以外の mode では、右 sidebar に compact calendar が inspector の上に出ます。`Tab` で focus すると日付を直接動かせます
-- `n` / `p`: calendar mode では focused day task 切り替え、review/today では tab 切り替え、board では列移動
+- `n` / `p`: calendar mode では focused day task 切り替え、review/now では tab 切り替え、board では列移動
+- `now` mode では `Focused Day` / `Overdue` / `Today` を main pane に同時表示します
 - `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

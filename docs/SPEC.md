@@ -60,8 +60,8 @@
 ## 運用補助コマンド
 
 - `agenda`: 期限ベースで日次確認するための一覧
-- `today`: overdue + today の集中確認
-- `today --carry-over`: 期限切れのactive taskを今日へ繰り上げ
+- `now` (`today` alias): overdue + today の集中確認
+- `now --carry-over`: 期限切れのactive taskを今日へ繰り上げ
 - `snooze`: `due_on` を相対日数または絶対日付で調整
   - due token: `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon..sun`, `next-mon..next-sun`, `in N days`
 - `archive` / `unarchive`: 表示対象からの退避/復帰

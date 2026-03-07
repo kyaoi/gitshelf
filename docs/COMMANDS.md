@@ -116,10 +116,10 @@ Due-date calendar view.
 - keybindings:
   - `Tab` / `Shift+Tab`: move between `main` and the right sidebar
   - `C` / `T` / `B` / `R` / `Y`: switch cockpit mode
-  - `h` / `l`: move by day in calendar mode, move the sidebar calendar by day when the right pane is focused, otherwise switch review/today tabs or move board columns
-  - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/today
+  - `h` / `l`: move by day in calendar mode, move the sidebar calendar by day when the right pane is focused, otherwise switch review/now tabs or move board columns
+  - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/now
   - `[` / `]`: jump by month inside the current range
-  - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/today, or move board columns
+  - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/now, or move board columns
   - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
@@ -148,12 +148,12 @@ Rules:
 Unified Daily Cockpit launcher.
 
 - TTY only
-- opens the shared shell used by `calendar`, `tree`, `board`, `review`, and `today`
+- opens the shared shell used by `calendar`, `tree`, `board`, `review`, and `now`
 - starting mode is controlled by `--mode`
 
 Flags:
 
-- `--mode <calendar|tree|board|review|today>`
+- `--mode <calendar|tree|board|review|now>`
 - `--start <YYYY-MM-DD|today|tomorrow>`
 - `--days <n>`
 - `--months <n>`
@@ -172,7 +172,7 @@ Daily Cockpit launcher for `board` mode.
 
 - TTY only
 - columns follow configured `statuses`
-- once opened, the same cockpit shell can switch to `calendar` / `tree` / `review` / `today` with `C/T/B/R/Y`
+- once opened, the same cockpit shell can switch to `calendar` / `tree` / `review` / `now` with `C/T/B/R/N`
 
 ## shelf estimate
 
@@ -382,15 +382,17 @@ Flags:
 - `--not-tag <tag>` (repeatable exclude filter)
 - `--json`
 
-## shelf today
+## shelf now
 
 Show only overdue + today tasks.
+
+Aliases: `today`, `td`, `nw`
 
 Default target statuses are `open`, `in_progress`, `blocked`.
 
 TTY behavior:
 
-- on TTY, opens the Daily Cockpit in `today` mode
+- on TTY, opens the Daily Cockpit in `now` mode
 - use `--plain` to force the legacy text summary
 - `--carry-over` stays on the legacy batch flow
 - non-TTY stays on the legacy text path unless `--json` is used

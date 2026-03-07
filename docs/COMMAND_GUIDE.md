@@ -20,7 +20,7 @@ This file is the operator guide.
 | Update metadata/body | `shelf set` |
 | Move in the tree | `shelf mv` |
 | Change status quickly | `shelf done`, `start`, `block`, `cancel`, `reopen` |
-| See what to work on now | `shelf next`, `review`, `today`, `agenda` |
+| See what to work on now | `shelf next`, `review`, `now`, `agenda` |
 | See due dates on a calendar | `shelf calendar` |
 | Open the unified TUI shell directly | `shelf cockpit` |
 | Manage status visually | `shelf board` |
@@ -163,7 +163,7 @@ Show actionable tasks only.
 Use when:
 You want a short list of tasks that are ready right now.
 
-### `shelf today`
+### `shelf now`
 
 Meaning:
 Focus on overdue and today-due work.
@@ -172,7 +172,7 @@ Use when:
 You are planning the current day.
 
 Notes:
-- On TTY, `today` opens the Daily Cockpit in `today` mode by default.
+- On TTY, `now` opens the Daily Cockpit in `now` mode by default. `today` remains as an alias.
 - Use `--plain` to keep the legacy text summary.
 - `--carry-over` still uses the legacy batch flow and does not open the cockpit.
 
@@ -203,9 +203,9 @@ Notes:
 - Layout is now `main + right sidebar`, with mode tabs instead of a fixed three-column layout.
 - In calendar mode, the month grid is larger and the `Focused Day` task list sits above the inspector.
 - In non-calendar modes, the right sidebar shows a small calendar above the inspector. Focus it with `Tab` and move dates directly with `h/j/k/l/[ ]`.
-- `C/T/B/R/Y` switches between `calendar`, `tree`, `board`, `review`, and `today`.
-- `n/p` switches focused-day tasks in calendar mode, switches tabs in review/today, and moves columns in board; `1..6` jumps directly when a section exists.
-- `review` / `today` keep the focused date context, but do not render the full month grid all the time.
+- `C/T/B/R/N` switches between `calendar`, `tree`, `board`, `review`, and `now`.
+- `n/p` switches focused-day tasks in calendar mode, switches tabs in review/now, and moves columns in board; `1..6` jumps directly when a section exists.
+- `review` keeps the focused date context without the full month grid, and `now` shows `Focused Day | Overdue | Today` side by side.
 - You can add a task directly on the focused day with `a`; kind/status come from config defaults.
 - You can edit or snooze the selected task directly from the TUI.
 - You can also change the selected task status directly with `o/i/b/d/c`.
@@ -520,7 +520,7 @@ shelf capture "idea or interruption"
 shelf triage
 shelf review
 shelf next
-shelf today
+shelf now
 ```
 
 ## Recommended Weekly Flow

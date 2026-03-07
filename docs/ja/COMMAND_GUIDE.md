@@ -20,7 +20,7 @@
 | メタデータを更新したい | `shelf set` |
 | ツリー内で移動したい | `shelf mv` |
 | 状態だけ素早く変えたい | `done`, `start`, `block`, `cancel`, `reopen` |
-| 今日やることを見たい | `review`, `next`, `today`, `agenda` |
+| 今日やることを見たい | `review`, `next`, `now`, `agenda` |
 | 日付軸で見たい | `calendar` |
 | 統一 TUI を直接開きたい | `cockpit` |
 | ステータス列で見たい | `board` |
@@ -151,7 +151,7 @@ inbox を処理します。
 使う場面:
 - 「で、次に何をやるのか」だけ知りたいとき
 
-### `shelf today`
+### `shelf now`
 
 意味:
 overdue と today に集中した確認です。
@@ -160,7 +160,7 @@ overdue と today に集中した確認です。
 - 今日の作業計画を立てるとき
 
 補足:
-- TTY では Daily Cockpit を `today` mode で開きます。
+- TTY では Daily Cockpit を `now` mode で開きます。`today` は alias のまま使えます。
 - `--plain` で従来の text summary を維持できます。
 - `--carry-over` は従来の batch path のままです。
 
@@ -191,9 +191,9 @@ due date カレンダービューです。
 - レイアウトは `main + right sidebar` で、mode tab を切り替えながら使います。
 - calendar mode では month grid を大きく取り、`Focused Day` task list は inspector の上に出します。
 - calendar 以外の mode では、右 sidebar に小さな calendar を inspector の上へ表示します。`Tab` で右 sidebar に focus して `h/j/k/l/[ ]` で日付を直接動かせます。
-- `C/T/B/R/Y` で `calendar` / `tree` / `board` / `review` / `today` を切り替えます。
-- `n/p` で calendar mode の focused day task を切り替え、review/today では tab、board では列を切り替えます。`1..6` で section へ直接ジャンプできます。
-- `review` / `today` では focused date の文脈は残しますが、full month grid は常時出しません。
+- `C/T/B/R/N` で `calendar` / `tree` / `board` / `review` / `now` を切り替えます。
+- `n/p` で calendar mode の focused day task を切り替え、review/now では tab、board では列を切り替えます。`1..6` で section へ直接ジャンプできます。
+- `review` は focused date の文脈を保った要約表示で、`now` は `Focused Day | Overdue | Today` を同時に並べて表示します。
 - `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
@@ -505,7 +505,7 @@ shelf capture "interrupt / idea"
 shelf triage
 shelf review
 shelf next
-shelf today
+shelf now
 ```
 
 ### 週次

@@ -72,8 +72,8 @@
 ## 運用補助コマンド
 
 - `agenda`: 期限ベースの確認
-- `today`: overdue + today の集中確認
-- `today --carry-over`: overdue active task を今日に繰り上げ
+- `now` (`today` alias): overdue + today の集中確認
+- `now --carry-over`: overdue active task を今日に繰り上げ
 - `snooze`: `due_on` を相対または絶対日付で調整
 - `archive` / `unarchive`: 一覧から退避 / 復帰
 - `done` / `reopen`: status ショートカット
