@@ -146,7 +146,8 @@ type 選択画面では、次の注意文を出します。
 - `j` / `k`: calendar mode では1週移動、tree/board/review/today では行移動
 - `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジ先頭 / 末尾、または section 先頭行 / 末尾行へ移動
-- `n` / `p`: cockpit tab を切り替え、または board 列移動
+- calendar mode では month grid を大きく表示し、focused day task list は inspector の下に出ます
+- `n` / `p`: calendar mode では focused day task 切り替え、review/today では tab 切り替え、board では列移動
 - `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

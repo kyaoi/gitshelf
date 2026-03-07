@@ -119,7 +119,7 @@ Due-date calendar view.
   - `h` / `l`: move by day, switch review/today tabs, or move board columns
   - `j` / `k`: move by week in calendar mode, or move rows in tree/board/review/today
   - `[` / `]`: jump by month inside the current range
-  - `n` / `p`: switch cockpit tabs, or board columns
+  - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/today, or move board columns
   - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`

@@ -129,7 +129,8 @@ The type selection screen includes this warning:
 - `j` / `k`: move by one week in calendar mode, or move rows in tree/board/review/today
 - `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
-- `n` / `p`: switch cockpit tabs, or board columns
+- in `calendar` mode, the month grid is larger and the focused-day task list lives below the inspector
+- `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/today, or move board columns
 - `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`

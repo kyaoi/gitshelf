@@ -110,7 +110,7 @@ subcommand:
   - `h` / `l`: 日移動、review/today tab 切り替え、または board 列移動
   - `j` / `k`: calendar mode では週移動、tree/board/review/today では行移動
   - `[` / `]`: 月移動
-  - `n` / `p`: cockpit tab 切り替え、または board 列移動
+  - `n` / `p`: calendar mode では focused day task 切り替え、review/today では tab 切り替え、board では列移動
   - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

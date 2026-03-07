@@ -189,8 +189,9 @@ due date カレンダービューです。
 - `--years` で年単位レンジも開けます。
 - shared Daily Cockpit shell を開きます。
 - レイアウトは `main + inspector` で、mode tab を切り替えながら使います。
+- calendar mode では month grid を大きく取り、`Focused Day` task list は inspector の下に出します。
 - `C/T/B/R/Y` で `calendar` / `tree` / `board` / `review` / `today` を切り替えます。
-- `n/p` で tab や board 列を切り替え、`1..6` で section へ直接ジャンプできます。
+- `n/p` で calendar mode の focused day task を切り替え、review/today では tab、board では列を切り替えます。`1..6` で section へ直接ジャンプできます。
 - `review` / `today` では focused date の文脈は残しますが、full month grid は常時出しません。
 - `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
