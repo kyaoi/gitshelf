@@ -12,11 +12,17 @@ Use this file when you want to understand how the tool is intended to be used to
 
 The current tool has one main interactive workspace and several launcher commands around it.
 
-- `shelf`
-  - on TTY: opens Cockpit directly
-  - on non-TTY: prints help
+If you are reading only one rule, use this one:
+
+- start with `shelf`
+- stay in Cockpit for normal daily work
+- drop to plain commands when you need scripting, raw output, or one precise operation
+
 - `shelf cockpit`
   - opens the main interactive workspace explicitly
+- `shelf`
+  - on TTY: opens the same Cockpit directly
+  - on non-TTY: prints help
 - `shelf calendar`
   - opens Cockpit in `calendar` mode
 - `shelf tree`
@@ -33,7 +39,8 @@ The current tool has one main interactive workspace and several launcher command
 
 Recommended rule:
 
-- start with `shelf` or `shelf cockpit`
+- start with `shelf`
+- use `shelf cockpit` when you want to be explicit
 - use other commands when you want a narrower entry point or a non-interactive/scriptable path
 
 ## Recommended Daily Workflow

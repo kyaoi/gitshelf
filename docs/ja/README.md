@@ -39,100 +39,56 @@ go build -o shelf ./cmd/shelf
 # 現在のディレクトリで初期化
 ./shelf init
 
-# TTY ではそのまま Cockpit を開ける
+# まずは TTY で Cockpit から始める
 ./shelf
-
-# すぐにメモを積む
-./shelf capture "Call vendor"
-
-# 構造化された task を追加
-./shelf add --title "Weekly Goal"
-./shelf add --title "Monday Plan" --parent root
-
-# 一覧・ツリー・詳細
-./shelf ls
-./shelf tree
-./shelf show <task-id>
-
-# 更新
-./shelf set <task-id> --status done
-./shelf mv <task-id> --parent root
-
-# 日次レビュー
-./shelf triage
 ./shelf cockpit
+./shelf capture "Call vendor"
+./shelf triage
 ./shelf review
-./shelf next
 ./shelf now
 
-# 関係づけ
+# 更新
+./shelf add --title "Weekly Goal"
+./shelf add --title "Monday Plan" --parent root
+./shelf set <task-id> --status done
+./shelf mv <task-id> --parent root
+./shelf snooze <task-id> --by 2d
+
+# Cockpit の launcher
+./shelf calendar
+./shelf tree
+./shelf board
+
+# 個別確認・編集
+./shelf ls
+./shelf show <task-id>
+./shelf edit <task-id>
+./shelf explain <task-id>
+
+# 関係づけと GitHub 連携
 ./shelf link --from <a> --to <b> --type depends_on
 ./shelf deps <a> --graph --transitive
-
-# GitHub 連携
 ./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
 ./shelf sync github <task-id>
+
+# テンプレート・保存ビュー・履歴
+./shelf template save weekly-plan <task-id>
+./shelf template apply weekly-plan --parent root
+./shelf view list
+./shelf preset set ls_focus --command ls --view active --format detail --limit 20
+./shelf undo
+./shelf redo
+./shelf history
 
 # 整合性チェック
 ./shelf doctor
 ```
 
-## 基本概念
+## まず読むべきもの
 
-### kind
-
-タスクの種類です。例:
-
-- `todo`
-- `idea`
-- `memo`
-- `inbox`
-
-### status
-
-進捗状態です。デフォルトでは次を使います。
-
-- `open`
-- `in_progress`
-- `blocked`
-- `done`
-- `cancelled`
-
-### 本文
-
-task ファイルの front matter より下は自由記述のノート欄です。用途は以下です。
-
-- 詳細説明
-- 補足
-- 実行メモ
-- 進捗ログ
-- アイデア本文
-- 参考情報
-
-### link type
-
-- `depends_on`: `A depends_on B` は「A をやるには B が先」
-- `related`: 雑な関連づけ
-
-## どのコマンドを使うべきか
-
-- すぐ積む: `capture`
-- きちんと作る: `add`
-- inbox を捌く: `triage`
-- 今日の全体像を見る: `review`
-- 今やるものだけ見る: `next`
-- 期限ベースで見る: `cockpit`, `calendar`, `now`, `agenda`
-- 階層で見る: `tree`
-- 1件を深掘りする: `show`
-- 生ファイルを触る: `edit`
-- メタデータ更新: `set`
-- 親子を変える: `mv`
-- 依存や関連を貼る: `link`, `links`, `deps`
-- GitHub issue / PR を紐付ける: `github`, `sync github`
-- 工数を見る: `estimate`, `track`
-- 壊れを確認する: `doctor`
-
-詳しい判断基準は [`COMMAND_GUIDE.md`](COMMAND_GUIDE.md) を参照してください。
+- 主な使い方の流れ: [`WORKFLOWS.md`](WORKFLOWS.md)
+- コマンドの使い分け: [`COMMAND_GUIDE.md`](COMMAND_GUIDE.md)
+- 正確な仕様: [`COMMANDS.md`](COMMANDS.md)
 
 ## 対話 UI
 

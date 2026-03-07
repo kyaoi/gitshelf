@@ -30,60 +30,44 @@ go build -o shelf ./cmd/shelf
 # Initialize in current directory
 ./shelf init
 
-# Open Cockpit directly on TTY
+# Start from the main workspace on TTY
 ./shelf
-
-# Initialize global shelf (writes global config + creates global .shelf)
-./shelf init --global
-
-# Add tasks
-./shelf add --title "Weekly Goal"
-./shelf add --title "Monday Plan" --parent root
 ./shelf capture "Call vendor"
-./shelf triage --auto done
-./shelf template save weekly-plan <task-id>
-./shelf template apply weekly-plan --parent root
 ./shelf cockpit
-./shelf calendar
-./shelf board
-./shelf estimate <task-id> --set 2h --spent 30m
-./shelf track start <task-id>
-./shelf track stop <task-id>
-./shelf notify --command 'notify-send gitshelf "$SHELF_TASK_TITLE"'
-./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
-./shelf sync github <task-id>
+./shelf triage
 ./shelf review
-
-# List and inspect
-./shelf ls
-./shelf tree
-./shelf show <task-id>
-./shelf edit <task-id>
+./shelf now
 
 # Update and move
+./shelf add --title "Weekly Goal"
+./shelf add --title "Monday Plan" --parent root
 ./shelf set <task-id> --status done
 ./shelf mv <task-id> --parent root
 ./shelf start <task-id>
 ./shelf block <task-id>
 ./shelf cancel <task-id>
-./shelf next
-./shelf agenda
-./shelf now
 ./shelf snooze <task-id> --by 2d
-./shelf archive <task-id>
-./shelf unarchive <task-id>
-./shelf reopen <task-id>
-./shelf undo
-./shelf redo
-./shelf history
-./shelf history show 1
+
+# Launcher commands into Cockpit
+./shelf calendar
+./shelf tree
+./shelf board
+
+# Direct inspection and file editing
+./shelf ls
+./shelf show <task-id>
+./shelf edit <task-id>
 ./shelf explain <task-id>
 
 # Link tasks
 ./shelf link --from <a> --to <b> --type depends_on
 ./shelf links <a> --transitive
+./shelf github link <task-id> --url https://github.com/acme/repo/issues/42
+./shelf sync github <task-id>
 
-# Manage views / backup
+# Templates, views, backup, and history
+./shelf template save weekly-plan <task-id>
+./shelf template apply weekly-plan --parent root
 ./shelf view list
 ./shelf view set focus --ready --limit 20
 ./shelf preset set ls_focus --command ls --view active --format detail --limit 20
@@ -92,7 +76,20 @@ go build -o shelf ./cmd/shelf
 ./shelf export --out backup.json
 ./shelf import --validate-only --in backup.json
 ./shelf import --merge --in backup.json
+./shelf undo
+./shelf redo
+./shelf history
+./shelf history show 1
 ./shelf completion zsh
+
+# Estimate, tracking, and notifications
+./shelf estimate <task-id> --set 2h --spent 30m
+./shelf track start <task-id>
+./shelf track stop <task-id>
+./shelf notify --command 'notify-send gitshelf \"$SHELF_TASK_TITLE\"'
+
+# Initialize global shelf (writes global config + creates global .shelf)
+./shelf init --global
 
 # Check integrity
 ./shelf doctor
@@ -190,6 +187,12 @@ Color output:
 ## Cockpit
 
 `shelf cockpit` is the main TUI workspace. `calendar`, `tree`, `board`, `review`, and `now` are launcher commands that open `cockpit` in different starting modes. Running `shelf` without a subcommand opens the same workspace on TTY.
+
+Recommended starting point:
+
+```bash
+shelf
+```
 
 Main modes:
 

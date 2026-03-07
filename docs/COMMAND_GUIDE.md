@@ -11,6 +11,7 @@ For end-to-end usage patterns, see `docs/WORKFLOWS.md`.
 | Goal | Command |
 |---|---|
 | Initialize `.shelf/` | `shelf init` |
+| Open the main TUI workspace directly | `shelf cockpit` |
 | Capture something quickly | `shelf capture` |
 | Create a structured task | `shelf add` |
 | Triage inbox items | `shelf triage` |
@@ -23,7 +24,6 @@ For end-to-end usage patterns, see `docs/WORKFLOWS.md`.
 | Change status quickly | `shelf done`, `start`, `block`, `cancel`, `reopen` |
 | See what to work on now | `shelf next`, `review`, `now`, `agenda` |
 | See due dates on a calendar | `shelf calendar` |
-| Open the main TUI workspace directly | `shelf cockpit` |
 | Manage status visually | `shelf board` |
 | Add links between tasks | `shelf link`, `unlink`, `links`, `deps` |
 | Link GitHub issues/PRs | `shelf github`, `shelf sync github` |

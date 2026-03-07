@@ -11,6 +11,7 @@
 | やりたいこと | コマンド |
 |---|---|
 | `.shelf/` を初期化したい | `shelf init` |
+| 主入口の TUI workspace を直接開きたい | `cockpit` |
 | とにかくすぐ積みたい | `shelf capture` |
 | 構造化して task を作りたい | `shelf add` |
 | inbox を捌きたい | `shelf triage` |
@@ -23,7 +24,6 @@
 | 状態だけ素早く変えたい | `done`, `start`, `block`, `cancel`, `reopen` |
 | 今日やることを見たい | `review`, `next`, `now`, `agenda` |
 | 日付軸で見たい | `calendar` |
-| 主入口の TUI workspace を直接開きたい | `cockpit` |
 | ステータス列で見たい | `board` |
 | タスク同士をつなぎたい | `link`, `unlink`, `links`, `deps` |
 | GitHub issue / PR と同期したい | `github`, `sync github` |

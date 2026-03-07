@@ -10,11 +10,17 @@
 
 現在のツールは、1つの主 workspace と、その起動用コマンド群という構成です。
 
-- `shelf`
-  - TTY なら Cockpit を直接開く
-  - 非TTYなら help を表示
+最初に読むべきルールはこれです。
+
+- まずは `shelf`
+- 日常作業は Cockpit に留まる
+- script、JSON、単発確認のときだけ plain command に降りる
+
 - `shelf cockpit`
   - 主入口の interactive workspace を明示的に開く
+- `shelf`
+  - TTY なら同じ Cockpit を直接開く
+  - 非TTYなら help を表示
 - `shelf calendar`
   - Cockpit の `calendar` mode で開く
 - `shelf tree`
@@ -30,7 +36,8 @@
 
 基本方針:
 
-- 普段は `shelf` または `shelf cockpit`
+- 普段は `shelf`
+- 明示したいときだけ `shelf cockpit`
 - 用途が狭い入口や script 用には個別コマンド
 
 ## おすすめの日次フロー
