@@ -34,9 +34,9 @@ func TestBuildCalendarDays(t *testing.T) {
 func TestBuildCalendarMonthView(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
 	tasks := []shelf.Task{
-		{ID: "01A", Title: "A", DueOn: "2026-03-09"},
+		{ID: "01A", Title: "A", DueOn: "2026-03-09", Status: "open"},
 		{ID: "01B", Title: "B", DueOn: "2026-03-10"},
-		{ID: "01C", Title: "C", DueOn: "2026-03-10"},
+		{ID: "01C", Title: "C", DueOn: "2026-03-10", Status: "blocked"},
 	}
 	days := buildCalendarDays(tasks, start, 14)
 	month := buildCalendarMonthView(days, time.Date(2026, 3, 10, 0, 0, 0, 0, time.Local))
@@ -66,9 +66,39 @@ func TestBuildCalendarMonthView(t *testing.T) {
 			if cell.TaskCount != 2 {
 				t.Fatalf("expected task count 2, got %+v", cell)
 			}
+			if cell.DominantStatus != "blocked" {
+				t.Fatalf("expected blocked dominant status, got %+v", cell)
+			}
 		}
 	}
 	if !found {
 		t.Fatal("expected to find 2026-03-10 cell")
+	}
+}
+
+func TestMoveCalendarIndexByMonth(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	days := buildCalendarDays(nil, start, 40)
+
+	got := moveCalendarIndexByMonth(days, 0, 1)
+	if got != 31 {
+		t.Fatalf("unexpected next month index: %d", got)
+	}
+
+	got = moveCalendarIndexByMonth(days, 31, -1)
+	if got != 0 {
+		t.Fatalf("unexpected previous month index: %d", got)
+	}
+}
+
+func TestDominantCalendarStatus(t *testing.T) {
+	tasks := []shelf.Task{
+		{Status: "open"},
+		{Status: "done"},
+		{Status: "blocked"},
+		{Status: "in_progress"},
+	}
+	if got := dominantCalendarStatus(tasks); got != "blocked" {
+		t.Fatalf("unexpected dominant status: %s", got)
 	}
 }

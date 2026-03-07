@@ -77,11 +77,19 @@ func runEditorCommand(command string, taskPath string, stdin io.Reader, stdout i
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return fmt.Errorf("editor exited with status %d", exitErr.ExitCode())
-		}
-		return fmt.Errorf("failed to start editor %q: %w", command, err)
+		return normalizeEditorExecErrorWithCommand(command, err)
 	}
 	return nil
+}
+
+func normalizeEditorExecError(err error) error {
+	return normalizeEditorExecErrorWithCommand("editor", err)
+}
+
+func normalizeEditorExecErrorWithCommand(command string, err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return fmt.Errorf("editor exited with status %d", exitErr.ExitCode())
+	}
+	return fmt.Errorf("failed to start editor %q: %w", command, err)
 }

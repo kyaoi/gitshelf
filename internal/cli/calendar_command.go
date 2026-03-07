@@ -64,7 +64,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			if !interactive.IsTTY() {
 				return errors.New("calendar はTTYが必要です。非TTYでは --json を使ってください")
 			}
-			return runCalendarTUI(calendar, ctx.showID)
+			return runCalendarTUI(ctx.rootDir, startDate, days, selectedStatuses, ctx.showID)
 		},
 	}
 
