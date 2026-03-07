@@ -2111,10 +2111,43 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 		parts = append(parts, accentStyle.Render("Move Target"))
 	}
 	if labels := m.transientModeLabels(); len(labels) > 0 {
-		parts = append(parts, accentStyle.Render("Mode "+strings.Join(labels, "+")))
+		parts = append(parts, renderTransientModeBadges(labels))
 		parts = append(parts, metaStyle.Render("Ctrl+[: normal"))
 	}
 	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
+}
+
+func renderTransientModeBadges(labels []string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	parts := []string{lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true).Render("Mode")}
+	for _, label := range labels {
+		parts = append(parts, transientModeBadgeStyle(label).Render(label))
+	}
+	return strings.Join(parts, " ")
+}
+
+func transientModeBadgeStyle(label string) lipgloss.Style {
+	background := lipgloss.Color("238")
+	foreground := lipgloss.Color("255")
+	switch label {
+	case "help":
+		background = lipgloss.Color("61")
+	case "range":
+		background = lipgloss.Color("98")
+	case "move":
+		background = lipgloss.Color("166")
+	case "add":
+		background = lipgloss.Color("29")
+	case "snooze":
+		background = lipgloss.Color("94")
+	}
+	return lipgloss.NewStyle().
+		Foreground(foreground).
+		Background(background).
+		Bold(true).
+		Padding(0, 1)
 }
 
 func (m calendarTUIModel) transientModeLabels() []string {

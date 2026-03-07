@@ -1087,7 +1087,7 @@ func TestRenderCockpitHeaderShowsTransientModeHint(t *testing.T) {
 		rangeMarkMode: true,
 	}
 	header := renderCockpitHeader(model, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local))
-	if !strings.Contains(header, "Mode help+range") {
+	if !strings.Contains(header, "Mode") || !strings.Contains(header, "help") || !strings.Contains(header, "range") {
 		t.Fatalf("expected transient mode labels in header, got: %q", header)
 	}
 	if !strings.Contains(header, "Ctrl+[: normal") {
