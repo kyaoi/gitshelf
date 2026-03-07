@@ -313,8 +313,8 @@ func TestCalendarCreateTaskOnFocusedDay(t *testing.T) {
 	if created.Title != "Created from calendar" || created.DueOn != "2026-03-09" {
 		t.Fatalf("unexpected created task: %+v", created)
 	}
-	if model.taskIndex != 0 {
-		t.Fatalf("expected selected created task, got taskIndex=%d", model.taskIndex)
+	if model.selectedTaskID != created.ID {
+		t.Fatalf("expected selected created task, got selectedTaskID=%s", model.selectedTaskID)
 	}
 }
 

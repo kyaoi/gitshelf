@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,29 +31,96 @@ type calendarEditorFinishedMsg struct {
 	Err error
 }
 
+type calendarMode string
+
+const (
+	calendarModeCalendar calendarMode = "calendar"
+	calendarModeReview   calendarMode = "review"
+	calendarModeToday    calendarMode = "today"
+)
+
+type calendarPane int
+
+const (
+	calendarPaneGrid calendarPane = iota
+	calendarPaneSections
+	calendarPaneInspector
+)
+
+type calendarSectionID string
+
+const (
+	calendarSectionFocusedDay calendarSectionID = "focused_day"
+	calendarSectionInbox      calendarSectionID = "inbox"
+	calendarSectionOverdue    calendarSectionID = "overdue"
+	calendarSectionToday      calendarSectionID = "today"
+	calendarSectionBlocked    calendarSectionID = "blocked"
+	calendarSectionReady      calendarSectionID = "ready"
+)
+
+type calendarTUIOptions struct {
+	Mode         calendarMode
+	ShowID       bool
+	SectionLimit int
+}
+
+type calendarSectionItem struct {
+	Task     shelf.Task
+	Subtitle string
+	Reason   string
+}
+
+type calendarSection struct {
+	ID    calendarSectionID
+	Title string
+	Items []calendarSectionItem
+}
+
 type calendarTUIModel struct {
 	rootDir       string
+	mode          calendarMode
 	startDate     time.Time
 	daysCount     int
 	statuses      []shelf.Status
+	sectionLimit  int
 	defaultKind   shelf.Kind
 	defaultStatus shelf.Status
 	showID        bool
-	days          []calendarDay
-	dayIndex      int
-	taskIndex     int
-	width         int
-	height        int
-	message       string
-	showTaskBody  bool
-	snoozeMode    bool
-	snoozeIndex   int
-	addMode       bool
-	addTitle      string
+
+	visibleTasks  []shelf.Task
+	allTasks      []shelf.Task
+	readiness     map[string]shelf.TaskReadiness
+	taskByID      map[string]shelf.Task
+	titleByID     map[string]string
+	outboundCount map[string]int
+	inboundCount  map[string]int
+
+	days           []calendarDay
+	dayIndex       int
+	sections       []calendarSection
+	sectionIndex   int
+	sectionRows    map[calendarSectionID]int
+	selectedTaskID string
+	pane           calendarPane
+	width          int
+	height         int
+	message        string
+	showTaskBody   bool
+	snoozeMode     bool
+	snoozeIndex    int
+	addMode        bool
+	addTitle       string
 }
 
 func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) error {
-	model, err := newCalendarTUIModel(rootDir, startDate, daysCount, statuses, showID)
+	return runCalendarModeTUI(rootDir, startDate, daysCount, statuses, calendarTUIOptions{
+		Mode:   calendarModeCalendar,
+		ShowID: showID,
+	})
+}
+
+func runCalendarModeTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, opts calendarTUIOptions) error {
+	model, err := newCalendarTUIModelWithOptions(rootDir, startDate, daysCount, statuses, opts)
 	if err != nil {
 		return err
 	}
@@ -62,20 +130,37 @@ func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses
 }
 
 func newCalendarTUIModel(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) (calendarTUIModel, error) {
+	return newCalendarTUIModelWithOptions(rootDir, startDate, daysCount, statuses, calendarTUIOptions{
+		Mode:   calendarModeCalendar,
+		ShowID: showID,
+	})
+}
+
+func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, opts calendarTUIOptions) (calendarTUIModel, error) {
 	cfg, err := shelf.LoadConfig(rootDir)
 	if err != nil {
 		return calendarTUIModel{}, err
 	}
+	if opts.Mode == "" {
+		opts.Mode = calendarModeCalendar
+	}
 	model := calendarTUIModel{
 		rootDir:       rootDir,
+		mode:          opts.Mode,
 		startDate:     startDate,
 		daysCount:     daysCount,
 		statuses:      append([]shelf.Status{}, statuses...),
+		sectionLimit:  opts.SectionLimit,
 		defaultKind:   cfg.DefaultKind,
 		defaultStatus: cfg.DefaultStatus,
-		showID:        showID,
-		dayIndex:      0,
-		taskIndex:     0,
+		showID:        opts.ShowID,
+		pane:          calendarPaneGrid,
+		sectionRows:   map[calendarSectionID]int{},
+		readiness:     map[string]shelf.TaskReadiness{},
+		taskByID:      map[string]shelf.Task{},
+		titleByID:     map[string]string{},
+		outboundCount: map[string]int{},
+		inboundCount:  map[string]int{},
 	}
 	if err := model.reload(); err != nil {
 		return calendarTUIModel{}, err
@@ -114,6 +199,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
+		case "tab":
+			m.nextPane()
+			return m, nil
+		case "shift+tab":
+			m.prevPane()
+			return m, nil
 		case "left", "h":
 			m.moveFocusByDays(-1)
 			return m, nil
@@ -121,20 +212,34 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveFocusByDays(1)
 			return m, nil
 		case "up", "k":
-			m.moveFocusByDays(-7)
+			if m.pane == calendarPaneSections {
+				m.moveSectionRow(-1)
+			} else {
+				m.moveFocusByDays(-7)
+			}
 			return m, nil
 		case "down", "j":
-			m.moveFocusByDays(7)
+			if m.pane == calendarPaneSections {
+				m.moveSectionRow(1)
+			} else {
+				m.moveFocusByDays(7)
+			}
 			return m, nil
 		case "g":
-			m.dayIndex = 0
-			m.clampTaskIndex()
+			if m.pane == calendarPaneSections {
+				m.jumpSectionRowStart()
+			} else {
+				m.dayIndex = 0
+				m.rebuildSections()
+			}
 			return m, nil
 		case "G":
-			if len(m.days) > 0 {
+			if m.pane == calendarPaneSections {
+				m.jumpSectionRowEnd()
+			} else if len(m.days) > 0 {
 				m.dayIndex = len(m.days) - 1
+				m.rebuildSections()
 			}
-			m.clampTaskIndex()
 			return m, nil
 		case "[", "H":
 			m.moveFocusByMonths(-1)
@@ -142,11 +247,14 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "]", "L":
 			m.moveFocusByMonths(1)
 			return m, nil
-		case "tab", "n":
-			m.moveTaskSelection(1)
+		case "n":
+			m.moveSectionSelection(1)
 			return m, nil
-		case "shift+tab", "p":
-			m.moveTaskSelection(-1)
+		case "p":
+			m.moveSectionSelection(-1)
+			return m, nil
+		case "1", "2", "3", "4", "5", "6":
+			m.jumpToSection(int(msg.String()[0] - '1'))
 			return m, nil
 		case "enter", "v":
 			if _, ok := m.selectedTask(); ok {
@@ -162,7 +270,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "z":
 			if _, ok := m.selectedTask(); !ok {
-				m.message = "選択中の日に task がありません"
+				m.message = "選択中の task がありません"
 				return m, nil
 			}
 			m.snoozeMode = true
@@ -196,26 +304,27 @@ func (m calendarTUIModel) View() string {
 		return "No calendar days.\n"
 	}
 
-	focused := m.days[m.dayIndex]
-	focusedDate, _ := time.ParseInLocation("2006-01-02", focused.Date, time.Now().Location())
-	month := buildCalendarMonthView(m.days, focusedDate)
+	focused, _ := m.focusedDate()
+	month := buildCalendarMonthView(m.days, focused)
+	gridWidth, sectionWidth, inspectorWidth := m.layoutWidths()
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	subStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
+	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 
 	header := []string{
-		titleStyle.Render(fmt.Sprintf("Calendar %s .. %s", m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("h/l: 日  j/k: 週  [/]: 月  n/p: task  o/i/b/d/c: status  Enter: 詳細  e: edit  z: snooze  r: reload  q: quit"),
-		subStyle.Render(fmt.Sprintf("Focused: %s", focusedDate.Format("Mon 2006-01-02"))),
+		headerStyle.Render(fmt.Sprintf("Calendar [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
+		helpStyle.Render("Tab: pane  h/l: 日  j/k: 週 or row  [/]: 月  n/p: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
+		metaStyle.Render(fmt.Sprintf("Focused: %s  Filter: %s", focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
 	}
 
-	parts := []string{
-		strings.Join(header, "\n"),
-		renderCalendarLegend(),
-		renderCalendarMonth(month, focused.Date, m.width),
-		renderCalendarDayDetails(focused, m.showID, m.taskIndex, m.showTaskBody),
-	}
+	left := renderCalendarGridPane(month, m.focusedDayLabel(), gridWidth, m.pane == calendarPaneGrid)
+	middle := renderCalendarSectionsPane(m.sections, m.sectionIndex, m.sectionRows, m.showID, sectionWidth, m.pane == calendarPaneSections)
+	selectedTask, selectedTaskOK := m.selectedTask()
+	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth)
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, left, middle, right)
+	parts := []string{strings.Join(header, "\n"), renderCalendarLegend(), body}
 	if m.snoozeMode {
 		parts = append(parts, renderCalendarSnoozePicker(m.snoozeIndex))
 	}
@@ -225,8 +334,38 @@ func (m calendarTUIModel) View() string {
 	if strings.TrimSpace(m.message) != "" {
 		parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color("141")).Render(m.message))
 	}
-
 	return strings.Join(parts, "\n\n") + "\n"
+}
+
+func (m calendarTUIModel) layoutWidths() (int, int, int) {
+	if m.width <= 0 {
+		return 54, 48, 52
+	}
+	usable := max(96, m.width-2)
+	grid := max(44, usable*34/100)
+	sections := max(36, usable*28/100)
+	inspector := usable - grid - sections
+	if inspector < 36 {
+		deficit := 36 - inspector
+		shrinkGrid := min(deficit/2+deficit%2, max(0, grid-44))
+		grid -= shrinkGrid
+		deficit -= shrinkGrid
+		shrinkSections := min(deficit, max(0, sections-36))
+		sections -= shrinkSections
+		inspector = usable - grid - sections
+	}
+	return grid, sections, inspector
+}
+
+func (m *calendarTUIModel) nextPane() {
+	m.pane = (m.pane + 1) % 3
+}
+
+func (m *calendarTUIModel) prevPane() {
+	m.pane--
+	if m.pane < 0 {
+		m.pane = calendarPaneInspector
+	}
 }
 
 func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -297,66 +436,378 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *calendarTUIModel) reload() error {
-	tasks, err := shelf.ListTasks(m.rootDir, shelf.TaskFilter{
-		Statuses: m.statuses,
-		Limit:    0,
-	})
+	selectedTaskID := m.selectedTaskID
+	visibleTasks, err := shelf.ListTasks(m.rootDir, shelf.TaskFilter{Statuses: m.statuses, Limit: 0})
 	if err != nil {
 		return err
 	}
-	m.days = buildCalendarDays(tasks, m.startDate, m.daysCount)
+	allTasks, err := shelf.NewTaskStore(m.rootDir).List()
+	if err != nil {
+		return err
+	}
+	readiness, err := shelf.BuildTaskReadiness(m.rootDir)
+	if err != nil {
+		return err
+	}
+	outboundCount, inboundCount, err := buildCalendarLinkCounts(m.rootDir, allTasks)
+	if err != nil {
+		return err
+	}
+
+	m.visibleTasks = visibleTasks
+	m.allTasks = allTasks
+	m.readiness = readiness
+	m.outboundCount = outboundCount
+	m.inboundCount = inboundCount
+	m.taskByID = make(map[string]shelf.Task, len(allTasks))
+	m.titleByID = make(map[string]string, len(allTasks))
+	for _, task := range allTasks {
+		m.taskByID[task.ID] = task
+		m.titleByID[task.ID] = task.Title
+	}
+
+	m.days = buildCalendarDays(visibleTasks, m.startDate, m.daysCount)
 	if len(m.days) == 0 {
 		m.dayIndex = 0
-		m.taskIndex = 0
+		m.sections = nil
+		m.selectedTaskID = ""
 		return nil
 	}
 	if m.dayIndex >= len(m.days) {
 		m.dayIndex = len(m.days) - 1
 	}
-	m.clampTaskIndex()
-	return nil
-}
-
-func (m *calendarTUIModel) clampTaskIndex() {
-	if len(m.days) == 0 {
-		m.dayIndex = 0
-		m.taskIndex = 0
-		return
-	}
 	if m.dayIndex < 0 {
 		m.dayIndex = 0
 	}
-	if m.dayIndex >= len(m.days) {
-		m.dayIndex = len(m.days) - 1
+	m.selectedTaskID = selectedTaskID
+	m.rebuildSections()
+	return nil
+}
+
+func buildCalendarLinkCounts(rootDir string, tasks []shelf.Task) (map[string]int, map[string]int, error) {
+	edgeStore := shelf.NewEdgeStore(rootDir)
+	outboundCount := make(map[string]int, len(tasks))
+	inboundCount := make(map[string]int, len(tasks))
+	for _, task := range tasks {
+		outbound, err := edgeStore.ListOutbound(task.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		outboundCount[task.ID] = len(outbound)
+		for _, edge := range outbound {
+			inboundCount[edge.To]++
+		}
 	}
-	tasks := m.days[m.dayIndex].Tasks
-	if len(tasks) == 0 {
-		m.taskIndex = 0
-		m.showTaskBody = false
+	return outboundCount, inboundCount, nil
+}
+
+func (m *calendarTUIModel) rebuildSections() {
+	prevSectionID := calendarSectionFocusedDay
+	if section := m.currentSection(); section != nil {
+		prevSectionID = section.ID
+	}
+	m.sections = buildCalendarSections(m.mode, m.focusedDay(), m.visibleTasks, m.readiness, m.titleByID, m.sectionLimit)
+	if len(m.sections) == 0 {
+		m.sectionIndex = 0
+		m.selectedTaskID = ""
 		return
 	}
-	if m.taskIndex < 0 {
-		m.taskIndex = 0
+	if m.selectedTaskID != "" {
+		if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, m.selectedTaskID); ok {
+			m.sectionIndex = secIdx
+			m.sectionRows[m.sections[secIdx].ID] = rowIdx
+			return
+		}
 	}
-	if m.taskIndex >= len(tasks) {
-		m.taskIndex = len(tasks) - 1
+	for i, section := range m.sections {
+		if section.ID == prevSectionID {
+			m.sectionIndex = i
+			break
+		}
+	}
+	m.clampSectionSelection()
+	if task, ok := m.selectedTask(); ok {
+		m.selectedTaskID = task.ID
+		return
+	}
+	m.selectFirstAvailableTask()
+}
+
+func buildCalendarSections(mode calendarMode, focusedDay *calendarDay, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string, sectionLimit int) []calendarSection {
+	sections := make([]calendarSection, 0, 6)
+	for _, descriptor := range calendarSectionsForMode(mode) {
+		var items []calendarSectionItem
+		switch descriptor.ID {
+		case calendarSectionFocusedDay:
+			items = buildFocusedDaySectionItems(focusedDay, titleByID)
+		case calendarSectionInbox:
+			items = buildInboxSectionItems(tasks, titleByID)
+		case calendarSectionOverdue:
+			items = buildOverdueSectionItems(tasks, titleByID)
+		case calendarSectionToday:
+			items = buildTodaySectionItems(tasks, titleByID)
+		case calendarSectionBlocked:
+			items = buildBlockedSectionItems(tasks, readiness, titleByID)
+		case calendarSectionReady:
+			items = buildReadySectionItems(tasks, readiness, titleByID)
+		}
+		if sectionLimit > 0 && descriptor.ID != calendarSectionFocusedDay && len(items) > sectionLimit {
+			items = items[:sectionLimit]
+		}
+		sections = append(sections, calendarSection{ID: descriptor.ID, Title: descriptor.Title, Items: items})
+	}
+	return sections
+}
+
+func calendarSectionsForMode(mode calendarMode) []calendarSection {
+	switch mode {
+	case calendarModeReview:
+		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionInbox, Title: "Inbox"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}, {ID: calendarSectionBlocked, Title: "Blocked"}, {ID: calendarSectionReady, Title: "Ready"}}
+	case calendarModeToday:
+		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}}
+	default:
+		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}, {ID: calendarSectionReady, Title: "Ready"}}
 	}
 }
 
-func (m *calendarTUIModel) moveTaskSelection(delta int) {
-	day := m.focusedDay()
-	if day == nil || len(day.Tasks) == 0 {
-		m.taskIndex = 0
+func buildFocusedDaySectionItems(day *calendarDay, titleByID map[string]string) []calendarSectionItem {
+	if day == nil {
+		return nil
+	}
+	items := make([]calendarSectionItem, 0, len(day.Tasks))
+	for _, task := range day.Tasks {
+		items = append(items, newCalendarSectionItem(task, titleByID, ""))
+	}
+	return items
+}
+
+func buildInboxSectionItems(tasks []shelf.Task, titleByID map[string]string) []calendarSectionItem {
+	filtered := make([]shelf.Task, 0)
+	for _, task := range tasks {
+		if task.Kind == "inbox" && task.Status == "open" {
+			filtered = append(filtered, task)
+		}
+	}
+	sortTasksForCalendarSection(filtered)
+	return buildCalendarSectionItems(filtered, titleByID, nil)
+}
+
+func buildOverdueSectionItems(tasks []shelf.Task, titleByID map[string]string) []calendarSectionItem {
+	today := time.Now().Local().Format("2006-01-02")
+	filtered := make([]shelf.Task, 0)
+	for _, task := range tasks {
+		if task.DueOn != "" && task.DueOn < today {
+			filtered = append(filtered, task)
+		}
+	}
+	sortTasksForCalendarSection(filtered)
+	return buildCalendarSectionItems(filtered, titleByID, nil)
+}
+
+func buildTodaySectionItems(tasks []shelf.Task, titleByID map[string]string) []calendarSectionItem {
+	today := time.Now().Local().Format("2006-01-02")
+	filtered := make([]shelf.Task, 0)
+	for _, task := range tasks {
+		if task.DueOn == today {
+			filtered = append(filtered, task)
+		}
+	}
+	sortTasksForCalendarSection(filtered)
+	return buildCalendarSectionItems(filtered, titleByID, nil)
+}
+
+func buildBlockedSectionItems(tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string) []calendarSectionItem {
+	filtered := make([]shelf.Task, 0)
+	reasons := map[string]string{}
+	for _, task := range tasks {
+		info := readiness[task.ID]
+		if task.Status == "blocked" || info.BlockedByDeps {
+			filtered = append(filtered, task)
+			reasons[task.ID] = strings.Join(reviewBlockedBy(task, info, titleByID), "; ")
+		}
+	}
+	sortTasksForCalendarSection(filtered)
+	return buildCalendarSectionItems(filtered, titleByID, reasons)
+}
+
+func buildReadySectionItems(tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string) []calendarSectionItem {
+	filtered := make([]shelf.Task, 0)
+	for _, task := range tasks {
+		if task.Kind == "inbox" {
+			continue
+		}
+		if readiness[task.ID].Ready {
+			filtered = append(filtered, task)
+		}
+	}
+	sortTasksForCalendarSection(filtered)
+	return buildCalendarSectionItems(filtered, titleByID, nil)
+}
+
+func buildCalendarSectionItems(tasks []shelf.Task, titleByID map[string]string, reasons map[string]string) []calendarSectionItem {
+	items := make([]calendarSectionItem, 0, len(tasks))
+	for _, task := range tasks {
+		reason := ""
+		if reasons != nil {
+			reason = reasons[task.ID]
+		}
+		items = append(items, newCalendarSectionItem(task, titleByID, reason))
+	}
+	return items
+}
+
+func newCalendarSectionItem(task shelf.Task, titleByID map[string]string, reason string) calendarSectionItem {
+	parentTitle := "root"
+	if strings.TrimSpace(task.Parent) != "" {
+		if title := strings.TrimSpace(titleByID[task.Parent]); title != "" {
+			parentTitle = title
+		} else {
+			parentTitle = "(missing)"
+		}
+	}
+	dueText := "-"
+	if strings.TrimSpace(task.DueOn) != "" {
+		dueText = task.DueOn
+	}
+	return calendarSectionItem{
+		Task:     task,
+		Subtitle: fmt.Sprintf("%s/%s  due=%s  parent=%s", task.Kind, task.Status, dueText, parentTitle),
+		Reason:   reason,
+	}
+}
+
+func sortTasksForCalendarSection(tasks []shelf.Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		leftDue := strings.TrimSpace(tasks[i].DueOn)
+		rightDue := strings.TrimSpace(tasks[j].DueOn)
+		switch {
+		case leftDue == "" && rightDue != "":
+			return false
+		case leftDue != "" && rightDue == "":
+			return true
+		case leftDue != rightDue:
+			return leftDue < rightDue
+		default:
+			return tasks[i].ID < tasks[j].ID
+		}
+	})
+}
+
+func findCalendarSectionTask(sections []calendarSection, taskID string) (int, int, bool) {
+	for secIdx, section := range sections {
+		for rowIdx, item := range section.Items {
+			if item.Task.ID == taskID {
+				return secIdx, rowIdx, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+func (m *calendarTUIModel) selectFirstAvailableTask() {
+	for secIdx, section := range m.sections {
+		if len(section.Items) == 0 {
+			continue
+		}
+		m.sectionIndex = secIdx
+		m.sectionRows[section.ID] = 0
+		m.selectedTaskID = section.Items[0].Task.ID
 		return
 	}
-	next := m.taskIndex + delta
-	if next < 0 {
-		next = len(day.Tasks) - 1
+	m.selectedTaskID = ""
+}
+
+func (m *calendarTUIModel) clampSectionSelection() {
+	if len(m.sections) == 0 {
+		m.sectionIndex = 0
+		m.selectedTaskID = ""
+		return
 	}
-	if next >= len(day.Tasks) {
-		next = 0
+	if m.sectionIndex < 0 {
+		m.sectionIndex = 0
 	}
-	m.taskIndex = next
+	if m.sectionIndex >= len(m.sections) {
+		m.sectionIndex = len(m.sections) - 1
+	}
+	section := m.sections[m.sectionIndex]
+	row := m.sectionRows[section.ID]
+	if len(section.Items) == 0 {
+		m.sectionRows[section.ID] = 0
+		m.selectedTaskID = ""
+		return
+	}
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(section.Items) {
+		row = len(section.Items) - 1
+	}
+	m.sectionRows[section.ID] = row
+	m.selectedTaskID = section.Items[row].Task.ID
+}
+
+func (m *calendarTUIModel) moveSectionSelection(delta int) {
+	if len(m.sections) == 0 {
+		return
+	}
+	m.sectionIndex += delta
+	if m.sectionIndex < 0 {
+		m.sectionIndex = len(m.sections) - 1
+	}
+	if m.sectionIndex >= len(m.sections) {
+		m.sectionIndex = 0
+	}
+	m.clampSectionSelection()
+}
+
+func (m *calendarTUIModel) moveSectionRow(delta int) {
+	section := m.currentSection()
+	if section == nil || len(section.Items) == 0 {
+		return
+	}
+	row := m.sectionRows[section.ID] + delta
+	if row < 0 {
+		row = len(section.Items) - 1
+	}
+	if row >= len(section.Items) {
+		row = 0
+	}
+	m.sectionRows[section.ID] = row
+	m.selectedTaskID = section.Items[row].Task.ID
+}
+
+func (m *calendarTUIModel) jumpSectionRowStart() {
+	section := m.currentSection()
+	if section == nil || len(section.Items) == 0 {
+		return
+	}
+	m.sectionRows[section.ID] = 0
+	m.selectedTaskID = section.Items[0].Task.ID
+}
+
+func (m *calendarTUIModel) jumpSectionRowEnd() {
+	section := m.currentSection()
+	if section == nil || len(section.Items) == 0 {
+		return
+	}
+	row := len(section.Items) - 1
+	m.sectionRows[section.ID] = row
+	m.selectedTaskID = section.Items[row].Task.ID
+}
+
+func (m *calendarTUIModel) jumpToSection(index int) {
+	if index < 0 || index >= len(m.sections) {
+		return
+	}
+	m.sectionIndex = index
+	m.clampSectionSelection()
+}
+
+func (m *calendarTUIModel) currentSection() *calendarSection {
+	if len(m.sections) == 0 || m.sectionIndex < 0 || m.sectionIndex >= len(m.sections) {
+		return nil
+	}
+	return &m.sections[m.sectionIndex]
 }
 
 func (m *calendarTUIModel) moveFocusByDays(delta int) {
@@ -387,7 +838,7 @@ func (m *calendarTUIModel) moveFocusToDate(target time.Time) {
 		}
 	}
 	m.dayIndex = newIndex
-	m.clampTaskIndex()
+	m.rebuildSections()
 }
 
 func (m calendarTUIModel) focusedDay() *calendarDay {
@@ -414,20 +865,21 @@ func (m calendarTUIModel) focusedDayLabel() string {
 }
 
 func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
-	day := m.focusedDay()
-	if day == nil || len(day.Tasks) == 0 {
+	section := m.currentSection()
+	if section == nil || len(section.Items) == 0 {
 		return shelf.Task{}, false
 	}
-	if m.taskIndex < 0 || m.taskIndex >= len(day.Tasks) {
+	row := m.sectionRows[section.ID]
+	if row < 0 || row >= len(section.Items) {
 		return shelf.Task{}, false
 	}
-	return day.Tasks[m.taskIndex], true
+	return section.Items[row].Task, true
 }
 
 func (m calendarTUIModel) openEditorForSelectedTask() (tea.Model, tea.Cmd) {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の日に task がありません"
+		m.message = "選択中の task がありません"
 		return m, nil
 	}
 	editorCmd, err := resolveEditorCommand(os.LookupEnv)
@@ -460,12 +912,7 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 	if day == nil {
 		return fmt.Errorf("選択中の日付がありません")
 	}
-	input := shelf.AddTaskInput{
-		Title:  title,
-		Kind:   m.defaultKind,
-		Status: m.defaultStatus,
-		DueOn:  day.Date,
-	}
+	input := shelf.AddTaskInput{Title: title, Kind: m.defaultKind, Status: m.defaultStatus, DueOn: day.Date}
 	created := shelf.Task{}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-add"); err != nil {
@@ -485,7 +932,12 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 		m.message = fmt.Sprintf("Created %s on %s", created.Title, created.DueOn)
 		return nil
 	}
+	m.visibleTasks = append(m.visibleTasks, created)
+	m.taskByID[created.ID] = created
+	m.titleByID[created.ID] = created.Title
 	m.insertTaskOnFocusedDay(created)
+	m.rebuildSections()
+	m.selectTaskByID(created.ID)
 	m.message = fmt.Sprintf("Created %s on %s (current filter excludes it; visible until reload)", created.Title, created.DueOn)
 	return nil
 }
@@ -493,7 +945,7 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 	task, ok := m.selectedTask()
 	if !ok {
-		return fmt.Errorf("選択中の日に task がありません")
+		return fmt.Errorf("選択中の task がありません")
 	}
 
 	var (
@@ -521,6 +973,7 @@ func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 	if err := m.reload(); err != nil {
 		return err
 	}
+	m.selectTaskByID(task.ID)
 	m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDue)
 	return nil
 }
@@ -549,10 +1002,13 @@ func (m calendarTUIModel) applyStatusChange(nextStatus shelf.Status) (tea.Model,
 			m.message = err.Error()
 			return m, nil
 		}
+		m.selectTaskByID(updatedTask.ID)
 		m.message = fmt.Sprintf("%s -> %s", task.Title, nextStatus)
 		return m, nil
 	}
-	m.replaceSelectedTask(updatedTask)
+	m.replaceTaskInVisibleState(updatedTask)
+	m.rebuildSections()
+	m.selectTaskByID(updatedTask.ID)
 	m.message = fmt.Sprintf("%s -> %s (current filter excludes it; visible until reload)", task.Title, nextStatus)
 	return m, nil
 }
@@ -566,15 +1022,26 @@ func calendarStatusIncluded(statuses []shelf.Status, target shelf.Status) bool {
 	return false
 }
 
-func (m *calendarTUIModel) replaceSelectedTask(task shelf.Task) {
-	day := m.focusedDay()
-	if day == nil || len(day.Tasks) == 0 {
-		return
+func (m *calendarTUIModel) replaceTaskInVisibleState(task shelf.Task) {
+	for i := range m.visibleTasks {
+		if m.visibleTasks[i].ID == task.ID {
+			m.visibleTasks[i] = task
+			break
+		}
 	}
-	if m.taskIndex < 0 || m.taskIndex >= len(day.Tasks) {
-		return
+	m.taskByID[task.ID] = task
+	m.titleByID[task.ID] = task.Title
+	m.updateTaskInDays(task)
+}
+
+func (m *calendarTUIModel) updateTaskInDays(task shelf.Task) {
+	for dayIndex := range m.days {
+		for taskIndex := range m.days[dayIndex].Tasks {
+			if m.days[dayIndex].Tasks[taskIndex].ID == task.ID {
+				m.days[dayIndex].Tasks[taskIndex] = task
+			}
+		}
 	}
-	day.Tasks[m.taskIndex] = task
 }
 
 func (m *calendarTUIModel) insertTaskOnFocusedDay(task shelf.Task) {
@@ -583,19 +1050,16 @@ func (m *calendarTUIModel) insertTaskOnFocusedDay(task shelf.Task) {
 		return
 	}
 	day.Tasks = append(day.Tasks, task)
-	m.taskIndex = len(day.Tasks) - 1
 }
 
 func (m *calendarTUIModel) selectTaskByID(taskID string) {
-	for dayIndex := range m.days {
-		for taskIndex, task := range m.days[dayIndex].Tasks {
-			if task.ID == taskID {
-				m.dayIndex = dayIndex
-				m.taskIndex = taskIndex
-				return
-			}
-		}
+	m.selectedTaskID = taskID
+	if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, taskID); ok {
+		m.sectionIndex = secIdx
+		m.sectionRows[m.sections[secIdx].ID] = rowIdx
+		return
 	}
+	m.clampSectionSelection()
 }
 
 func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMonthView {
@@ -620,60 +1084,42 @@ func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMon
 		for i := 0; i < 7; i++ {
 			key := current.Format("2006-01-02")
 			_, ok := inRange[key]
-			week = append(week, calendarMonthCell{
-				Date:           current,
-				InCurrentMonth: current.Month() == focusDate.Month(),
-				InRange:        ok,
-				TaskCount:      taskCounts[key],
-				DominantStatus: dominant[key],
-			})
+			week = append(week, calendarMonthCell{Date: current, InCurrentMonth: current.Month() == focusDate.Month(), InRange: ok, TaskCount: taskCounts[key], DominantStatus: dominant[key]})
 			current = current.AddDate(0, 0, 1)
 		}
 		weeks = append(weeks, week)
 	}
 
-	return calendarMonthView{
-		Label: focusDate.Format("January 2006"),
-		Weeks: weeks,
-	}
+	return calendarMonthView{Label: focusDate.Format("January 2006"), Weeks: weeks}
 }
 
 func renderCalendarLegend() string {
 	item := func(color lipgloss.Color, label string) string {
 		return lipgloss.NewStyle().Foreground(color).Render("■ " + label)
 	}
-	return strings.Join([]string{
-		item(lipgloss.Color("203"), "blocked"),
-		item(lipgloss.Color("220"), "in_progress"),
-		item(lipgloss.Color("81"), "open"),
-		item(lipgloss.Color("78"), "done"),
-		item(lipgloss.Color("245"), "cancelled"),
-	}, "  ")
+	return strings.Join([]string{item(lipgloss.Color("203"), "blocked"), item(lipgloss.Color("220"), "in_progress"), item(lipgloss.Color("81"), "open"), item(lipgloss.Color("78"), "done"), item(lipgloss.Color("245"), "cancelled")}, "  ")
+}
+
+func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {
+	borderColor := lipgloss.Color("240")
+	if active {
+		borderColor = lipgloss.Color("45")
+	}
+	containerStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1).Width(width)
+	content := renderCalendarMonth(month, focusedDate, max(42, width-4))
+	return containerStyle.Render(content)
 }
 
 func renderCalendarMonth(month calendarMonthView, focusedDate string, width int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	dayHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("244"))
-	containerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
-		Padding(1, 1)
-
-	cellWidth := 14
-	if width > 0 {
-		cellWidth = max(10, min(16, (width-10)/7))
-	}
-
+	cellWidth := max(8, min(12, (width-2)/7))
 	headers := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 	headerCells := make([]string, 0, len(headers))
 	for _, header := range headers {
 		headerCells = append(headerCells, dayHeaderStyle.Width(cellWidth).Align(lipgloss.Center).Render(header))
 	}
-
-	rows := []string{
-		titleStyle.Render(month.Label),
-		lipgloss.JoinHorizontal(lipgloss.Top, headerCells...),
-	}
+	rows := []string{titleStyle.Render(month.Label), lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
 	for _, week := range month.Weeks {
 		cells := make([]string, 0, len(week))
 		for _, cell := range week {
@@ -681,19 +1127,14 @@ func renderCalendarMonth(month calendarMonthView, focusedDate string, width int)
 		}
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
 	}
-
-	return containerStyle.Render(strings.Join(rows, "\n"))
+	return strings.Join(rows, "\n")
 }
 
 func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth int) string {
 	key := cell.Date.Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
-
 	contentWidth := max(6, cellWidth)
-	style := lipgloss.NewStyle().
-		Width(contentWidth).
-		Height(3)
-
+	style := lipgloss.NewStyle().Width(contentWidth).Height(3)
 	switch {
 	case key == focusedDate:
 		style = style.Background(lipgloss.Color("25")).Foreground(lipgloss.Color("255")).Bold(true)
@@ -706,12 +1147,10 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	default:
 		style = style.Foreground(lipgloss.Color("238"))
 	}
-
 	dayLabel := fmt.Sprintf("%2d", cell.Date.Day())
 	if key == today {
 		dayLabel += " •"
 	}
-
 	countLine := ""
 	if cell.TaskCount > 0 {
 		if cell.TaskCount == 1 {
@@ -720,87 +1159,108 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 			countLine = fmt.Sprintf("%d due", cell.TaskCount)
 		}
 	}
-
-	lines := []string{
-		padOrTrim(dayLabel, contentWidth),
-		padOrTrim(countLine, contentWidth),
-		padOrTrim(cell.Date.Format("2006-01-02"), contentWidth),
-	}
+	lines := []string{padOrTrim(dayLabel, contentWidth), padOrTrim(countLine, contentWidth), padOrTrim(cell.Date.Format("2006-01-02"), contentWidth)}
 	return style.Render(strings.Join(lines, "\n"))
 }
 
-func renderCalendarDayDetails(day calendarDay, showID bool, selectedIndex int, showTaskBody bool) string {
-	listStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(0, 1)
+func renderCalendarSectionsPane(sections []calendarSection, sectionIndex int, sectionRows map[calendarSectionID]int, showID bool, width int, active bool) string {
+	borderColor := lipgloss.Color("240")
+	if active {
+		borderColor = lipgloss.Color("45")
+	}
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1).Width(width)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
+	sectionTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 
-	lines := []string{
-		titleStyle.Render(fmt.Sprintf("%s (%d due)", day.Date, len(day.Tasks))),
-	}
-	if len(day.Tasks) == 0 {
-		lines = append(lines, mutedStyle.Render("(no due tasks)"))
-		return listStyle.Render(strings.Join(lines, "\n"))
-	}
-
-	for i, task := range day.Tasks {
-		label := task.Title
-		if showID {
-			label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
-		}
-		line := fmt.Sprintf("  %s (%s/%s)", label, uiKind(task.Kind), uiStatus(task.Status))
-		if i == selectedIndex {
-			line = selectedStyle.Render("> " + line)
+	lines := []string{titleStyle.Render("Daily Cockpit")}
+	for secIdx, section := range sections {
+		heading := fmt.Sprintf("%d. %s (%d)", secIdx+1, section.Title, len(section.Items))
+		if secIdx == sectionIndex {
+			heading = sectionTitleStyle.Render("> " + heading)
 		} else {
-			line = "  " + line
+			heading = sectionTitleStyle.Render("  " + heading)
 		}
-		lines = append(lines, line)
+		lines = append(lines, heading)
+		if len(section.Items) == 0 {
+			lines = append(lines, mutedStyle.Render("    (none)"))
+			continue
+		}
+		for rowIdx, item := range section.Items {
+			label := item.Task.Title
+			if showID {
+				label = fmt.Sprintf("[%s] %s", shelf.ShortID(item.Task.ID), label)
+			}
+			line := fmt.Sprintf("    %s", trimLine(label, max(16, width-8)))
+			if secIdx == sectionIndex && rowIdx == sectionRows[section.ID] {
+				line = selectedStyle.Render("  > " + trimLine(label, max(16, width-8)))
+			}
+			lines = append(lines, line)
+			subtitle := "      " + trimLine(item.Subtitle, max(16, width-8))
+			lines = append(lines, mutedStyle.Render(subtitle))
+			if strings.TrimSpace(item.Reason) != "" {
+				lines = append(lines, mutedStyle.Render("      "+trimLine(item.Reason, max(16, width-8))))
+			}
+		}
 	}
-
-	parts := []string{listStyle.Render(strings.Join(lines, "\n"))}
-	if selectedIndex >= 0 && selectedIndex < len(day.Tasks) {
-		parts = append(parts, renderCalendarTaskPreview(day.Tasks[selectedIndex], showID, showTaskBody))
-	}
-	return strings.Join(parts, "\n\n")
+	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
-func renderCalendarTaskPreview(task shelf.Task, showID bool, showTaskBody bool) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
-		Padding(0, 1)
+func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTaskBody bool, taskByID map[string]shelf.Task, readiness map[string]shelf.TaskReadiness, outboundCount map[string]int, inboundCount map[string]int, width int) string {
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Padding(0, 1).Width(width)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
+	lines := []string{titleStyle.Render("Inspector")}
+	if !ok {
+		lines = append(lines, mutedStyle.Render("No task selected"), mutedStyle.Render("Focused Day section か review/today section から task を選んでください"))
+		return boxStyle.Render(strings.Join(lines, "\n"))
+	}
 	label := task.Title
 	if showID {
 		label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
 	}
-
-	lines := []string{
+	lines = append(lines,
 		titleStyle.Render(label),
-		fmt.Sprintf("kind=%s  status=%s  due=%s", uiKind(task.Kind), uiStatus(task.Status), uiDue(task.DueOn)),
-	}
+		fmt.Sprintf("kind=%s  status=%s", uiKind(task.Kind), uiStatus(task.Status)),
+		fmt.Sprintf("due=%s  repeat=%s", uiDue(task.DueOn), formatCalendarRepeat(task.RepeatEvery)),
+	)
 	if len(task.Tags) > 0 {
 		lines = append(lines, fmt.Sprintf("tags=%s", strings.Join(task.Tags, ", ")))
 	}
-	if strings.TrimSpace(task.Parent) != "" {
-		lines = append(lines, fmt.Sprintf("parent=%s", task.Parent))
+	path := buildTaskPath(task, taskByID)
+	lines = append(lines, fmt.Sprintf("%s %s", labelStyle.Render("path:"), trimLine(path, max(20, width-6))))
+	if task.EstimateMin > 0 || task.SpentMin > 0 {
+		lines = append(lines, fmt.Sprintf("estimate=%s  spent=%s", shelf.FormatWorkMinutes(task.EstimateMin), shelf.FormatWorkMinutes(task.SpentMin)))
 	}
-
+	if strings.TrimSpace(task.TimerStart) != "" {
+		lines = append(lines, fmt.Sprintf("timer=%s", task.TimerStart))
+	}
+	lines = append(lines, fmt.Sprintf("links=out:%d in:%d", outboundCount[task.ID], inboundCount[task.ID]))
+	if info, exists := readiness[task.ID]; exists {
+		if len(info.UnresolvedDependsOn) > 0 {
+			labels := make([]string, 0, len(info.UnresolvedDependsOn))
+			for _, depID := range info.UnresolvedDependsOn {
+				if title := strings.TrimSpace(taskByID[depID].Title); title != "" {
+					labels = append(labels, title)
+				} else {
+					labels = append(labels, depID)
+				}
+			}
+			lines = append(lines, fmt.Sprintf("depends_on=%s", strings.Join(labels, ", ")))
+		}
+		lines = append(lines, fmt.Sprintf("ready=%t", info.Ready))
+	}
 	body := strings.TrimSpace(task.Body)
 	if body == "" {
 		lines = append(lines, mutedStyle.Render("(empty body)"))
 		return boxStyle.Render(strings.Join(lines, "\n"))
 	}
-
 	bodyLines := strings.Split(body, "\n")
-	maxLines := 3
+	maxLines := 4
 	if showTaskBody {
-		maxLines = 12
+		maxLines = 14
 		lines = append(lines, mutedStyle.Render("full body preview"))
 	} else {
 		lines = append(lines, mutedStyle.Render("compact body preview"))
@@ -808,23 +1268,31 @@ func renderCalendarTaskPreview(task shelf.Task, showID bool, showTaskBody bool) 
 	if len(bodyLines) > maxLines {
 		bodyLines = append(bodyLines[:maxLines], "...")
 	}
-	lines = append(lines, strings.Join(bodyLines, "\n"))
+	lines = append(lines, bodyLines...)
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
+func formatCalendarRepeat(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "-"
+	}
+	return value
+}
+
+func formatCalendarStatusFilter(statuses []shelf.Status) string {
+	labels := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		labels = append(labels, string(status))
+	}
+	return strings.Join(labels, ",")
+}
+
 func renderCalendarSnoozePicker(selected int) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(lipgloss.Color("141")).
-		Padding(0, 1)
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("141")).Padding(0, 1)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-
-	lines := []string{
-		titleStyle.Render("Snooze Presets"),
-		helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る"),
-	}
+	lines := []string{titleStyle.Render("Snooze Presets"), helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る")}
 	for i, option := range calendarSnoozeOptions() {
 		line := "  " + option.Label
 		if i == selected {
@@ -836,19 +1304,10 @@ func renderCalendarSnoozePicker(selected int) string {
 }
 
 func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatus shelf.Status, title string) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(lipgloss.Color("81")).
-		Padding(0, 1)
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("81")).Padding(0, 1)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-
-	lines := []string{
-		titleStyle.Render("Add Task"),
-		helpStyle.Render("type: title  Enter: create  Esc: cancel"),
-		fmt.Sprintf("due=%s  kind=%s  status=%s", date, defaultKind, defaultStatus),
-		"Title: " + title + "_",
-	}
+	lines := []string{titleStyle.Render("Add Task"), helpStyle.Render("type: title  Enter: create  Esc: cancel"), fmt.Sprintf("due=%s  kind=%s  status=%s", date, defaultKind, defaultStatus), "Title: " + title + "_"}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
@@ -983,14 +1442,11 @@ func trimLine(value string, width int) string {
 		return ""
 	}
 	runes := []rune(value)
-	if lipgloss.Width(value) <= width || len(runes) <= width {
+	if len(runes) <= width {
 		return value
 	}
 	if width <= 1 {
-		return string(runes[:1])
-	}
-	if len(runes) <= width {
-		return value
+		return string(runes[:width])
 	}
 	return string(runes[:width-1]) + "…"
 }
