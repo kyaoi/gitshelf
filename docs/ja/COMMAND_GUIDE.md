@@ -179,6 +179,7 @@ due date カレンダービューです。
 - `--days` は TUI 内で扱う表示レンジです。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - フォーカス中の日付には task 一覧と本文プレビューが出ます。
+- `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
 - 現在の filter から外れる status に変えても、context を失わないよう reload まではその場に残します。

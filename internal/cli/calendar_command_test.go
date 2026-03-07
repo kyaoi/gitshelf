@@ -236,3 +236,60 @@ func TestCalendarApplyStatusChangeKeepsTaskVisibleWhenFilteredOut(t *testing.T) 
 		t.Fatalf("unexpected message: %s", calendarModel.message)
 	}
 }
+
+func TestCalendarCreateTaskOnFocusedDay(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	if err := model.createTaskOnFocusedDay("Created from calendar"); err != nil {
+		t.Fatalf("createTaskOnFocusedDay failed: %v", err)
+	}
+
+	if len(model.days) == 0 || len(model.days[0].Tasks) != 1 {
+		t.Fatalf("expected created task in focused day: %+v", model.days)
+	}
+	created := model.days[0].Tasks[0]
+	if created.Title != "Created from calendar" || created.DueOn != "2026-03-09" {
+		t.Fatalf("unexpected created task: %+v", created)
+	}
+	if model.taskIndex != 0 {
+		t.Fatalf("expected selected created task, got taskIndex=%d", model.taskIndex)
+	}
+}
+
+func TestCalendarCreateTaskOnFocusedDayKeepsFilteredTaskVisible(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	cfg.DefaultStatus = "done"
+	if err := shelf.SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	if err := model.createTaskOnFocusedDay("Filtered task"); err != nil {
+		t.Fatalf("createTaskOnFocusedDay failed: %v", err)
+	}
+
+	if len(model.days[0].Tasks) != 1 || model.days[0].Tasks[0].Status != "done" {
+		t.Fatalf("expected visible filtered task: %+v", model.days[0].Tasks)
+	}
+	if !strings.Contains(model.message, "visible until reload") {
+		t.Fatalf("unexpected message: %s", model.message)
+	}
+}

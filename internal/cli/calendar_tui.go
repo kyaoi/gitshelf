@@ -31,20 +31,24 @@ type calendarEditorFinishedMsg struct {
 }
 
 type calendarTUIModel struct {
-	rootDir      string
-	startDate    time.Time
-	daysCount    int
-	statuses     []shelf.Status
-	showID       bool
-	days         []calendarDay
-	dayIndex     int
-	taskIndex    int
-	width        int
-	height       int
-	message      string
-	showTaskBody bool
-	snoozeMode   bool
-	snoozeIndex  int
+	rootDir       string
+	startDate     time.Time
+	daysCount     int
+	statuses      []shelf.Status
+	defaultKind   shelf.Kind
+	defaultStatus shelf.Status
+	showID        bool
+	days          []calendarDay
+	dayIndex      int
+	taskIndex     int
+	width         int
+	height        int
+	message       string
+	showTaskBody  bool
+	snoozeMode    bool
+	snoozeIndex   int
+	addMode       bool
+	addTitle      string
 }
 
 func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) error {
@@ -58,14 +62,20 @@ func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses
 }
 
 func newCalendarTUIModel(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) (calendarTUIModel, error) {
+	cfg, err := shelf.LoadConfig(rootDir)
+	if err != nil {
+		return calendarTUIModel{}, err
+	}
 	model := calendarTUIModel{
-		rootDir:   rootDir,
-		startDate: startDate,
-		daysCount: daysCount,
-		statuses:  append([]shelf.Status{}, statuses...),
-		showID:    showID,
-		dayIndex:  0,
-		taskIndex: 0,
+		rootDir:       rootDir,
+		startDate:     startDate,
+		daysCount:     daysCount,
+		statuses:      append([]shelf.Status{}, statuses...),
+		defaultKind:   cfg.DefaultKind,
+		defaultStatus: cfg.DefaultStatus,
+		showID:        showID,
+		dayIndex:      0,
+		taskIndex:     0,
 	}
 	if err := model.reload(); err != nil {
 		return calendarTUIModel{}, err
@@ -95,6 +105,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = "task updated"
 		return m, nil
 	case tea.KeyMsg:
+		if m.addMode {
+			return m.updateAddMode(msg)
+		}
 		if m.snoozeMode {
 			return m.updateSnoozeMode(msg)
 		}
@@ -148,6 +161,11 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "e":
 			return m.openEditorForSelectedTask()
+		case "a":
+			m.addMode = true
+			m.addTitle = ""
+			m.message = "新規 task title を入力"
+			return m, nil
 		case "z":
 			if _, ok := m.selectedTask(); !ok {
 				m.message = "選択中の日に task がありません"
@@ -207,6 +225,9 @@ func (m calendarTUIModel) View() string {
 	if m.snoozeMode {
 		parts = append(parts, renderCalendarSnoozePicker(m.snoozeIndex))
 	}
+	if m.addMode {
+		parts = append(parts, renderCalendarAddComposer(m.focusedDayLabel(), m.defaultKind, m.defaultStatus, m.addTitle))
+	}
 	if strings.TrimSpace(m.message) != "" {
 		parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color("141")).Render(m.message))
 	}
@@ -242,6 +263,41 @@ func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		m.snoozeMode = false
 		return m, nil
+	}
+	return m, nil
+}
+
+func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "esc":
+		m.addMode = false
+		m.addTitle = ""
+		m.message = "新規 task 作成をキャンセルしました"
+		return m, nil
+	case "enter":
+		title := strings.TrimSpace(m.addTitle)
+		if title == "" {
+			m.message = "title は必須です"
+			return m, nil
+		}
+		if err := m.createTaskOnFocusedDay(title); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+		m.addMode = false
+		m.addTitle = ""
+		return m, nil
+	case "backspace":
+		if len(m.addTitle) > 0 {
+			runes := []rune(m.addTitle)
+			m.addTitle = string(runes[:len(runes)-1])
+		}
+		return m, nil
+	default:
+		if msg.Type == tea.KeyRunes {
+			m.addTitle += msg.String()
+			return m, nil
+		}
 	}
 	return m, nil
 }
@@ -316,6 +372,14 @@ func (m calendarTUIModel) focusedDay() *calendarDay {
 	return &m.days[m.dayIndex]
 }
 
+func (m calendarTUIModel) focusedDayLabel() string {
+	day := m.focusedDay()
+	if day == nil {
+		return ""
+	}
+	return day.Date
+}
+
 func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
 	day := m.focusedDay()
 	if day == nil || len(day.Tasks) == 0 {
@@ -356,6 +420,41 @@ func (m calendarTUIModel) openEditorForSelectedTask() (tea.Model, tea.Cmd) {
 		}
 		return calendarEditorFinishedMsg{}
 	})
+}
+
+func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
+	day := m.focusedDay()
+	if day == nil {
+		return fmt.Errorf("選択中の日付がありません")
+	}
+	input := shelf.AddTaskInput{
+		Title:  title,
+		Kind:   m.defaultKind,
+		Status: m.defaultStatus,
+		DueOn:  day.Date,
+	}
+	created := shelf.Task{}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-add"); err != nil {
+			return err
+		}
+		var err error
+		created, err = shelf.AddTask(m.rootDir, input)
+		return err
+	}); err != nil {
+		return err
+	}
+	if calendarStatusIncluded(m.statuses, created.Status) {
+		if err := m.reload(); err != nil {
+			return err
+		}
+		m.selectTaskByID(created.ID)
+		m.message = fmt.Sprintf("Created %s on %s", created.Title, created.DueOn)
+		return nil
+	}
+	m.insertTaskOnFocusedDay(created)
+	m.message = fmt.Sprintf("Created %s on %s (current filter excludes it; visible until reload)", created.Title, created.DueOn)
+	return nil
 }
 
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
@@ -443,6 +542,27 @@ func (m *calendarTUIModel) replaceSelectedTask(task shelf.Task) {
 		return
 	}
 	day.Tasks[m.taskIndex] = task
+}
+
+func (m *calendarTUIModel) insertTaskOnFocusedDay(task shelf.Task) {
+	day := m.focusedDay()
+	if day == nil {
+		return
+	}
+	day.Tasks = append(day.Tasks, task)
+	m.taskIndex = len(day.Tasks) - 1
+}
+
+func (m *calendarTUIModel) selectTaskByID(taskID string) {
+	for dayIndex := range m.days {
+		for taskIndex, task := range m.days[dayIndex].Tasks {
+			if task.ID == taskID {
+				m.dayIndex = dayIndex
+				m.taskIndex = taskIndex
+				return
+			}
+		}
+	}
 }
 
 func buildCalendarMonthView(days []calendarDay, focusDate time.Time) calendarMonthView {
@@ -678,6 +798,23 @@ func renderCalendarSnoozePicker(selected int) string {
 			line = selectedStyle.Render("> " + option.Label)
 		}
 		lines = append(lines, line)
+	}
+	return boxStyle.Render(strings.Join(lines, "\n"))
+}
+
+func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatus shelf.Status, title string) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("81")).
+		Padding(0, 1)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	lines := []string{
+		titleStyle.Render("Add Task"),
+		helpStyle.Render("type: title  Enter: create  Esc: cancel"),
+		fmt.Sprintf("due=%s  kind=%s  status=%s", date, defaultKind, defaultStatus),
+		"Title: " + title + "_",
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }

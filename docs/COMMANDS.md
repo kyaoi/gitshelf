@@ -118,6 +118,7 @@ Due-date calendar view.
   - `j` / `k`: move by week
   - `[` / `]`: jump by month inside the current range
   - `n` / `p`: cycle tasks on the focused day
+  - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
   - `Enter`: expand/collapse selected task body preview
   - `e`: open selected task in editor

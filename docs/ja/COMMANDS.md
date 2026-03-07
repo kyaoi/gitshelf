@@ -109,6 +109,7 @@ subcommand:
   - `j` / `k`: 週移動
   - `[` / `]`: 月移動
   - `n` / `p`: 当日の task 切り替え
+  - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
   - `Enter`: 本文プレビュー展開/折りたたみ
   - `e`: editor を開く
