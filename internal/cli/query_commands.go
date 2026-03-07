@@ -675,6 +675,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		notKinds        []string
 		notStats        []string
 		notTags         []string
+		plain           bool
 		asJSON          bool
 	)
 
@@ -682,6 +683,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 		Use:   "tree",
 		Short: "Show task tree",
 		Example: "  shelf tree\n" +
+			"  shelf tree --plain\n" +
 			"  shelf tree --kind todo --not-status done --tag backend\n" +
 			"  shelf tree --from root --max-depth 2 --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -750,11 +752,35 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			treeOpts, err = treeOptionsFromFilter(treeOpts, preset)
+			filter := shelf.TaskFilter{
+				Kinds:           toKinds(kinds),
+				Statuses:        toStatuses(statuses),
+				Tags:            parseTagFlagValues(tags),
+				NotKinds:        toKinds(notKinds),
+				NotStatuses:     toStatuses(notStats),
+				NotTags:         parseTagFlagValues(notTags),
+				IncludeArchived: includeArchived,
+				OnlyArchived:    onlyArchived,
+				Limit:           0,
+			}
+			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
+				"limit": true,
+			})
+			treeOpts, err = treeOptionsFromFilter(treeOpts, filter)
 			if err != nil {
 				return err
 			}
-
+			if resolveTreeOutputMode(dailyCockpitIsTTY(), asJSON, plain) == dailyCockpitOutputTUI {
+				startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
+				if err != nil {
+					return err
+				}
+				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, cfg.Statuses, calendarTUIOptions{
+					Mode:   calendarModeTree,
+					ShowID: ctx.showID,
+					Filter: filter,
+				})
+			}
 			nodes, err := shelf.BuildTree(ctx.rootDir, treeOpts)
 			if err != nil {
 				return err
@@ -827,6 +853,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")
 	cmd.Flags().StringArrayVar(&notStats, "not-status", nil, "Exclude status (repeatable)")
 	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
+	cmd.Flags().BoolVar(&plain, "plain", false, "Force plain text output even on TTY")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }

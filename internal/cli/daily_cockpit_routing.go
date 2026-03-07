@@ -43,6 +43,16 @@ func resolveTodayOutputMode(isTTY bool, asJSON bool, plain bool, carryOver bool)
 	return dailyCockpitOutputText
 }
 
+func resolveTreeOutputMode(isTTY bool, asJSON bool, plain bool) dailyCockpitOutputMode {
+	if asJSON {
+		return dailyCockpitOutputJSON
+	}
+	if isTTY && !plain {
+		return dailyCockpitOutputTUI
+	}
+	return dailyCockpitOutputText
+}
+
 func resolveDailyCockpitRange(rootDir string) (time.Time, int, error) {
 	cfg, err := shelf.LoadConfig(rootDir)
 	if err != nil {

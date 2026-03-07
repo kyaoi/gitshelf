@@ -2,8 +2,8 @@ package cli
 
 import (
 	"testing"
+	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
@@ -23,50 +23,37 @@ func TestBuildBoardColumns(t *testing.T) {
 	}
 }
 
-func TestBoardSelectedTask(t *testing.T) {
-	model := boardModel{
-		columns: []boardColumn{
-			{Status: "open", Tasks: []shelf.Task{{ID: "01A", Title: "A"}}},
-		},
-		rowIndex: map[int]int{0: 0},
-	}
-	task, ok := model.selectedTask()
-	if !ok || task.ID != "01A" {
-		t.Fatalf("unexpected selected task: %+v ok=%t", task, ok)
-	}
-}
-
-func TestBoardUpdateAcceptsIShortcut(t *testing.T) {
+func TestBoardCommandRoutesTTYToCockpit(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	task, err := shelf.AddTask(root, shelf.AddTaskInput{
-		Title:  "Task",
-		Kind:   "todo",
-		Status: "open",
-	})
-	if err != nil {
-		t.Fatalf("add failed: %v", err)
+	oldTTY := dailyCockpitIsTTY
+	oldRun := runCalendarModeTUIFn
+	defer func() {
+		dailyCockpitIsTTY = oldTTY
+		runCalendarModeTUIFn = oldRun
+	}()
+	called := false
+	dailyCockpitIsTTY = func() bool { return true }
+	runCalendarModeTUIFn = func(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, opts calendarTUIOptions) error {
+		called = true
+		if opts.Mode != calendarModeBoard {
+			t.Fatalf("unexpected mode: %s", opts.Mode)
+		}
+		if len(statuses) == 0 {
+			t.Fatal("expected configured statuses")
+		}
+		if len(opts.Filter.Statuses) != len(statuses) {
+			t.Fatalf("unexpected filter statuses: %+v", opts.Filter.Statuses)
+		}
+		return nil
 	}
-	model := boardModel{
-		rootDir: root,
-		columns: []boardColumn{
-			{Status: "open", Tasks: []shelf.Task{task}},
-		},
-		rowIndex: map[int]int{0: 0},
+	cmd := newBoardCommand(&commandContext{rootDir: root})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("board command failed: %v", err)
 	}
-
-	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	board := updatedModel.(boardModel)
-	updated, err := shelf.EnsureTaskExists(root, task.ID)
-	if err != nil {
-		t.Fatalf("EnsureTaskExists failed: %v", err)
-	}
-	if updated.Status != "in_progress" {
-		t.Fatalf("unexpected status: %s", updated.Status)
-	}
-	if board.message == "" {
-		t.Fatal("expected status change message")
+	if !called {
+		t.Fatal("expected cockpit launcher to run")
 	}
 }

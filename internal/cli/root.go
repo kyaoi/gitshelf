@@ -60,6 +60,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newCaptureCommand(ctx))
 	cmd.AddCommand(newTriageCommand(ctx))
 	cmd.AddCommand(newTemplateCommand(ctx))
+	cmd.AddCommand(newCockpitCommand(ctx))
 	cmd.AddCommand(newCalendarCommand(ctx))
 	cmd.AddCommand(newBoardCommand(ctx))
 	cmd.AddCommand(newEstimateCommand(ctx))
