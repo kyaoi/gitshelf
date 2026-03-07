@@ -1,0 +1,358 @@
+package shelf
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"slices"
+	"strings"
+
+	"github.com/BurntSushi/toml"
+)
+
+type Config struct {
+	Kinds         []Kind
+	Statuses      []Status
+	Tags          []string
+	LinkTypes     []LinkType
+	DefaultKind   Kind
+	DefaultStatus Status
+	Commands      CommandsConfig
+}
+
+type CommandsConfig struct {
+	Calendar CalendarCommandConfig
+}
+
+type CalendarCommandConfig struct {
+	DefaultRangeUnit string
+	DefaultDays      int
+	DefaultMonths    int
+	DefaultYears     int
+}
+
+type configFile struct {
+	Kinds         []string       `toml:"kinds"`
+	Statuses      []string       `toml:"statuses"`
+	Tags          []string       `toml:"tags"`
+	LinkTypes     []string       `toml:"link_types"`
+	DefaultKind   string         `toml:"default_kind"`
+	DefaultStatus string         `toml:"default_status"`
+	Commands      configCommands `toml:"commands"`
+}
+
+type configCommands struct {
+	Calendar configCalendarCommand `toml:"calendar"`
+}
+
+type configCalendarCommand struct {
+	DefaultRangeUnit string `toml:"default_range_unit"`
+	DefaultDays      int    `toml:"default_days"`
+	DefaultMonths    int    `toml:"default_months"`
+	DefaultYears     int    `toml:"default_years"`
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Kinds:         []Kind{"todo", "idea", "memo", "inbox"},
+		Statuses:      []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:          []string{},
+		LinkTypes:     []LinkType{"depends_on", "related"},
+		DefaultKind:   Kind("todo"),
+		DefaultStatus: Status("open"),
+		Commands: CommandsConfig{
+			Calendar: CalendarCommandConfig{
+				DefaultRangeUnit: "days",
+				DefaultDays:      7,
+				DefaultMonths:    6,
+				DefaultYears:     2,
+			},
+		},
+	}
+}
+
+var supportedLinkTypes = []LinkType{"depends_on", "related"}
+
+func LoadConfig(rootDir string) (Config, error) {
+	path := ConfigPath(rootDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to read config %s: %w", path, err)
+	}
+	cfg, err := ParseConfigTOML(data)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return cfg, nil
+}
+
+func SaveConfig(rootDir string, cfg Config) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	path := ConfigPath(rootDir)
+	return atomicWriteFile(path, FormatConfigTOML(cfg), 0o644)
+}
+
+func ParseConfigTOML(data []byte) (Config, error) {
+	var f configFile
+	if _, err := toml.Decode(string(data), &f); err != nil {
+		return Config{}, fmt.Errorf("failed to parse config TOML: %w", err)
+	}
+
+	cfg := Config{
+		Kinds:         make([]Kind, len(f.Kinds)),
+		Statuses:      make([]Status, len(f.Statuses)),
+		Tags:          make([]string, len(f.Tags)),
+		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
+		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
+		DefaultStatus: Status(strings.TrimSpace(f.DefaultStatus)),
+		Commands: CommandsConfig{
+			Calendar: CalendarCommandConfig{
+				DefaultRangeUnit: strings.TrimSpace(f.Commands.Calendar.DefaultRangeUnit),
+				DefaultDays:      f.Commands.Calendar.DefaultDays,
+				DefaultMonths:    f.Commands.Calendar.DefaultMonths,
+				DefaultYears:     f.Commands.Calendar.DefaultYears,
+			},
+		},
+	}
+	defaults := DefaultConfig()
+	if cfg.Commands.Calendar.DefaultRangeUnit == "" {
+		cfg.Commands.Calendar.DefaultRangeUnit = defaults.Commands.Calendar.DefaultRangeUnit
+	}
+	if cfg.Commands.Calendar.DefaultDays == 0 {
+		cfg.Commands.Calendar.DefaultDays = defaults.Commands.Calendar.DefaultDays
+	}
+	if cfg.Commands.Calendar.DefaultMonths == 0 {
+		cfg.Commands.Calendar.DefaultMonths = defaults.Commands.Calendar.DefaultMonths
+	}
+	if cfg.Commands.Calendar.DefaultYears == 0 {
+		cfg.Commands.Calendar.DefaultYears = defaults.Commands.Calendar.DefaultYears
+	}
+	for i, kind := range f.Kinds {
+		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
+	}
+	for i, status := range f.Statuses {
+		cfg.Statuses[i] = Status(strings.TrimSpace(status))
+	}
+	for i, tag := range f.Tags {
+		cfg.Tags[i] = strings.TrimSpace(tag)
+	}
+	for i, linkType := range f.LinkTypes {
+		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
+	}
+	if err := cfg.Validate(); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func FormatConfigTOML(cfg Config) []byte {
+	var buf bytes.Buffer
+	buf.WriteString("# gitshelf config\n")
+	buf.WriteString("kinds = [")
+	for i, kind := range cfg.Kinds {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", kind))
+	}
+	buf.WriteString("]\n")
+
+	buf.WriteString("statuses = [")
+	for i, status := range cfg.Statuses {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", status))
+	}
+	buf.WriteString("]\n")
+
+	buf.WriteString("tags = [")
+	for i, tag := range cfg.Tags {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", tag))
+	}
+	buf.WriteString("]\n")
+
+	buf.WriteString("link_types = [")
+	for i, linkType := range cfg.LinkTypes {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", linkType))
+	}
+	buf.WriteString("]\n\n")
+	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
+	buf.WriteString(fmt.Sprintf("default_status = %q\n", cfg.DefaultStatus))
+	buf.WriteString("\n[commands.calendar]\n")
+	buf.WriteString(fmt.Sprintf("default_range_unit = %q\n", cfg.Commands.Calendar.DefaultRangeUnit))
+	buf.WriteString(fmt.Sprintf("default_days = %d\n", cfg.Commands.Calendar.DefaultDays))
+	buf.WriteString(fmt.Sprintf("default_months = %d\n", cfg.Commands.Calendar.DefaultMonths))
+	buf.WriteString(fmt.Sprintf("default_years = %d\n", cfg.Commands.Calendar.DefaultYears))
+
+	return buf.Bytes()
+}
+
+func (c Config) Validate() error {
+	if len(c.Kinds) == 0 {
+		return fmt.Errorf("config kinds is empty")
+	}
+	if len(c.Statuses) == 0 {
+		return fmt.Errorf("config statuses is empty")
+	}
+	if len(c.LinkTypes) == 0 {
+		return fmt.Errorf("config link_types is empty")
+	}
+	if err := validateUniqueKinds(c.Kinds); err != nil {
+		return err
+	}
+	if err := validateUniqueStatuses(c.Statuses); err != nil {
+		return err
+	}
+	if err := validateUniqueTags(c.Tags); err != nil {
+		return err
+	}
+	if err := validateUniqueLinkTypes(c.LinkTypes); err != nil {
+		return err
+	}
+	if err := c.ValidateKind(c.DefaultKind); err != nil {
+		return fmt.Errorf("default_kind: %w", err)
+	}
+	if err := c.ValidateStatus(c.DefaultStatus); err != nil {
+		return fmt.Errorf("default_status: %w", err)
+	}
+	switch c.Commands.Calendar.DefaultRangeUnit {
+	case "days", "months", "years":
+	default:
+		return fmt.Errorf("commands.calendar.default_range_unit must be one of days/months/years")
+	}
+	if c.Commands.Calendar.DefaultDays <= 0 {
+		return fmt.Errorf("commands.calendar.default_days must be > 0")
+	}
+	if c.Commands.Calendar.DefaultMonths <= 0 {
+		return fmt.Errorf("commands.calendar.default_months must be > 0")
+	}
+	if c.Commands.Calendar.DefaultYears <= 0 {
+		return fmt.Errorf("commands.calendar.default_years must be > 0")
+	}
+	return nil
+}
+
+func (c Config) ValidateKind(kind Kind) error {
+	if strings.TrimSpace(string(kind)) == "" {
+		return fmt.Errorf("kind is required")
+	}
+	if slices.Contains(c.Kinds, kind) {
+		return nil
+	}
+	return fmt.Errorf("unknown kind: %s", kind)
+}
+
+func (c Config) ValidateStatus(status Status) error {
+	if strings.TrimSpace(string(status)) == "" {
+		return fmt.Errorf("status is required")
+	}
+	if slices.Contains(c.Statuses, status) {
+		return nil
+	}
+	return fmt.Errorf("unknown status: %s", status)
+}
+
+func (c Config) ValidateTag(tag string) error {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return fmt.Errorf("tag is required")
+	}
+	if slices.Contains(c.Tags, tag) {
+		return nil
+	}
+	return fmt.Errorf("unknown tag: %s", tag)
+}
+
+func (c Config) ValidateLinkType(linkType LinkType) error {
+	if strings.TrimSpace(string(linkType)) == "" {
+		return fmt.Errorf("link type is required")
+	}
+	if slices.Contains(c.LinkTypes, linkType) {
+		return nil
+	}
+	return fmt.Errorf("unknown link type: %s", linkType)
+}
+
+func (c *Config) AppendMissingTags(tags []string) bool {
+	candidate := NormalizeTags(tags)
+	if len(candidate) == 0 {
+		return false
+	}
+	changed := false
+	for _, tag := range candidate {
+		if slices.Contains(c.Tags, tag) {
+			continue
+		}
+		c.Tags = append(c.Tags, tag)
+		changed = true
+	}
+	return changed
+}
+
+func validateUniqueKinds(values []Kind) error {
+	seen := map[Kind]struct{}{}
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("kinds must not include empty value")
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("kinds contains duplicate value: %s", value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateUniqueStatuses(values []Status) error {
+	seen := map[Status]struct{}{}
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("statuses must not include empty value")
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("statuses contains duplicate value: %s", value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateUniqueTags(values []string) error {
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("tags must not include empty value")
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("tags contains duplicate value: %s", value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateUniqueLinkTypes(values []LinkType) error {
+	seen := map[LinkType]struct{}{}
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("link_types must not include empty value")
+		}
+		if !slices.Contains(supportedLinkTypes, value) {
+			return fmt.Errorf("unsupported link type: %s (allowed: depends_on, related)", value)
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("link_types contains duplicate value: %s", value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}

@@ -3,13 +3,14 @@
 ## 目的
 - Gitリポジトリ内で、TODO/IDEA/MEMO を軽量に管理する
 - 目標→日→具体タスクのような **無限ネスト（親子ツリー）** を表現する
-- 子同士・別枝同士の関係（依存/関連/派生）を **リンク（edges）** として表現する
+- 子同士・別枝同士の関係（依存/関連）を **リンク（edges）** として表現する
 - 端末で完結し、差分が読みやすく、マージ衝突が起きにくい保存形式にする
 
 ## コア概念
 ### タスク（Task）
 - 1つの作業/アイデア/メモの単位
-- `kind` と `state` を持つ
+- `kind` と `status` を持つ
+- 任意で `due_on`（`YYYY-MM-DD`）を持てる
 - `parent` を持てる（親は最大1つ、rootは親なし）
 - 本文（メモ）は任意
 
@@ -19,7 +20,7 @@
 - 深さは無制限（無限入れ子）
 
 ### リンク（Edges）
-- 内包ではない関係（依存/派生/関連）
+- 内包ではない関係（依存/関連）
 - outbound edges を `.shelf/edges/<src_id>.toml` に保存
 - inbound edges は全edge走査で逆引きして表示
 
@@ -29,16 +30,16 @@
 - `.shelf/tasks/` にタスク本体
 - `.shelf/edges/` にリンク
 
-## Kind と State
+## Kind と Status
 - `kind`: タスクの種類（例: todo/idea/memo…）
-- `state`: 進捗（例: open/done…）
-- 両者は独立であり、`kind=idea` でも `state=done` は許可（実装は制限しない）
+- `status`: 進捗（`open`, `in_progress`, `blocked`, `done`, `cancelled`）
+- 両者は独立であり、`kind=idea` でも `status=done` は許可（実装は制限しない）
 
 ## リンクの向き（重要な不変条件）
+- 使用可能な link type は `depends_on`, `related` のみ
 - `A depends_on B` とは、**Aを行うにはBが先** を意味する
 - 表示は常に `A --depends_on--> B`（事故防止）
 - `related` は無向的だが、保存は有向でよい（表示で両方向に見せるのは任意）
-- `derived_from` は `A --derived_from--> B`（AはBから派生）
 
 ## 非機能要件（初期リリースで守る）
 - **差分が安定**: ソート順とフォーマットを固定
@@ -49,8 +50,45 @@
 ## 仕様外（やらない）
 - 常駐デーモン/サーバ
 - DB（SQLite等）
-- Web UI / GUI / フルTUI
+- Web UI / GUI
 - 複数親（DAGツリー）は採用しない（親は1つ）
+
+補足:
+- 通常操作はCLI前提
+- ただし status を横断して扱うための専用 `board` TUI は許可する
+
+## 公開CLI
+
+現在の公開コマンドは次のみ:
+
+- `cockpit`
+- `calendar`
+- `tree`
+- `board`
+- `review`
+- `now`
+- `ls`
+- `next`
+- `init`
+- `completion`
+
+通常操作は `Cockpit` に集約する。
+
+- `shelf` を TTY で実行すると `Cockpit` が開く
+- `calendar/tree/board/review/now` は `Cockpit` の起動プリセット
+- `ls` と `next` は read-only query 用
+
+日付入力で使う token:
+
+- `today`
+- `tomorrow`
+- `+Nd`
+- `-Nd`
+- `next-week`
+- `this-week`
+- `mon..sun`
+- `next-mon..next-sun`
+- `in N days`
 
 ## 用語
 - root: 親を持たないタスク

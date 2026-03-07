@@ -1,97 +1,170 @@
-# COMMANDS（CLI仕様）
+# COMMANDS
 
-## 共通
-- ワークディレクトリの上位に `.shelf/` が無ければエラー（ただし `init` は例外）
-- 出力は人間向け（必要に応じて `--json` を追加してもよいが必須ではない）
-- 失敗時は非ゼロ終了コード
+Current public CLI surface for `shelf`.
+
+## Common
+
+- `--root <dir>` selects the project root that contains `.shelf/`
+- if `--root` is omitted, `shelf` searches upward from the current directory
+- if no local `.shelf/` is found, `shelf` falls back to the global `default_root`
+- `init` and `completion` do not require an existing `.shelf/`
+- `--show-id`, `-i` enables task IDs in text output and task selectors
+
+## shelf
+
+- on TTY: opens `Cockpit` in `calendar` mode
+- on non-TTY: prints help
 
 ## shelf init
-- `.shelf/` と必要ファイルを作る
-- 既に存在する場合は安全にスキップ（上書きしない）
 
-### 作成物
-- `.shelf/config.toml`（デフォルト）
+Initialize or refresh the current shelf.
+
+Creates and keeps only:
+
+- `.shelf/config.toml`
 - `.shelf/tasks/`
 - `.shelf/edges/`
 
-## shelf add
-- タスクを追加する
-- TTYの場合: 対話（Title → Kind → Parent）
-- 非TTYの場合: `--title` 必須（対話不可）
+Flags:
 
-### flags（例）
-- `--title <str>`
-- `--kind <kind>`
-- `--state <state>`（通常は default）
-- `--parent <id|root>`
-- `--body <str>`（任意）
+- `--force`: rewrite `config.toml` with defaults
+- `--global`: initialize the global default root and global config
 
-### 出力（例）
-- `Created: [<short>] <title>`
+## shelf completion
+
+Generate shell completion.
+
+Subcommands:
+
+- `completion bash`
+- `completion zsh`
+- `completion fish`
+- `completion powershell`
+
+## shelf cockpit
+
+Main TUI workspace.
+
+Aliases:
+
+- `cp`
+
+TTY only.
+
+Flags:
+
+- `--mode <calendar|tree|board|review|now>`
+- `--start <YYYY-MM-DD|today|tomorrow>`
+- `--days <n>`
+- `--months <n>`
+- `--years <n>`
+- `--limit <n>`
+- `--kind <kind>` (repeatable)
+- `--status <status>` (repeatable)
+- `--tag <tag>` (repeatable)
+- `--not-kind <kind>` (repeatable)
+- `--not-status <status>` (repeatable)
+- `--not-tag <tag>` (repeatable)
+
+## Launcher Commands
+
+These commands are thin wrappers around `shelf cockpit --mode ...`.
+
+### shelf calendar
+
+Aliases:
+
+- `cal`
+
+Starts Cockpit in `calendar` mode.
+
+### shelf tree
+
+Aliases:
+
+- `tr`
+
+Starts Cockpit in `tree` mode.
+
+### shelf board
+
+Aliases:
+
+- `kb`
+
+Starts Cockpit in `board` mode.
+
+### shelf review
+
+Aliases:
+
+- `rv`
+
+Starts Cockpit in `review` mode.
+
+### shelf now
+
+Aliases:
+
+- `nw`
+
+Starts Cockpit in `now` mode.
+
+All launcher commands accept the same Cockpit flags:
+
+- `--start`
+- `--days`
+- `--months`
+- `--years`
+- `--limit`
+- `--kind`
+- `--status`
+- `--tag`
+- `--not-kind`
+- `--not-status`
+- `--not-tag`
+
+All launcher commands are TTY-only.
 
 ## shelf ls
-- フラット一覧
-- フィルタ可能
 
-### flags（例）
-- `--kind <kind>`
-- `--state <state>`
+Read-only task listing for scripts and quick inspection.
+
+Flags:
+
+- `--kind <kind>` (repeatable)
+- `--status <status>` (repeatable)
+- `--tag <tag>` (repeatable)
+- `--not-kind <kind>` (repeatable)
+- `--not-status <status>` (repeatable)
+- `--not-tag <tag>` (repeatable)
+- `--ready`
+- `--blocked-by-deps`
+- `--due-before <date>`
+- `--due-after <date>`
+- `--overdue`
+- `--no-due`
 - `--parent <id|root>`
-- `--limit <n>`（デフォルト50）
-- `--search <query>`（title/bodyの部分一致）
+- `--search <text>`
+- `--limit <n>`
+- `--include-archived`
+- `--only-archived`
+- `--format compact|detail|kanban`
+- `--json`
 
-## shelf tree
-- 親子をツリー表示
+Unknown kind/status/tag values fail fast.
 
-### flags
-- `--from <id|root>`
-- `--max-depth <n>`（省略時は無制限）
-- `--state <state>`（doneを隠す等）
+## shelf next
 
-## shelf show <id>
-- タスク詳細（front matter + body）
-- 併せて outbound/inbound links のサマリも表示して良い
+Read-only shortlist of actionable tasks.
 
-## shelf set <id>
-- `kind` / `state` / `title` / `body` の更新
+Flags:
 
-### flags
-- `--title <str>`
-- `--kind <kind>`
-- `--state <state>`
-- `--body <str>`（置換）
-- `--append-body <str>`（追記）
+- `--limit <n>`
+- `--json`
 
-## shelf mv <id>
-- 親の付け替え
+## Notes
 
-### flags
-- `--parent <id|root>`
+The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/link/archive/history/import/export/github/view/doctor.
 
-## shelf link
-- リンク追加（outbound）
-- TTY: source → dest → type の対話（j/k + /search）
-- 非TTY: `--from --to --type` 必須
-
-### flags
-- `--from <id>`
-- `--to <id>`
-- `--type <link_type>`
-
-### 出力（例）
-- `Linked: [src] --depends_on--> [dst]`
-
-## shelf unlink
-- リンク削除（outbound）
-- `--from --to --type` 必須
-
-## shelf links <id>
-- 指定タスクの links を表示
-  - outbound: `.shelf/edges/<id>.toml`
-  - inbound: 全edge走査で逆引き（`to == id`）
-
-表示は `type` ごとにグルーピングしても良い。
-
-## shelf doctor
-- `.shelf/` の整合性チェック（不変条件検証）
-- 壊れているファイルを列挙し、修正ヒントを出す
+Those operations are expected to happen inside Cockpit.

@@ -1,37 +1,113 @@
-# INTERACTIVE（対話選択仕様）
+# INTERACTIVE
 
-対象: `shelf add`, `shelf link`
+Current interactive behavior for the Cockpit-first `shelf` tool.
 
-## 基本操作（MUST）
-- `j` / `k` で上下移動
-- `Enter` で決定
-- `Esc` または `Ctrl+C` でキャンセル（非ゼロ終了）
+## Main Rule
 
-## 検索（MUST）
-- `/` で検索入力モード
-- 入力中はインクリメンタルに候補を絞る（title、短縮ID）
-- `Enter` で検索確定、`Esc` で検索解除
+Interactive daily work happens inside `Cockpit`.
 
-## ページング（SHOULD）
-- 候補が多い場合、表示をページングする
-- `Ctrl+f` / `Ctrl+b` でページ送り/戻し（または `PgDn/PgUp`）
+You normally enter it through one of these commands:
 
-## 表示フォーマット（MUST）
-- 候補行: `[{short}] {title}  ({kind}/{state})`
-- 親がある場合は、右端やサブ表示で `parent` を示しても良い
+- `shelf`
+- `shelf cockpit`
+- `shelf calendar`
+- `shelf tree`
+- `shelf board`
+- `shelf review`
+- `shelf now`
 
-## add の対話順
-1. Title（1行入力）
-2. Kind（選択）
-3. Parent（任意 / `0` で root）
+All of those open the same TUI workspace with different starting modes.
 
-## link の対話順
-1. source（選択）
-2. destination（選択）
-3. type（選択）
+## Shared Cockpit Navigation
 
-## 依存の向きの注意表示（MUST）
-- `depends_on` を選ぶ画面に説明を入れる:
-  - `A depends_on B = AをやるにはBが先`
-- 作成後に必ず矢印付きで表示:
-  - `Linked: [A] --depends_on--> [B]`
+- `C`: calendar mode
+- `T`: tree mode
+- `B`: board mode
+- `R`: review mode
+- `N`: now mode
+- `Ctrl+H` / `Ctrl+L`: previous / next mode
+- `Tab` / `Shift+Tab`: move focus between panes
+- `?`: toggle help overlay
+- `q`: close help first, otherwise quit
+- `Esc` / `Ctrl+C`: quit or leave transient state
+- `Ctrl+[` : return to normal state from transient overlays
+
+## Calendar Mode
+
+Main keys:
+
+- `t`: jump to today
+- `h` / `l`: move by day
+- `j` / `k`: move by week
+- `[` / `]`: move by month
+- `n` / `p`: cycle tasks on the focused day
+- `a`: create from the current context
+- `A`: quick capture
+
+## Tree Mode
+
+Main keys:
+
+- `h`: collapse current subtree, or move to parent
+- `l`: expand current subtree
+- `m`: move selected task or marked tasks
+- `v`: toggle mark on the current task
+- `V`: start or stop range marking
+- `u`: clear all marks
+
+## Board Mode
+
+Main keys:
+
+- `h` / `l`: move between columns
+- `j` / `k`: move within a column
+- `v`: toggle mark on the current task
+- `V`: start or stop range marking
+- `u`: clear all marks
+
+## Review / Now Modes
+
+These are compact operational views inside the same workspace.
+
+- `review`: inbox / overdue / blocked / ready scan
+- `now`: focused execution view for today
+
+## Common Task Actions
+
+These actions operate on the selected task, or on marked tasks when multi-select is active.
+
+- `o`: set `open`
+- `i`: set `in_progress`
+- `b`: set `blocked`
+- `d`: set `done`
+- `c`: set `cancelled`
+- `x`: archive toggle
+- `z`: snooze presets
+- `e`: open the task file in `$VISUAL`, `$EDITOR`, then `vi`
+- `L`: open the edge file for the selected task
+- `Enter`: toggle compact / detailed inspector
+- `r`: reload
+
+## Add / Capture
+
+- `a`: create using the current mode context
+  - calendar / review / now: use focused day as the due date default
+  - tree: use selected task as the parent default
+  - board: use selected column status as the status default
+- `A`: quick capture (`kind=inbox`, `status=open`)
+
+## Scrolling
+
+- fixed header stays on screen
+- body scroll:
+  - `PgUp` / `PgDn`
+  - `Ctrl+U` / `Ctrl+D`
+  - `Home` / `End`
+
+## Selector Behavior
+
+Long task selectors scroll automatically.
+
+- tree-style labels are used where hierarchy matters
+- `(root)` appears as an explicit move target where relevant
+- `q`, `Esc`, and `Ctrl+C` cancel plain selectors

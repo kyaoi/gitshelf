@@ -6,7 +6,7 @@
 | 仕様 | 主担当タスク |
 |---|---|
 | 保存形式（tasks/edges/config） | GS-02, GS-03 |
-| 不変条件（kind/state/link_types, parent循環, edge重複） | GS-03, GS-08, GS-10 |
+| 不変条件（kind/status/link_types, parent循環, edge重複） | GS-03, GS-08, GS-10 |
 | add（対話/非対話） | GS-05, GS-06 |
 | tree | GS-07, GS-08 |
 | link/unlink/links | GS-09 |
