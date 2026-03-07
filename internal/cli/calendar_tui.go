@@ -81,6 +81,7 @@ type calendarSection struct {
 type cockpitTreeRow struct {
 	Task  shelf.Task
 	Label string
+	Meta  string
 }
 
 type calendarTUIModel struct {
@@ -720,13 +721,15 @@ func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, 
 		if showID {
 			label = fmt.Sprintf("[%s] %s", shelf.ShortID(node.Task.ID), label)
 		}
-		label = fmt.Sprintf("%s%s%s (%s/%s)", prefix, branch, label, node.Task.Kind, node.Task.Status)
+		meta := fmt.Sprintf("%s/%s", node.Task.Kind, node.Task.Status)
 		if strings.TrimSpace(node.Task.DueOn) != "" {
-			label += " due=" + node.Task.DueOn
+			meta += "  due=" + node.Task.DueOn
 		}
+		label = fmt.Sprintf("%s%s%s", prefix, branch, label)
 		rows = append(rows, cockpitTreeRow{
 			Task:  node.Task,
 			Label: label,
+			Meta:  meta,
 		})
 		rows = append(rows, flattenCockpitTreeRows(node.Children, nextPrefix, false, showID)...)
 	}
@@ -1632,27 +1635,26 @@ func countSectionItems(sections []calendarSection, target calendarSectionID) int
 }
 
 func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(0, 1)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	lines := []string{titleStyle.Render("Tree")}
 	if len(rows) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))
-		return boxStyle.Render(strings.Join(lines, "\n"))
+		return strings.Join(lines, "\n")
 	}
 	for i, row := range rows {
-		label := trimLine(row.Label, max(20, width-4))
+		label := trimLine(row.Label, max(20, width))
+		meta := trimLine(row.Meta, max(18, width-2))
 		if i == selected {
 			lines = append(lines, selectedStyle.Render("> "+label))
+			lines = append(lines, mutedStyle.Render("  "+meta))
 		} else {
 			lines = append(lines, "  "+label)
+			lines = append(lines, mutedStyle.Render("  "+meta))
 		}
 	}
-	return boxStyle.Render(strings.Join(lines, "\n"))
+	return strings.Join(lines, "\n")
 }
 
 func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex map[int]int, showID bool, width int) string {
@@ -1662,14 +1664,20 @@ func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex 
 	if len(columns) == 0 {
 		return titleStyle.Render("Board") + "\n" + mutedStyle.Render("(none)")
 	}
-	columnGap := 2
+	columnGap := 3
 	columnWidth := max(18, (width-(len(columns)-1)*columnGap)/max(1, len(columns)))
 	if columnWidth < 16 {
 		columnWidth = 16
 	}
 	rendered := make([]string, 0, len(columns))
 	for colIdx, column := range columns {
-		lines := []string{titleStyle.Render(string(column.Status))}
+		header := fmt.Sprintf("%s %d", column.Status, len(column.Tasks))
+		if colIdx == selectedColumn {
+			header = selectedStyle.Render(header)
+		} else {
+			header = titleStyle.Render(header)
+		}
+		lines := []string{header}
 		if len(column.Tasks) == 0 {
 			lines = append(lines, mutedStyle.Render("(none)"))
 		}
@@ -1679,27 +1687,22 @@ func renderCockpitBoardPane(columns []boardColumn, selectedColumn int, rowIndex 
 			if showID {
 				label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
 			}
+			meta := trimLine(renderBoardTaskMeta(task), max(14, columnWidth-2))
 			prefix := "  "
 			if colIdx == selectedColumn && taskIdx == currentRow {
 				prefix = "> "
-				label = selectedStyle.Render(trimLine(prefix+label, max(14, columnWidth-2)))
-				lines = append(lines, label)
+				lines = append(lines, selectedStyle.Render(trimLine(prefix+label, max(14, columnWidth-2))))
+				lines = append(lines, mutedStyle.Render("  "+meta))
 			} else {
 				lines = append(lines, prefix+trimLine(label, max(14, columnWidth-2)))
+				lines = append(lines, mutedStyle.Render("  "+meta))
 			}
 		}
-		style := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			Padding(0, 1).
-			Width(columnWidth)
-		if colIdx == selectedColumn {
-			style = style.BorderForeground(lipgloss.Color("45"))
-		} else {
-			style = style.BorderForeground(lipgloss.Color("240"))
-		}
+		style := lipgloss.NewStyle().Width(columnWidth)
 		rendered = append(rendered, style.Render(strings.Join(lines, "\n")))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
+	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
+	return strings.Join(rendered, separator)
 }
 
 func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {
@@ -1713,21 +1716,17 @@ func renderCalendarGridPane(month calendarMonthView, focusedDate string, width i
 }
 
 func renderCalendarActiveSection(section *calendarSection, sectionRows map[calendarSectionID]int, showID bool, width int) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(0, 1)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 
 	if section == nil {
-		return boxStyle.Render(mutedStyle.Render("No section"))
+		return mutedStyle.Render("No section")
 	}
-	lines := []string{titleStyle.Render(fmt.Sprintf("%s (%d)", section.Title, len(section.Items)))}
+	lines := []string{titleStyle.Render(fmt.Sprintf("%s %d", section.Title, len(section.Items)))}
 	if len(section.Items) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))
-		return boxStyle.Render(strings.Join(lines, "\n"))
+		return strings.Join(lines, "\n")
 	}
 	row := sectionRows[section.ID]
 	if row < 0 {
@@ -1741,17 +1740,25 @@ func renderCalendarActiveSection(section *calendarSection, sectionRows map[calen
 		if showID {
 			label = fmt.Sprintf("[%s] %s", shelf.ShortID(item.Task.ID), label)
 		}
-		rendered := "  " + trimLine(label, max(18, width-4))
+		rendered := "  " + trimLine(label, max(18, width))
 		if i == row {
-			rendered = selectedStyle.Render("> " + trimLine(label, max(18, width-4)))
+			rendered = selectedStyle.Render("> " + trimLine(label, max(18, width)))
 		}
 		lines = append(lines, rendered)
-		lines = append(lines, mutedStyle.Render("  "+trimLine(item.Subtitle, max(18, width-4))))
-		if strings.TrimSpace(item.Reason) != "" {
-			lines = append(lines, mutedStyle.Render("  "+trimLine(item.Reason, max(18, width-4))))
+		lines = append(lines, mutedStyle.Render("  "+trimLine(item.Subtitle, max(18, width-2))))
+		if i == row && strings.TrimSpace(item.Reason) != "" {
+			lines = append(lines, mutedStyle.Render("  "+trimLine(item.Reason, max(18, width-2))))
 		}
 	}
-	return boxStyle.Render(strings.Join(lines, "\n"))
+	return strings.Join(lines, "\n")
+}
+
+func renderBoardTaskMeta(task shelf.Task) string {
+	meta := fmt.Sprintf("%s/%s", task.Kind, task.Status)
+	if strings.TrimSpace(task.DueOn) != "" {
+		meta += "  due=" + task.DueOn
+	}
+	return meta
 }
 
 func renderCalendarMonth(month calendarMonthView, focusedDate string, width int) string {

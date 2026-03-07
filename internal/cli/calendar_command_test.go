@@ -465,11 +465,11 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("unexpected row count: %d", len(rows))
 	}
-	if !strings.Contains(rows[0].Label, "Parent (todo/open)") {
-		t.Fatalf("unexpected parent row: %s", rows[0].Label)
+	if !strings.Contains(rows[0].Label, "Parent") || rows[0].Meta != "todo/open" {
+		t.Fatalf("unexpected parent row: %+v", rows[0])
 	}
-	if !strings.Contains(rows[1].Label, "Child (memo/blocked)") || !strings.Contains(rows[1].Label, "└─") {
-		t.Fatalf("unexpected child row: %s", rows[1].Label)
+	if !strings.Contains(rows[1].Label, "Child") || !strings.Contains(rows[1].Label, "└─") || rows[1].Meta != "memo/blocked" {
+		t.Fatalf("unexpected child row: %+v", rows[1])
 	}
 }
 
