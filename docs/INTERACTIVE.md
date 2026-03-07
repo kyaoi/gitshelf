@@ -20,7 +20,7 @@ If not TTY, users must provide required flags.
 - `shelf board` (TTY only, Daily Cockpit `board` mode)
 - `shelf calendar` (TTY only, Daily Cockpit `calendar` mode unless `--json`)
 - `shelf tree` (TTY only, Daily Cockpit `tree` mode unless `--plain` / `--json`)
-- `shelf focus` (TTY only, main Focus workspace entry point; `cockpit` is a compatibility alias)
+- `shelf cockpit` (TTY only, main Cockpit workspace entry point)
 
 ## Key Bindings
 
@@ -121,7 +121,7 @@ The type selection screen includes this warning:
 
 ## calendar TUI
 
-- used by `shelf focus`, `shelf calendar`, `shelf tree`, `shelf board`, and also by `shelf review` / `shelf now` on TTY unless `--plain` or `--json` is specified
+- used by `shelf cockpit`, `shelf calendar`, `shelf tree`, `shelf board`, and also by `shelf review` / `shelf now` on TTY unless `--plain` or `--json` is specified
 - layout is `main + right sidebar`
 - `Ctrl+H` / `Ctrl+L`: switch to the previous / next mode
 - `C/T/B/R/N`: switch modes

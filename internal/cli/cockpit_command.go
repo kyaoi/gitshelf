@@ -26,16 +26,16 @@ func newCockpitCommand(ctx *commandContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "focus",
-		Aliases: []string{"cockpit", "cp"},
-		Short:   "Open the main Focus workspace TUI",
-		Example: "  shelf focus\n" +
-			"  shelf focus --mode tree\n" +
-			"  shelf focus --mode board --months 3\n" +
-			"  shelf focus --mode review --status open --status blocked",
+		Use:     "cockpit",
+		Aliases: []string{"cp"},
+		Short:   "Open the main Cockpit workspace TUI",
+		Example: "  shelf cockpit\n" +
+			"  shelf cockpit --mode tree\n" +
+			"  shelf cockpit --mode board --months 3\n" +
+			"  shelf cockpit --mode review --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return errors.New("focus はTTYが必要です")
+				return errors.New("cockpit はTTYが必要です")
 			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
@@ -141,7 +141,7 @@ func parseCockpitMode(value string) (calendarMode, error) {
 	case "now", "today":
 		return calendarModeNow, nil
 	default:
-		return "", fmt.Errorf("unknown focus mode: %s", value)
+		return "", fmt.Errorf("unknown cockpit mode: %s", value)
 	}
 }
 

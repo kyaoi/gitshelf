@@ -66,7 +66,7 @@ func activeStatusFilter() []shelf.Status {
 	return []shelf.Status{"open", "in_progress", "blocked"}
 }
 
-func runDefaultFocus(ctx *commandContext) error {
+func runDefaultCockpit(ctx *commandContext) error {
 	if !dailyCockpitIsTTY() {
 		return nil
 	}

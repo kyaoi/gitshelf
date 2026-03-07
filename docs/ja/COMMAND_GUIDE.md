@@ -22,7 +22,7 @@
 | 状態だけ素早く変えたい | `done`, `start`, `block`, `cancel`, `reopen` |
 | 今日やることを見たい | `review`, `next`, `now`, `agenda` |
 | 日付軸で見たい | `calendar` |
-| 主入口の TUI workspace を直接開きたい | `focus` |
+| 主入口の TUI workspace を直接開きたい | `cockpit` |
 | ステータス列で見たい | `board` |
 | タスク同士をつなぎたい | `link`, `unlink`, `links`, `deps` |
 | GitHub issue / PR と同期したい | `github`, `sync github` |
@@ -200,10 +200,10 @@ due date カレンダービューです。
 - 現在の filter から外れる status に変えても、context を失わないよう reload まではその場に残します。
 - 現在の表示レンジを超えて移動すると、calendar が自動で過去/未来側へスライドします。
 
-### `shelf focus`
+### `shelf cockpit`
 
 意味:
-主入口の Focus workspace を直接開きます。
+主入口の Cockpit workspace を直接開きます。
 
 使う場面:
 - 入口を 1 つにしたい
@@ -212,9 +212,9 @@ due date カレンダービューです。
 例:
 
 ```bash
-shelf focus
-shelf focus --mode tree
-shelf focus --mode board --months 3
+shelf cockpit
+shelf cockpit --mode tree
+shelf cockpit --mode board --months 3
 ```
 
 ### `shelf board`
@@ -227,7 +227,7 @@ Daily Cockpit の `board` mode を開きます。
 - 列を見ながら status をその場で更新したい
 
 補足:
-- これは独立実装ではなく、主入口の Focus workspace を `board` mode で開く launcher です。
+- これは独立実装ではなく、主入口の Cockpit workspace を `board` mode で開く launcher です。
 
 ## 一覧と詳細確認
 

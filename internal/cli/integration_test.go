@@ -220,8 +220,8 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	if strings.Contains(rootHelp, "preview-body") {
 		t.Fatalf("root help should not include preview-body: %s", rootHelp)
 	}
-	if !strings.Contains(rootHelp, "focus") {
-		t.Fatalf("root help should mention focus: %s", rootHelp)
+	if !strings.Contains(rootHelp, "cockpit") {
+		t.Fatalf("root help should mention cockpit: %s", rootHelp)
 	}
 
 	treeHelp, err := executeCLI(t, "tree", "--help")
@@ -265,18 +265,17 @@ func TestCLIReviewAndTodayHelpMentionPlain(t *testing.T) {
 		t.Fatalf("today help should mention --plain: %s", todayHelp)
 	}
 
-	cockpitHelp, err := executeCLI(t, "focus", "--help")
+	cockpitHelp, err := executeCLI(t, "cockpit", "--help")
 	if err != nil {
-		t.Fatalf("focus help failed: %v", err)
+		t.Fatalf("cockpit help failed: %v", err)
 	}
 	if !strings.Contains(cockpitHelp, "--mode") {
-		t.Fatalf("focus help should mention --mode: %s", cockpitHelp)
+		t.Fatalf("cockpit help should mention --mode: %s", cockpitHelp)
 	}
 }
 
 func TestCLIAliasesResolveToCommands(t *testing.T) {
 	aliases := [][]string{
-		{"cockpit", "--help"},
 		{"cp", "--help"},
 		{"cal", "--help"},
 		{"kb", "--help"},

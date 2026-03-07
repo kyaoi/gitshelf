@@ -68,14 +68,14 @@ func TestCockpitCommandRoutesToSelectedMode(t *testing.T) {
 	cmd := newCockpitCommand(&commandContext{rootDir: root})
 	cmd.SetArgs([]string{"--mode", "board", "--status", "open", "--tag", "backend"})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("focus command failed: %v", err)
+		t.Fatalf("cockpit command failed: %v", err)
 	}
 	if !called {
-		t.Fatal("expected focus TUI launcher to run")
+		t.Fatal("expected cockpit TUI launcher to run")
 	}
 }
 
-func TestRootCommandWithoutArgsLaunchesFocusOnTTY(t *testing.T) {
+func TestRootCommandWithoutArgsLaunchesCockpitOnTTY(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -101,6 +101,6 @@ func TestRootCommandWithoutArgsLaunchesFocusOnTTY(t *testing.T) {
 		t.Fatalf("root execute failed: %v", err)
 	}
 	if !called {
-		t.Fatal("expected root without args to launch focus")
+		t.Fatal("expected root without args to launch cockpit")
 	}
 }

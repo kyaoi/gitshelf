@@ -22,7 +22,7 @@ This file is the operator guide.
 | Change status quickly | `shelf done`, `start`, `block`, `cancel`, `reopen` |
 | See what to work on now | `shelf next`, `review`, `now`, `agenda` |
 | See due dates on a calendar | `shelf calendar` |
-| Open the main TUI workspace directly | `shelf focus` |
+| Open the main TUI workspace directly | `shelf cockpit` |
 | Manage status visually | `shelf board` |
 | Add links between tasks | `shelf link`, `unlink`, `links`, `deps` |
 | Link GitHub issues/PRs | `shelf github`, `shelf sync github` |
@@ -212,10 +212,10 @@ Notes:
 - If you change a task to a status outside the current filter, calendar keeps it visible until the next reload so context is not lost.
 - Moving past the current window automatically shifts the visible range, so you can keep going backward or forward in time.
 
-### `shelf focus`
+### `shelf cockpit`
 
 Meaning:
-Open the main Focus workspace directly.
+Open the main Cockpit workspace directly.
 
 Use when:
 You want one main entry point and choose the starting mode yourself.
@@ -223,9 +223,9 @@ You want one main entry point and choose the starting mode yourself.
 Examples:
 
 ```bash
-shelf focus
-shelf focus --mode tree
-shelf focus --mode board --months 3
+shelf cockpit
+shelf cockpit --mode tree
+shelf cockpit --mode board --months 3
 ```
 
 ### `shelf board`
@@ -239,7 +239,7 @@ You want to move through active work visually and change statuses in place.
 Notes:
 - TTY only.
 - Columns follow config `statuses`.
-- This is a launcher into the main Focus workspace, not a separate TUI implementation.
+- This is a launcher into the main Cockpit workspace, not a separate TUI implementation.
 
 ## Listing and Inspection
 

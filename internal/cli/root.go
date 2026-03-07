@@ -23,8 +23,8 @@ func NewRootCommand(version string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "shelf",
-		Short:         "Git-backed task shelf with a Focus workspace",
-		Long:          "shelf is a lightweight CLI tool for managing tasks and links in .shelf/. In TTY, running `shelf` opens the Focus workspace.",
+		Short:         "Git-backed task shelf with a Cockpit workspace",
+		Long:          "shelf is a lightweight CLI tool for managing tasks and links in .shelf/. In TTY, running `shelf` opens the Cockpit workspace.",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		Version:       version,
@@ -52,7 +52,7 @@ func NewRootCommand(version string) *cobra.Command {
 			if !dailyCockpitIsTTY() {
 				return cmd.Help()
 			}
-			return runDefaultFocus(ctx)
+			return runDefaultCockpit(ctx)
 		},
 	}
 

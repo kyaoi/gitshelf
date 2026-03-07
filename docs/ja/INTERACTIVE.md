@@ -20,7 +20,7 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf board`（TTY 専用、Daily Cockpit の `board` mode）
 - `shelf calendar`（`--json` なしでは Daily Cockpit の `calendar` mode）
 - `shelf tree`（`--plain` / `--json` なしでは Daily Cockpit の `tree` mode）
-- `shelf focus`（TTY 専用、主入口の Focus workspace。`cockpit` は互換 alias）
+- `shelf cockpit`（TTY 専用、主入口の Cockpit workspace）
 
 ## キーバインド
 
@@ -137,7 +137,7 @@ type 選択画面では、次の注意文を出します。
 
 ## `calendar` TUI
 
-- `shelf focus` / `shelf calendar` / `shelf tree` / `shelf board` で共通利用されます
+- `shelf cockpit` / `shelf calendar` / `shelf tree` / `shelf board` で共通利用されます
 - `shelf review` / `shelf now` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
 - レイアウトは `main + right sidebar` です
 - `Ctrl+H` / `Ctrl+L`: 前 / 次の mode へ切り替え

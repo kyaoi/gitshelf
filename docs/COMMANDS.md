@@ -148,9 +148,9 @@ Rules:
 - exactly one of `--days` / `--months` / `--years` may be specified
 - if none is specified, config `[commands.calendar]` is used
 
-## shelf focus
+## shelf cockpit
 
-Main Focus workspace entry point.
+Main Cockpit workspace entry point.
 
 - TTY only
 - opens the shared workspace used by `calendar`, `tree`, `board`, `review`, and `now`
@@ -173,7 +173,7 @@ Flags:
 
 ## shelf board
 
-Focus workspace launcher for `board` mode.
+Cockpit workspace launcher for `board` mode.
 
 - TTY only
 - columns follow configured `statuses`

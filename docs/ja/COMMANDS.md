@@ -137,10 +137,10 @@ subcommand:
 - `--days` / `--months` / `--years` はどれか1つだけ指定可
 - 未指定時は config `[commands.calendar]` を使う
 
-## `shelf focus`
+## `shelf cockpit`
 
 意味:
-主入口の Focus workspace を直接起動します。
+主入口の Cockpit workspace を直接起動します。
 
 前提:
 - TTY 必須
@@ -163,7 +163,7 @@ subcommand:
 ## `shelf board`
 
 意味:
-Focus workspace の `board` mode を開く launcher です。
+Cockpit workspace の `board` mode を開く launcher です。
 
 前提:
 - TTY 必須
