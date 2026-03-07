@@ -118,6 +118,7 @@ type calendarTUIModel struct {
 	markedTaskIDs  map[string]struct{}
 	rangeMarkMode  bool
 	rangeAnchorID  string
+	rangeBaseIDs   map[string]struct{}
 	moveMode       bool
 	moveSourceIDs  []string
 	pane           calendarPane
@@ -178,6 +179,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		sectionRows:   map[calendarSectionID]int{},
 		boardRowIndex: map[int]int{},
 		markedTaskIDs: map[string]struct{}{},
+		rangeBaseIDs:  map[string]struct{}{},
 		readiness:     map[string]shelf.TaskReadiness{},
 		taskByID:      map[string]shelf.Task{},
 		titleByID:     map[string]string{},
@@ -418,11 +420,18 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, nil
+		case "u":
+			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
+				m.unmarkCurrentSelection()
+				return m, nil
+			}
+			return m, nil
 		case "v":
 			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
 				if m.rangeMarkMode {
 					m.rangeMarkMode = false
 					m.rangeAnchorID = ""
+					m.rangeBaseIDs = map[string]struct{}{}
 				}
 				m.toggleMarkedSelection()
 				return m, nil
@@ -743,6 +752,7 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.bodyScroll = 0
 	m.rangeMarkMode = false
 	m.rangeAnchorID = ""
+	m.rangeBaseIDs = map[string]struct{}{}
 	m.moveMode = false
 	m.moveSourceIDs = nil
 	m.rebuildModeState()
@@ -776,6 +786,25 @@ func (m *calendarTUIModel) toggleMarkedSelection() {
 	m.message = fmt.Sprintf("marked %d task(s)", len(m.markedTaskIDs))
 }
 
+func (m *calendarTUIModel) unmarkCurrentSelection() {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.message = "選択中の task がありません"
+		return
+	}
+	if _, exists := m.markedTaskIDs[task.ID]; !exists {
+		m.message = "current task is not marked"
+		return
+	}
+	delete(m.markedTaskIDs, task.ID)
+	delete(m.rangeBaseIDs, task.ID)
+	if m.rangeAnchorID == task.ID {
+		m.rangeMarkMode = false
+		m.rangeAnchorID = ""
+	}
+	m.message = fmt.Sprintf("unmarked: %s", task.Title)
+}
+
 func (m *calendarTUIModel) toggleRangeSelectionMode() {
 	task, ok := m.selectedTask()
 	if !ok {
@@ -785,12 +814,21 @@ func (m *calendarTUIModel) toggleRangeSelectionMode() {
 	if m.rangeMarkMode {
 		m.rangeMarkMode = false
 		m.rangeAnchorID = ""
+		m.rangeBaseIDs = map[string]struct{}{}
 		m.message = fmt.Sprintf("range select fixed (%d task)", m.markedCount())
 		return
 	}
 	m.rangeMarkMode = true
 	m.rangeAnchorID = task.ID
-	m.markedTaskIDs = map[string]struct{}{task.ID: {}}
+	m.rangeBaseIDs = cloneIDSet(m.markedTaskIDs)
+	if m.rangeBaseIDs == nil {
+		m.rangeBaseIDs = map[string]struct{}{}
+	}
+	m.rangeBaseIDs[task.ID] = struct{}{}
+	if m.markedTaskIDs == nil {
+		m.markedTaskIDs = map[string]struct{}{}
+	}
+	m.markedTaskIDs[task.ID] = struct{}{}
 	m.message = "range select started"
 }
 
@@ -836,6 +874,7 @@ func (m *calendarTUIModel) clearMarkedSelection() {
 	m.markedTaskIDs = map[string]struct{}{}
 	m.rangeMarkMode = false
 	m.rangeAnchorID = ""
+	m.rangeBaseIDs = map[string]struct{}{}
 }
 
 func (m *calendarTUIModel) syncRangeSelection() {
@@ -866,10 +905,24 @@ func (m *calendarTUIModel) syncRangeSelection() {
 	if start > end {
 		start, end = end, start
 	}
-	m.markedTaskIDs = map[string]struct{}{}
+	m.markedTaskIDs = cloneIDSet(m.rangeBaseIDs)
+	if m.markedTaskIDs == nil {
+		m.markedTaskIDs = map[string]struct{}{}
+	}
 	for _, taskID := range order[start : end+1] {
 		m.markedTaskIDs[taskID] = struct{}{}
 	}
+}
+
+func cloneIDSet(src map[string]struct{}) map[string]struct{} {
+	if len(src) == 0 {
+		return map[string]struct{}{}
+	}
+	dst := make(map[string]struct{}, len(src))
+	for id := range src {
+		dst[id] = struct{}{}
+	}
+	return dst
 }
 
 func (m calendarTUIModel) selectionOrder() []string {
@@ -2127,7 +2180,7 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
-		"v: mark  V: range mark  m: move in tree (root included)",
+		"v: mark  u: unmark  V: range mark  m: move in tree (root included)",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q: close help or quit  Esc/Ctrl+C: quit",
 	}

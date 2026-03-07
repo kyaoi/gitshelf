@@ -157,7 +157,8 @@ type 選択画面では、次の注意文を出します。
 - `Home` / `End`: body の先頭 / 末尾へ移動
 - `1..6`: 見えている section へ直接ジャンプ
 - `v`: tree / board mode で現在 task の mark を切り替え
-- `V`: tree / board mode で連続選択を開始 / 確定し、移動に追従して mark 範囲を広げる
+- `u`: tree / board mode で現在 task の mark を解除
+- `V`: tree / board mode で連続選択を開始 / 確定し、既存 mark を消さずに、移動に追従して mark 範囲を広げる
 - `m`: tree mode で、現在 task または mark 済み task を現在選択中 task の下へ移動。move 中は `(root)` も移動先として選べる
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task、または tree / board mode で mark 済みの複数 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
