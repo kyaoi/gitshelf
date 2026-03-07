@@ -227,7 +227,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.prevPane()
 			return m, nil
 		case "left", "h":
-			if m.mode == calendarModeCalendar {
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(-1)
+			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-1)
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardColumn(-1)
@@ -236,7 +238,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "right", "l":
-			if m.mode == calendarModeCalendar {
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(1)
+			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(1)
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardColumn(1)
@@ -245,6 +249,10 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "up":
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(-7)
+				return m, nil
+			}
 			if m.mode == calendarModeBoard {
 				m.moveBoardRow(-1)
 				return m, nil
@@ -252,6 +260,10 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveSectionRow(-1)
 			return m, nil
 		case "down":
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(7)
+				return m, nil
+			}
 			if m.mode == calendarModeBoard {
 				m.moveBoardRow(1)
 				return m, nil
@@ -259,7 +271,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveSectionRow(1)
 			return m, nil
 		case "k":
-			if m.mode == calendarModeCalendar {
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(-7)
+			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-7)
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardRow(-1)
@@ -268,7 +282,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "j":
-			if m.mode == calendarModeCalendar {
+			if m.usesSidebarCalendarNav() {
+				m.moveFocusByDays(7)
+			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(7)
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardRow(1)
@@ -299,10 +315,14 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "[", "H":
-			m.moveFocusByMonths(-1)
+			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
+				m.moveFocusByMonths(-1)
+			}
 			return m, nil
 		case "]", "L":
-			m.moveFocusByMonths(1)
+			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
+				m.moveFocusByMonths(1)
+			}
 			return m, nil
 		case "n":
 			if m.mode == calendarModeBoard {
@@ -400,6 +420,8 @@ func (m calendarTUIModel) View() string {
 	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth)
 	if m.mode == calendarModeCalendar {
 		right = renderCalendarSidebarPane(m, selectedTask, selectedTaskOK, inspectorWidth)
+	} else {
+		right = renderCalendarSecondarySidebarPane(m, selectedTask, selectedTaskOK, inspectorWidth, m.pane == calendarPaneInspector)
 	}
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, main, right)
@@ -426,22 +448,26 @@ func (m calendarTUIModel) View() string {
 func (m calendarTUIModel) layoutWidths() (int, int) {
 	if m.width <= 0 {
 		if m.mode == calendarModeCalendar {
-			return 96, 44
+			return 108, 36
 		}
 		return 88, 54
 	}
 	usable := max(96, m.width-2)
 	inspectorRatio := 34
 	if m.mode == calendarModeCalendar {
-		inspectorRatio = 28
+		inspectorRatio = 24
 	}
-	inspector := max(40, usable*inspectorRatio/100)
+	inspector := max(36, usable*inspectorRatio/100)
 	main := usable - inspector
 	if main < 56 {
 		main = 56
 		inspector = usable - main
 	}
 	return main, inspector
+}
+
+func (m calendarTUIModel) usesSidebarCalendarNav() bool {
+	return m.mode != calendarModeCalendar && m.pane == calendarPaneInspector
 }
 
 func (m *calendarTUIModel) nextPane() {
@@ -1546,7 +1572,8 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		"Tab: pane  C/T/B/R/Y: mode  ?: close",
-		"h/l: move  j/k: move rows or weeks  n/p: task or tabs or columns",
+		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
+		"sidebar: in non-calendar modes, focus the right pane to move dates",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q/Esc/Ctrl+C: quit",
 	}
@@ -1647,7 +1674,7 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	}
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
-		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
+		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(56, width-4), false))
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
 	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
@@ -1689,22 +1716,52 @@ func countSectionItems(sections []calendarSection, target calendarSectionID) int
 }
 
 func renderCalendarSidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int) string {
-	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width)
 	focusedSection := m.focusedDaySection()
 	dayList := renderCalendarActiveSection(focusedSection, m.sectionRows, m.showID, width)
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
+		BorderForeground(lipgloss.Color("45")).
 		Padding(0, 1).
 		Width(width)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	sidebar := boxStyle.Render(strings.Join([]string{
+	focusedPane := boxStyle.Render(strings.Join([]string{
 		titleStyle.Render("Focused Day"),
 		metaStyle.Render("n/p: task switch"),
 		dayList,
 	}, "\n"))
-	return lipgloss.JoinVertical(lipgloss.Left, inspector, "", sidebar)
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width)
+	return lipgloss.JoinVertical(lipgloss.Left, focusedPane, "", inspector)
+}
+
+func renderCalendarSecondarySidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int, active bool) string {
+	calendarPane := renderCalendarMiniSidebar(m, width, active)
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width)
+	return lipgloss.JoinVertical(lipgloss.Left, calendarPane, "", inspector)
+}
+
+func renderCalendarMiniSidebar(m calendarTUIModel, width int, active bool) string {
+	focused, err := m.focusedDate()
+	if err != nil {
+		focused = time.Now().Local()
+	}
+	month := buildCalendarMonthView(m.days, focused)
+	borderColor := lipgloss.Color("240")
+	if active {
+		borderColor = lipgloss.Color("45")
+	}
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(0, 1).
+		Width(width)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	return boxStyle.Render(strings.Join([]string{
+		titleStyle.Render("Calendar"),
+		metaStyle.Render("Tab then h/j/k/l/[ ]: date move"),
+		renderCalendarMonth(month, m.focusedDayLabel(), max(28, width-4), true),
+	}, "\n"))
 }
 
 func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {
@@ -1784,7 +1841,7 @@ func renderCalendarGridPane(month calendarMonthView, focusedDate string, width i
 		borderColor = lipgloss.Color("45")
 	}
 	containerStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1).Width(width)
-	content := renderCalendarMonth(month, focusedDate, max(42, width-4))
+	content := renderCalendarMonth(month, focusedDate, max(42, width-4), true)
 	return containerStyle.Render(content)
 }
 
@@ -1834,10 +1891,14 @@ func renderBoardTaskMeta(task shelf.Task) string {
 	return meta
 }
 
-func renderCalendarMonth(month calendarMonthView, focusedDate string, width int) string {
+func renderCalendarMonth(month calendarMonthView, focusedDate string, width int, compact bool) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	dayHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("244"))
-	cellWidth := max(8, min(12, (width-2)/7))
+	maxCellWidth := 12
+	if !compact {
+		maxCellWidth = 14
+	}
+	cellWidth := max(8, min(maxCellWidth, (width-2)/7))
 	headers := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 	headerCells := make([]string, 0, len(headers))
 	for _, header := range headers {
@@ -1847,18 +1908,22 @@ func renderCalendarMonth(month calendarMonthView, focusedDate string, width int)
 	for _, week := range month.Weeks {
 		cells := make([]string, 0, len(week))
 		for _, cell := range week {
-			cells = append(cells, renderCalendarCell(cell, focusedDate, cellWidth))
+			cells = append(cells, renderCalendarCell(cell, focusedDate, cellWidth, compact))
 		}
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
 	}
 	return strings.Join(rows, "\n")
 }
 
-func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth int) string {
+func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth int, compact bool) string {
 	key := cell.Date.Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
 	contentWidth := max(6, cellWidth)
-	style := lipgloss.NewStyle().Width(contentWidth).Height(2)
+	height := 2
+	if !compact {
+		height = 3
+	}
+	style := lipgloss.NewStyle().Width(contentWidth).Height(height)
 	switch {
 	case key == focusedDate:
 		style = style.Background(lipgloss.Color("25")).Foreground(lipgloss.Color("255")).Bold(true)
@@ -1881,7 +1946,11 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	} else if cell.InRange {
 		countLine = "·"
 	}
-	lines := []string{padOrTrim(dayLabel, contentWidth), padOrTrim(countLine, contentWidth)}
+	lines := []string{padOrTrim(dayLabel, contentWidth)}
+	if !compact {
+		lines = append(lines, padOrTrim("", contentWidth))
+	}
+	lines = append(lines, padOrTrim(countLine, contentWidth))
 	return style.Render(strings.Join(lines, "\n"))
 }
 

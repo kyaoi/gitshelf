@@ -213,7 +213,7 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 		TaskCount:      2,
 		DominantStatus: "blocked",
 	}
-	rendered := renderCalendarCell(cell, "2026-03-09", 14)
+	rendered := renderCalendarCell(cell, "2026-03-09", 14, true)
 	if got := lipgloss.Width(rendered); got != 14 {
 		t.Fatalf("unexpected rendered width: %d", got)
 	}
@@ -637,6 +637,9 @@ func TestCalendarViewUsesSidebarForFocusedDayTasks(t *testing.T) {
 	if !strings.Contains(rendered, "n/p: task switch") {
 		t.Fatalf("calendar view should show focused day switch hint: %q", rendered)
 	}
+	if strings.Index(rendered, "Focused Day") > strings.Index(rendered, "Inspector") {
+		t.Fatalf("focused day pane should be above inspector in calendar sidebar: %q", rendered)
+	}
 }
 
 func TestCalendarNPSwitchesFocusedDayTasks(t *testing.T) {
@@ -671,5 +674,70 @@ func TestCalendarNPSwitchesFocusedDayTasks(t *testing.T) {
 	task, ok = calendarModel.selectedTask()
 	if !ok || task.ID != first.ID {
 		t.Fatalf("expected p to select first focused-day task, got %+v ok=%t", task, ok)
+	}
+}
+
+func TestReviewViewUsesSidebarCalendar(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Today task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  today,
+	}); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 7, []shelf.Status{"open", "in_progress", "blocked"}, calendarTUIOptions{
+		Mode:   calendarModeReview,
+		ShowID: false,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.width = 120
+	rendered := model.View()
+	if !strings.Contains(rendered, "Calendar") {
+		t.Fatalf("non-calendar mode should render sidebar calendar: %q", rendered)
+	}
+	if !strings.Contains(rendered, "Tab then h/j/k/l/[ ]: date move") {
+		t.Fatalf("sidebar calendar should show navigation hint: %q", rendered)
+	}
+}
+
+func TestSidebarCalendarNavigationMovesFocusedDate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Today task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  today,
+	}); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 14, []shelf.Status{"open", "in_progress", "blocked"}, calendarTUIOptions{
+		Mode:   calendarModeReview,
+		ShowID: false,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	original := model.focusedDayLabel()
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	reviewModel := updatedModel.(calendarTUIModel)
+	if reviewModel.pane != calendarPaneInspector {
+		t.Fatalf("expected sidebar pane active after tab, got %v", reviewModel.pane)
+	}
+	updatedModel, _ = reviewModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	reviewModel = updatedModel.(calendarTUIModel)
+	if reviewModel.focusedDayLabel() == original {
+		t.Fatalf("expected sidebar calendar navigation to move focused day, still %s", reviewModel.focusedDayLabel())
 	}
 }
