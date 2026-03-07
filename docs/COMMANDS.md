@@ -127,8 +127,13 @@ Flags:
 
 - `--start <YYYY-MM-DD|today|tomorrow>`
 - `--days <n>` (default: `7`)
+- `--months <n>` (whole-month range from the month containing `--start`)
 - `--status <status>` (repeatable)
 - `--json`
+
+Rules:
+
+- `--days` and `--months` cannot be combined
 
 ## shelf board
 

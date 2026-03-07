@@ -102,7 +102,7 @@ go build -o shelf ./cmd/shelf
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
-- `shelf calendar [--root <dir>] [--start <date> --days N --status ... --json]`
+- `shelf calendar [--root <dir>] [--start <date> --days N | --months N --status ... --json]`
   - calendar TUI by default
   - use `--json` for non-TTY contexts
 - `shelf board [--root <dir>] [--show-id]`

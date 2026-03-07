@@ -117,8 +117,12 @@ subcommand:
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
 - `--days <n>`（既定: `7`）
+- `--months <n>`（`--start` を含む月の先頭から月単位レンジ）
 - `--status <status>`（複数可）
 - `--json`
+
+ルール:
+- `--days` と `--months` は同時指定不可
 
 ## `shelf board`
 

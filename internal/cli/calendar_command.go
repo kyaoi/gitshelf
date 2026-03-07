@@ -21,6 +21,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 	var (
 		start    string
 		days     int
+		months   int
 		statuses []string
 		asJSON   bool
 	)
@@ -31,13 +32,14 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf calendar\n" +
 			"  shelf calendar --start 2026-03-09\n" +
 			"  shelf calendar --status open --status blocked --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			startDate, err := resolveCalendarStart(start)
 			if err != nil {
 				return err
 			}
-			if days <= 0 {
-				return fmt.Errorf("--days must be > 0")
+			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"))
+			if err != nil {
+				return err
 			}
 			selectedStatuses := toStatuses(statuses)
 			if len(selectedStatuses) == 0 {
@@ -52,7 +54,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 
-			calendar := buildCalendarDays(tasks, startDate, days)
+			calendar := buildCalendarDays(tasks, rangeStart, dayCount)
 			if asJSON {
 				data, err := json.MarshalIndent(calendar, "", "  ")
 				if err != nil {
@@ -64,12 +66,13 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			if !interactive.IsTTY() {
 				return errors.New("calendar はTTYが必要です。非TTYでは --json を使ってください")
 			}
-			return runCalendarTUI(ctx.rootDir, startDate, days, selectedStatuses, ctx.showID)
+			return runCalendarTUI(ctx.rootDir, rangeStart, dayCount, selectedStatuses, ctx.showID)
 		},
 	}
 
 	cmd.Flags().StringVar(&start, "start", "", "Week start date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
 	cmd.Flags().IntVar(&days, "days", 7, "Number of days to render")
+	cmd.Flags().IntVar(&months, "months", 0, "Number of whole months to render from the month containing --start")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
@@ -115,4 +118,23 @@ func buildCalendarDays(tasks []shelf.Task, startDate time.Time, days int) []cale
 		})
 	}
 	return rows
+}
+
+func resolveCalendarRange(startDate time.Time, days int, months int, daysChanged bool, monthsChanged bool) (time.Time, int, error) {
+	if daysChanged && monthsChanged {
+		return time.Time{}, 0, fmt.Errorf("--days と --months は同時に指定できません")
+	}
+	if monthsChanged {
+		if months <= 0 {
+			return time.Time{}, 0, fmt.Errorf("--months must be > 0")
+		}
+		monthStart := time.Date(startDate.Year(), startDate.Month(), 1, 0, 0, 0, 0, startDate.Location())
+		monthEndExclusive := monthStart.AddDate(0, months, 0)
+		dayCount := int(monthEndExclusive.Sub(monthStart).Hours() / 24)
+		return monthStart, dayCount, nil
+	}
+	if days <= 0 {
+		return time.Time{}, 0, fmt.Errorf("--days must be > 0")
+	}
+	return startDate, days, nil
 }

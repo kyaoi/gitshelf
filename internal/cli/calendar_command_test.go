@@ -102,3 +102,35 @@ func TestDominantCalendarStatus(t *testing.T) {
 		t.Fatalf("unexpected dominant status: %s", got)
 	}
 }
+
+func TestResolveCalendarRangeDays(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	gotStart, gotDays, err := resolveCalendarRange(start, 14, 0, true, false)
+	if err != nil {
+		t.Fatalf("resolveCalendarRange failed: %v", err)
+	}
+	if gotStart.Format("2006-01-02") != "2026-03-09" || gotDays != 14 {
+		t.Fatalf("unexpected range: %s %d", gotStart.Format("2006-01-02"), gotDays)
+	}
+}
+
+func TestResolveCalendarRangeMonths(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	gotStart, gotDays, err := resolveCalendarRange(start, 7, 2, false, true)
+	if err != nil {
+		t.Fatalf("resolveCalendarRange failed: %v", err)
+	}
+	if gotStart.Format("2006-01-02") != "2026-03-01" {
+		t.Fatalf("unexpected month start: %s", gotStart.Format("2006-01-02"))
+	}
+	if gotDays != 61 {
+		t.Fatalf("unexpected day count: %d", gotDays)
+	}
+}
+
+func TestResolveCalendarRangeRejectsMixedFlags(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	if _, _, err := resolveCalendarRange(start, 7, 1, true, true); err == nil {
+		t.Fatal("expected mixed flag error")
+	}
+}

@@ -395,6 +395,18 @@ func TestCLICalendarRequiresTTYUnlessJSON(t *testing.T) {
 	if !strings.Contains(out, "\"2026-03-09\"") || !strings.Contains(out, "\"2026-03-10\"") {
 		t.Fatalf("unexpected calendar json output: %s", out)
 	}
+
+	out, err = executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09", "--months", "1", "--json")
+	if err != nil {
+		t.Fatalf("calendar --months --json failed: %v", err)
+	}
+	if !strings.Contains(out, "\"2026-03-01\"") || !strings.Contains(out, "\"2026-03-31\"") {
+		t.Fatalf("unexpected calendar month json output: %s", out)
+	}
+
+	if _, err := executeCLI(t, "calendar", "--root", root, "--days", "7", "--months", "1", "--json"); err == nil || !strings.Contains(err.Error(), "同時に指定") {
+		t.Fatalf("expected mixed range error, got: %v", err)
+	}
 }
 
 func TestCLIBoardRequiresTTY(t *testing.T) {
