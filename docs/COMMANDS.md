@@ -110,21 +110,23 @@ Due-date calendar view.
 
 - default start: current week Monday
 - default statuses: `open`, `in_progress`, `blocked`
-- default mode: TUI month grid + focused-day detail
+- default mode: TUI three-pane cockpit (`grid` / `sections` / `inspector`)
 - default range follows config `[commands.calendar]`
 - requires TTY unless `--json` is used
 - keybindings:
+  - `Tab` / `Shift+Tab`: move between panes
   - `h` / `l`: move by day
-  - `j` / `k`: move by week
+  - `j` / `k`: move by week in the grid, or move rows in the sections pane
   - `[` / `]`: jump by month inside the current range
-  - `n` / `p`: cycle tasks on the focused day
+  - `n` / `p`: switch cockpit sections
+  - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
   - `Enter`: expand/collapse selected task body preview
-  - `e`: open selected task in editor
-  - `z`: open snooze presets for selected task
+  - `e`: open selected task in the configured editor
+  - `z`: open snooze presets for the selected task
   - `r`: reload
-  - `q`: quit
+  - `q` / `Esc` / `Ctrl+C`: quit
 
 Flags:
 
@@ -149,7 +151,7 @@ Kanban-style TUI for status columns.
 - keybindings:
   - `h` / `l`: move columns
   - `j` / `k`: move rows
-  - `o` / `s` / `b` / `d` / `c`: set status (`open` / `in_progress` / `blocked` / `done` / `cancelled`)
+  - `o` / `i` / `s` / `b` / `d` / `c`: set status (`i` and `s` both mean `in_progress`)
   - `r`: reload
   - `q`: quit
 
@@ -242,9 +244,16 @@ Sections:
 - `Blocked`: tasks with `status=blocked` or unresolved `depends_on`
 - `Ready`: actionable non-inbox tasks
 
+TTY behavior:
+
+- on TTY, opens the calendar-based daily cockpit in `review` mode
+- use `--plain` to force the legacy text summary
+- non-TTY stays on the legacy text path unless `--json` is used
+
 Flags:
 
 - `--limit <n>`: maximum items per section (default: `5`)
+- `--plain`: force plain text output even on TTY
 - `--json`
 
 ## shelf ls
@@ -360,12 +369,20 @@ Show only overdue + today tasks.
 
 Default target statuses are `open`, `in_progress`, `blocked`.
 
+TTY behavior:
+
+- on TTY, opens the calendar-based daily cockpit in `today` mode
+- use `--plain` to force the legacy text summary
+- `--carry-over` stays on the legacy batch flow
+- non-TTY stays on the legacy text path unless `--json` is used
+
 Flags:
 
 - `--view <name>` (built-in or config view)
 - `--preset <name>` (output preset for `today`)
 - `--kind`, `--status`, `--not-kind`, `--not-status` (repeatable)
 - `--format <compact|detail>`
+- `--plain`
 - `--json`
 - `--include-archived`
 - `--only-archived`

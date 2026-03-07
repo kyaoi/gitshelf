@@ -115,17 +115,19 @@ The type selection screen includes this warning:
 
 - status columns follow config order
 - selected task body is previewed below the board
-- `o` / `s` / `b` / `d` / `c` update task status in place
+- `o` / `i` / `s` / `b` / `d` / `c` update task status in place (`i` and `s` both mean `in_progress`)
 
 ## calendar TUI
 
-- used by `shelf calendar` unless `--json` is specified
-- renders a month grid focused on the currently selected day
+- used by `shelf calendar`, and also by `shelf review` / `shelf today` on TTY unless `--plain` or `--json` is specified
+- renders a fixed three-pane cockpit: month grid, daily sections, and task inspector
+- `Tab` / `Shift+Tab`: move between panes
 - `h` / `l`: move by one day
-- `j` / `k`: move by one week
+- `j` / `k`: move by one week in the grid, or move rows in the sections pane
 - `[` / `]`: move by one month inside the current range
-- `g` / `G`: jump to first / last day in range
-- `n` / `p`: change selected task on the focused day
+- `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
+- `n` / `p`: switch cockpit sections
+- `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
 - `Enter`: expand/collapse selected task body preview

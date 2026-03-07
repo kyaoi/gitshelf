@@ -242,6 +242,24 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	}
 }
 
+func TestCLIReviewAndTodayHelpMentionPlain(t *testing.T) {
+	reviewHelp, err := executeCLI(t, "review", "--help")
+	if err != nil {
+		t.Fatalf("review help failed: %v", err)
+	}
+	if !strings.Contains(reviewHelp, "--plain") {
+		t.Fatalf("review help should mention --plain: %s", reviewHelp)
+	}
+
+	todayHelp, err := executeCLI(t, "today", "--help")
+	if err != nil {
+		t.Fatalf("today help failed: %v", err)
+	}
+	if !strings.Contains(todayHelp, "--plain") {
+		t.Fatalf("today help should mention --plain: %s", todayHelp)
+	}
+}
+
 func TestCLICaptureCreatesInboxOpenTask(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

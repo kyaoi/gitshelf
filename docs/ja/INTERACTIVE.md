@@ -131,17 +131,20 @@ type 選択画面では、次の注意文を出します。
 
 - status 列は config の順序に従う
 - 下部に選択 task の body preview を表示
-- `o` / `s` / `b` / `d` / `c` で status をその場で更新
+- `o` / `i` / `s` / `b` / `d` / `c` で status をその場で更新（`i` と `s` はどちらも `in_progress`）
 
 ## `calendar` TUI
 
 - `shelf calendar` で `--json` を付けないときに使います
-- 選択中の日付を中心に月グリッドを表示します
+- `shelf review` / `shelf today` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
+- 固定3ペインです: month grid / daily sections / inspector
+- `Tab` / `Shift+Tab`: ペイン切り替え
 - `h` / `l`: 1日ずつ移動
-- `j` / `k`: 1週ずつ移動
+- `j` / `k`: grid では1週、sections では行移動
 - `[` / `]`: 1か月ずつ移動
-- `g` / `G`: レンジの先頭 / 末尾へ移動
-- `n` / `p`: 当日の task を切り替え
+- `g` / `G`: レンジ先頭 / 末尾、または section 先頭行 / 末尾行へ移動
+- `n` / `p`: cockpit section を切り替え
+- `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
 - `Enter`: 選択 task の本文プレビュー展開/折りたたみ

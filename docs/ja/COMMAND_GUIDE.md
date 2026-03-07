@@ -137,6 +137,11 @@ inbox を処理します。
 使う場面:
 - inbox、期限切れ、今日、blocked、ready を一度に見たい
 
+補足:
+- TTY では calendar ベースの daily cockpit を開きます。
+- `--plain` で従来の text summary を強制できます。
+- script 用には `--json` を使います。
+
 ### `shelf next`
 
 意味:
@@ -153,8 +158,10 @@ overdue と today に集中した確認です。
 使う場面:
 - 今日の作業計画を立てるとき
 
-特別な使い方:
-- `--carry-over`: overdue の active task を今日へ繰り上げる
+補足:
+- TTY では calendar ベースの daily cockpit を開きます。
+- `--plain` で従来の text summary を維持できます。
+- `--carry-over` は従来の batch path のままです。
 
 ### `shelf agenda`
 
@@ -179,7 +186,9 @@ due date カレンダービューです。
 - `--days` は明示的な day range です。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - `--years` で年単位レンジも開けます。
-- フォーカス中の日付には task 一覧と本文プレビューが出ます。
+- 固定3ペインです: month grid / daily sections / inspector。
+- `Tab` / `Shift+Tab` でペインを切り替えます。
+- `n/p` で section を切り替え、`1..6` で直接ジャンプできます。
 - `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
@@ -194,6 +203,9 @@ status 列で横断的に見る TUI です。
 使う場面:
 - いまの進捗を視覚的に整理したい
 - 列を見ながら status をその場で更新したい
+
+補足:
+- `i` と `s` はどちらも `in_progress` に対応します。
 
 ## 一覧と詳細確認
 

@@ -149,6 +149,11 @@ You want one screen that answers:
 - what is blocked
 - what is ready
 
+Notes:
+- On TTY, `review` opens the calendar-based daily cockpit by default.
+- Use `--plain` to force the legacy text summary.
+- Use `--json` for scripts.
+
 ### `shelf next`
 
 Meaning:
@@ -165,8 +170,10 @@ Focus on overdue and today-due work.
 Use when:
 You are planning the current day.
 
-Special mode:
-- `--carry-over` moves overdue active tasks to today
+Notes:
+- On TTY, `today` opens the calendar-based daily cockpit by default.
+- Use `--plain` to keep the legacy text summary.
+- `--carry-over` still uses the legacy batch flow and does not open the cockpit.
 
 ### `shelf agenda`
 
@@ -191,7 +198,9 @@ Notes:
 - `--days` controls an explicit day range.
 - `--months` opens whole-month ranges such as one month or three months.
 - `--years` opens whole-year ranges.
-- The focused day has a task list and a body preview panel.
+- The TUI is a three-pane cockpit: month grid, daily sections, and task inspector.
+- `Tab`/`Shift+Tab` switches panes.
+- `n`/`p` switches sections, and `1..6` jumps directly when that section exists.
 - You can add a task directly on the focused day with `a`; kind/status come from config defaults.
 - You can edit or snooze the selected task directly from the TUI.
 - You can also change the selected task status directly with `o/i/b/d/c`.
@@ -209,6 +218,7 @@ You want to move through active work visually and change statuses in place.
 Notes:
 - TTY only.
 - Columns follow config `statuses`.
+- `i` and `s` both set `in_progress` so the status vocabulary matches the calendar cockpit.
 
 ## Listing and Inspection
 

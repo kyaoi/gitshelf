@@ -190,7 +190,9 @@ Color output:
 - `Blocked`
 - `Ready`
 
-Use `--limit` to control how many items each section shows, or `--json` for scripting.
+On TTY, `shelf review` now opens the calendar-based daily cockpit by default.
+Use `--plain` to force the legacy text summary, or `--json` for scripting.
+`shelf today` follows the same rule, except `--carry-over` stays on the legacy batch flow.
 
 ## Link Types
 

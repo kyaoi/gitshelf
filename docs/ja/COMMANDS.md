@@ -101,21 +101,23 @@ subcommand:
 仕様:
 - 既定の開始日: 今週の月曜日
 - 既定の status: `open`, `in_progress`, `blocked`
-- 既定は月グリッド + 詳細の TUI 表示
+- 既定は固定3ペインの cockpit TUI（`grid` / `sections` / `inspector`）
 - 既定レンジは config `[commands.calendar]` に従う
 - 非TTYでは `--json` を使う
 - 主な操作:
+  - `Tab` / `Shift+Tab`: ペイン切り替え
   - `h` / `l`: 日移動
-  - `j` / `k`: 週移動
+  - `j` / `k`: grid では週移動、sections では行移動
   - `[` / `]`: 月移動
-  - `n` / `p`: 当日の task 切り替え
+  - `n` / `p`: cockpit section 切り替え
+  - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
   - `Enter`: 本文プレビュー展開/折りたたみ
-  - `e`: editor を開く
-  - `z`: snooze プリセット
+  - `e`: 選択 task を editor で開く
+  - `z`: 選択 task の snooze プリセット
   - `r`: reload
-  - `q`: 終了
+  - `q` / `Esc` / `Ctrl+C`: 終了
 
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
@@ -140,7 +142,7 @@ status 列ベースの TUI board です。
 操作:
 - `h` / `l`: 列移動
 - `j` / `k`: 行移動
-- `o` / `s` / `b` / `d` / `c`: status 更新
+- `o` / `i` / `s` / `b` / `d` / `c`: status 更新（`i` と `s` はどちらも `in_progress`）
 - `r`: reload
 - `q`: quit
 
@@ -225,8 +227,14 @@ section:
 - `Blocked`
 - `Ready`
 
+TTY時の挙動:
+- TTY では calendar ベースの daily cockpit を `review` mode で開きます
+- `--plain` で従来の text summary を強制できます
+- 非TTYでは `--json` を使わない限り従来の text path のままです
+
 主なフラグ:
 - `--limit <n>`
+- `--plain`
 - `--json`
 
 ## `shelf ls`
@@ -312,9 +320,15 @@ subcommand:
 意味:
 overdue と today に集中した一覧です。
 
+TTY時の挙動:
+- TTY では calendar ベースの daily cockpit を `today` mode で開きます
+- `--plain` で従来の text summary を維持できます
+- `--carry-over` は従来の batch path のままです
+
 主なフラグ:
 - `--preset <name>`
 - `--view <name>`
+- `--plain`
 - `--carry-over`
 - `--yes`
 - `--kind <kind>`
