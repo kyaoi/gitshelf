@@ -114,6 +114,8 @@ func (m boardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "o":
 			return m.applyStatusChange("open")
+		case "i":
+			return m.applyStatusChange("in_progress")
 		case "s":
 			return m.applyStatusChange("in_progress")
 		case "b":
@@ -175,7 +177,7 @@ func (m boardModel) View() string {
 	}
 
 	footer := []string{
-		lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("h/l: column  j/k: move  o/s/b/d/c: status  r: reload  q: quit"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("h/l: column  j/k: move  o/i/s/b/d/c: status  r: reload  q: quit"),
 	}
 	if task, ok := m.selectedTask(); ok {
 		footer = append(footer, lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Render(task.Title))

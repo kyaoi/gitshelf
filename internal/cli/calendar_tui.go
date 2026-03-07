@@ -321,8 +321,8 @@ func (m calendarTUIModel) View() string {
 
 	header := []string{
 		headerStyle.Render(fmt.Sprintf("Calendar [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("Tab: pane  h/l: 日  j/k: 週 or row  [/]: 月  n/p: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
-		metaStyle.Render(fmt.Sprintf("Focused: %s  Filter: %s", focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
+		helpStyle.Render("Tab: pane  grid=h/l,j/k,[/]  sections=j/k,n/p,1..6  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
+		metaStyle.Render(fmt.Sprintf("Pane: %s  Focused: %s  Filter: %s", m.paneLabel(), focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
 	}
 
 	left := renderCalendarGridPane(month, m.focusedDayLabel(), gridWidth, m.pane == calendarPaneGrid)
@@ -372,6 +372,17 @@ func (m *calendarTUIModel) prevPane() {
 	m.pane--
 	if m.pane < 0 {
 		m.pane = calendarPaneInspector
+	}
+}
+
+func (m calendarTUIModel) paneLabel() string {
+	switch m.pane {
+	case calendarPaneSections:
+		return "sections"
+	case calendarPaneInspector:
+		return "inspector"
+	default:
+		return "grid"
 	}
 }
 
