@@ -244,10 +244,11 @@ Task selectors always show body preview. Enum selectors intentionally do not.
 ```toml
 [views."only_done"]
 statuses = ["done"]
-calendar_default_use = "days"
-calendar_default_days = 14
-calendar_default_months = 6
-calendar_default_years = 2
+[commands.calendar]
+default_range_unit = "days"
+default_days = 14
+default_months = 6
+default_years = 2
 ```
 
 You can also manage this from CLI:

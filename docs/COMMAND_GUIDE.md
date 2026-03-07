@@ -187,7 +187,7 @@ You want a date-first perspective instead of a task-first list.
 Notes:
 - `calendar` opens a TUI by default.
 - Use `--json` in non-TTY contexts.
-- If no explicit range flag is passed, config `calendar_default_use` decides whether days/months/years mode is used.
+- If no explicit range flag is passed, config `[commands.calendar]` decides whether days/months/years mode is used.
 - `--days` controls an explicit day range.
 - `--months` opens whole-month ranges such as one month or three months.
 - `--years` opens whole-year ranges.

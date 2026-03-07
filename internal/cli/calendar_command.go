@@ -31,8 +31,8 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 		Use:   "calendar",
 		Short: "Show due tasks in a calendar TUI",
 		Long: "Show due tasks in a calendar TUI.\n\n" +
-			"If no explicit range flag is set, config calendar_default_use and\n" +
-			"calendar_default_days/months/years decide the range.",
+			"If no explicit range flag is set, config [commands.calendar]\n" +
+			"default_range_unit/default_days/default_months/default_years decides the range.",
 		Example: "  shelf calendar\n" +
 			"  shelf calendar --months 3\n" +
 			"  shelf calendar --start 2026-03-09 --days 14\n" +
@@ -46,7 +46,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, years, cfg, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"), cmd.Flags().Changed("years"))
+			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, years, cfg.Commands.Calendar, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"), cmd.Flags().Changed("years"))
 			if err != nil {
 				return err
 			}
@@ -130,7 +130,7 @@ func buildCalendarDays(tasks []shelf.Task, startDate time.Time, days int) []cale
 	return rows
 }
 
-func resolveCalendarRange(startDate time.Time, days int, months int, years int, cfg shelf.Config, daysChanged bool, monthsChanged bool, yearsChanged bool) (time.Time, int, error) {
+func resolveCalendarRange(startDate time.Time, days int, months int, years int, cfg shelf.CalendarCommandConfig, daysChanged bool, monthsChanged bool, yearsChanged bool) (time.Time, int, error) {
 	changedCount := 0
 	for _, changed := range []bool{daysChanged, monthsChanged, yearsChanged} {
 		if changed {
@@ -159,15 +159,15 @@ func resolveCalendarRange(startDate time.Time, days int, months int, years int, 
 		return yearStart, dayCount, nil
 	}
 	if !daysChanged && !monthsChanged && !yearsChanged {
-		switch cfg.CalendarDefaultUse {
+		switch cfg.DefaultRangeUnit {
 		case "months":
-			months = cfg.CalendarDefaultMonths
+			months = cfg.DefaultMonths
 			monthsChanged = true
 		case "years":
-			years = cfg.CalendarDefaultYears
+			years = cfg.DefaultYears
 			yearsChanged = true
 		default:
-			days = cfg.CalendarDefaultDays
+			days = cfg.DefaultDays
 			daysChanged = true
 		}
 		return resolveCalendarRange(startDate, days, months, years, cfg, daysChanged, monthsChanged, yearsChanged)

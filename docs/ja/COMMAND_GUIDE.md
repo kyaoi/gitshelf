@@ -175,7 +175,7 @@ due date カレンダービューです。
 補足:
 - `calendar` は通常 TUI で開きます。
 - 非TTYで使うときは `--json` を使います。
-- 明示 range 未指定時は config `calendar_default_use` が `days/months/years` のどれを使うか決めます。
+- 明示 range 未指定時は config `[commands.calendar]` が `days/months/years` のどれを使うか決めます。
 - `--days` は明示的な day range です。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - `--years` で年単位レンジも開けます。

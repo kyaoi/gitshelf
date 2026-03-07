@@ -25,10 +25,10 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.DefaultStatus != "open" {
 		t.Fatalf("unexpected default status: %s", cfg.DefaultStatus)
 	}
-	if cfg.CalendarDefaultUse != "days" {
-		t.Fatalf("unexpected calendar default use: %s", cfg.CalendarDefaultUse)
+	if cfg.Commands.Calendar.DefaultRangeUnit != "days" {
+		t.Fatalf("unexpected calendar default use: %s", cfg.Commands.Calendar.DefaultRangeUnit)
 	}
-	if cfg.CalendarDefaultDays != 7 || cfg.CalendarDefaultMonths != 6 || cfg.CalendarDefaultYears != 2 {
+	if cfg.Commands.Calendar.DefaultDays != 7 || cfg.Commands.Calendar.DefaultMonths != 6 || cfg.Commands.Calendar.DefaultYears != 2 {
 		t.Fatalf("unexpected calendar defaults: %+v", cfg)
 	}
 }
@@ -62,10 +62,10 @@ func TestConfigRoundTrip(t *testing.T) {
 	if parsed.DefaultKind != cfg.DefaultKind || parsed.DefaultStatus != cfg.DefaultStatus {
 		t.Fatalf("parsed defaults mismatch: %+v", parsed)
 	}
-	if parsed.CalendarDefaultUse != cfg.CalendarDefaultUse ||
-		parsed.CalendarDefaultDays != cfg.CalendarDefaultDays ||
-		parsed.CalendarDefaultMonths != cfg.CalendarDefaultMonths ||
-		parsed.CalendarDefaultYears != cfg.CalendarDefaultYears {
+	if parsed.Commands.Calendar.DefaultRangeUnit != cfg.Commands.Calendar.DefaultRangeUnit ||
+		parsed.Commands.Calendar.DefaultDays != cfg.Commands.Calendar.DefaultDays ||
+		parsed.Commands.Calendar.DefaultMonths != cfg.Commands.Calendar.DefaultMonths ||
+		parsed.Commands.Calendar.DefaultYears != cfg.Commands.Calendar.DefaultYears {
 		t.Fatalf("parsed calendar defaults mismatch: %+v", parsed)
 	}
 	if _, ok := parsed.Views["active"]; !ok {
@@ -121,7 +121,7 @@ default_state = "open"
 		t.Fatalf("unexpected default status: %s", cfg.DefaultStatus)
 	}
 	data := string(FormatConfigTOML(cfg))
-	if !strings.Contains(data, "statuses =") || !strings.Contains(data, "default_status =") {
+	if !strings.Contains(data, "statuses =") || !strings.Contains(data, "default_status =") || !strings.Contains(data, "[commands.calendar]") {
 		t.Fatalf("formatted config should use status keys: %s", data)
 	}
 }
@@ -188,16 +188,16 @@ func TestConfigValidationOutputPreset(t *testing.T) {
 
 func TestConfigValidationRejectsInvalidCalendarDefaultDays(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.CalendarDefaultDays = 0
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "calendar_default_days") {
+	cfg.Commands.Calendar.DefaultDays = 0
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.calendar.default_days") {
 		t.Fatalf("expected invalid calendar default days error, got: %v", err)
 	}
 }
 
 func TestConfigValidationRejectsInvalidCalendarDefaultUse(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.CalendarDefaultUse = "weeks"
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "calendar_default_use") {
+	cfg.Commands.Calendar.DefaultRangeUnit = "weeks"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.calendar.default_range_unit") {
 		t.Fatalf("expected invalid calendar default use error, got: %v", err)
 	}
 }

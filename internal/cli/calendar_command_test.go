@@ -107,7 +107,7 @@ func TestDominantCalendarStatus(t *testing.T) {
 
 func TestResolveCalendarRangeDays(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	gotStart, gotDays, err := resolveCalendarRange(start, 14, 0, 0, shelf.DefaultConfig(), true, false, false)
+	gotStart, gotDays, err := resolveCalendarRange(start, 14, 0, 0, shelf.DefaultConfig().Commands.Calendar, true, false, false)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestResolveCalendarRangeDays(t *testing.T) {
 
 func TestResolveCalendarRangeMonths(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	gotStart, gotDays, err := resolveCalendarRange(start, 0, 2, 0, shelf.DefaultConfig(), false, true, false)
+	gotStart, gotDays, err := resolveCalendarRange(start, 0, 2, 0, shelf.DefaultConfig().Commands.Calendar, false, true, false)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestResolveCalendarRangeMonths(t *testing.T) {
 
 func TestResolveCalendarRangeYears(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	gotStart, gotDays, err := resolveCalendarRange(start, 0, 0, 2, shelf.DefaultConfig(), false, false, true)
+	gotStart, gotDays, err := resolveCalendarRange(start, 0, 0, 2, shelf.DefaultConfig().Commands.Calendar, false, false, true)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
 	}
@@ -143,16 +143,16 @@ func TestResolveCalendarRangeYears(t *testing.T) {
 
 func TestResolveCalendarRangeRejectsMixedFlags(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	if _, _, err := resolveCalendarRange(start, 7, 1, 0, shelf.DefaultConfig(), true, true, false); err == nil {
+	if _, _, err := resolveCalendarRange(start, 7, 1, 0, shelf.DefaultConfig().Commands.Calendar, true, true, false); err == nil {
 		t.Fatal("expected mixed flag error")
 	}
 }
 
 func TestResolveCalendarRangeUsesConfigDefaultDays(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	cfg := shelf.DefaultConfig()
-	cfg.CalendarDefaultUse = "days"
-	cfg.CalendarDefaultDays = 21
+	cfg := shelf.DefaultConfig().Commands.Calendar
+	cfg.DefaultRangeUnit = "days"
+	cfg.DefaultDays = 21
 	gotStart, gotDays, err := resolveCalendarRange(start, 0, 0, 0, cfg, false, false, false)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
@@ -164,9 +164,9 @@ func TestResolveCalendarRangeUsesConfigDefaultDays(t *testing.T) {
 
 func TestResolveCalendarRangeUsesConfigDefaultMonths(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	cfg := shelf.DefaultConfig()
-	cfg.CalendarDefaultUse = "months"
-	cfg.CalendarDefaultMonths = 2
+	cfg := shelf.DefaultConfig().Commands.Calendar
+	cfg.DefaultRangeUnit = "months"
+	cfg.DefaultMonths = 2
 	gotStart, gotDays, err := resolveCalendarRange(start, 0, 0, 0, cfg, false, false, false)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)

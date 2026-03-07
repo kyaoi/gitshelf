@@ -111,7 +111,7 @@ Due-date calendar view.
 - default start: current week Monday
 - default statuses: `open`, `in_progress`, `blocked`
 - default mode: TUI month grid + focused-day detail
-- default range follows config `calendar_default_use`
+- default range follows config `[commands.calendar]`
 - requires TTY unless `--json` is used
 - keybindings:
   - `h` / `l`: move by day
@@ -138,7 +138,7 @@ Flags:
 Rules:
 
 - exactly one of `--days` / `--months` / `--years` may be specified
-- if none is specified, config `calendar_default_use` + `calendar_default_days|months|years` is used
+- if none is specified, config `[commands.calendar]` is used
 
 ## shelf board
 
