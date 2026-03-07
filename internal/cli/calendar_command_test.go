@@ -896,7 +896,7 @@ func TestTreeModeRangeSelectPreservesExistingMarksWhenRestarted(t *testing.T) {
 	}
 }
 
-func TestTreeModeUnmarkCurrentSelection(t *testing.T) {
+func TestTreeModeUClearsAllMarks(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -924,11 +924,31 @@ func TestTreeModeUnmarkCurrentSelection(t *testing.T) {
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	if !treeModel.isMarkedTask(first.ID) {
-		t.Fatalf("expected first to remain marked")
+	if treeModel.markedCount() != 0 {
+		t.Fatalf("expected all marks cleared, got %d", treeModel.markedCount())
 	}
-	if treeModel.isMarkedTask(second.ID) {
-		t.Fatalf("expected second to be unmarked")
+}
+
+func TestLeaveToNormalModeClearsTransientStateWithoutDroppingMarks(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeTree,
+		rangeMarkMode: true,
+		rangeAnchorID: "01A",
+		rangeBaseIDs:  map[string]struct{}{"01A": {}},
+		markedTaskIDs: map[string]struct{}{"01A": {}, "01B": {}},
+		showHelp:      true,
+	}
+	if !model.leaveToNormalMode() {
+		t.Fatal("expected leaveToNormalMode to report a state change")
+	}
+	if model.rangeMarkMode {
+		t.Fatal("expected leaveToNormalMode to leave range mode")
+	}
+	if model.showHelp {
+		t.Fatal("expected leaveToNormalMode to close help")
+	}
+	if model.markedCount() != 2 {
+		t.Fatalf("expected leaveToNormalMode to keep marks, got %d", model.markedCount())
 	}
 }
 

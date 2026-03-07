@@ -140,8 +140,9 @@ The type selection screen includes this warning:
 - `Home` / `End`: jump to the top or bottom of the body
 - `1..6`: jump directly to a visible section
 - `v`: toggle a single multi-select mark in tree/board modes
-- `u`: unmark the currently selected task in tree/board modes
+- `u`: clear all marks in tree/board modes
 - `V`: start/finish continuous range selection in tree/board modes; move to expand the marked range without clearing previously marked tasks
+- `Ctrl+[` leaves transient modes and returns to the normal cockpit state without quitting
 - `m`: in tree mode, move the current task or marked tasks under the currently highlighted task; move mode also exposes `(root)` as a target
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set the selected task, or all marked tree/board tasks, to `open` / `in_progress` / `blocked` / `done` / `cancelled`

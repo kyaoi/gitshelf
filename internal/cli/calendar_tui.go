@@ -220,6 +220,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = "task updated"
 		return m, nil
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+[" {
+			if m.leaveToNormalMode() {
+				return m, nil
+			}
+			return m, nil
+		}
 		if m.addMode {
 			return m.updateAddMode(msg)
 		}
@@ -422,7 +428,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "u":
 			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
-				m.unmarkCurrentSelection()
+				m.clearMarkedSelection()
+				m.message = "cleared all marks"
 				return m, nil
 			}
 			return m, nil
@@ -579,6 +586,38 @@ func (m *calendarTUIModel) scrollBody(delta int) {
 
 func (m *calendarTUIModel) nextPane() {
 	m.pane = (m.pane + 1) % 2
+}
+
+func (m *calendarTUIModel) leaveToNormalMode() bool {
+	changed := false
+	if m.addMode {
+		m.addMode = false
+		changed = true
+	}
+	if m.snoozeMode {
+		m.snoozeMode = false
+		changed = true
+	}
+	if m.moveMode {
+		m.moveMode = false
+		m.moveSourceIDs = nil
+		changed = true
+	}
+	if m.rangeMarkMode {
+		m.rangeMarkMode = false
+		m.rangeAnchorID = ""
+		m.rangeBaseIDs = map[string]struct{}{}
+		changed = true
+	}
+	if m.showHelp {
+		m.showHelp = false
+		changed = true
+	}
+	if changed {
+		m.addTitle = ""
+		m.message = "normal mode"
+	}
+	return changed
 }
 
 func (m *calendarTUIModel) prevPane() {
@@ -2180,9 +2219,9 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
-		"v: mark  u: unmark  V: range mark  m: move in tree (root included)",
+		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
-		"Enter: details  q: close help or quit  Esc/Ctrl+C: quit",
+		"Enter: details  Ctrl+[: normal mode  q: close help or quit  Esc/Ctrl+C: quit",
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
