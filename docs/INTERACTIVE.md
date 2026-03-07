@@ -34,6 +34,7 @@ If not TTY, users must provide required flags.
 - `q`: cancel selection (outside search mode)
 - `Ctrl+C`: cancel selection
 - Arrow up/down are also supported.
+- Long option lists scroll automatically with the cursor and show the visible range in the search line.
 
 ## Search
 
@@ -102,7 +103,7 @@ The type selection screen includes this warning:
 ## mv Interactive Flow
 
 1. Select target task by ID/title (when `<id>` omitted)
-2. Select new parent (`0: [root]`) when `--parent` omitted
+2. Select new parent (`(root)` or another task) when `--parent` omitted
 
 ## triage Interactive Flow
 

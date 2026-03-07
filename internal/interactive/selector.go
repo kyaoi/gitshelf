@@ -79,16 +79,20 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 	searchMode := false
 	showHelp := false
 	cursor := 0
+	offset := 0
 
 	for {
 		filtered := filterOptions(cfg.Options, search)
 		if len(filtered) == 0 {
 			cursor = 0
+			offset = 0
 		} else if cursor >= len(filtered) {
 			cursor = len(filtered) - 1
 		}
+		visibleRows, previewRows := resolveSelectorLayout(cfg, filtered, cursor, showHelp)
+		offset = clampSelectorOffset(offset, cursor, len(filtered), visibleRows)
 
-		render(cfg, filtered, cursor, search, searchMode, showHelp)
+		render(cfg, filtered, cursor, offset, visibleRows, previewRows, search, searchMode, showHelp)
 
 		key, err := readKeyEvent(reader)
 		if err != nil {
@@ -112,6 +116,7 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 				search = ""
 				searchMode = false
 				cursor = 0
+				offset = 0
 				continue
 			}
 			return Option{}, ErrCanceled
@@ -124,6 +129,7 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 				_, size := utf8.DecodeLastRuneInString(search)
 				search = search[:len(search)-size]
 				cursor = 0
+				offset = 0
 			}
 		case keyKindRune:
 			r := key.Rune
@@ -131,6 +137,7 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 				if isPrintableRune(r) {
 					search += string(r)
 					cursor = 0
+					offset = 0
 				}
 				continue
 			}
@@ -151,18 +158,20 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 				if searchMode && isPrintableRune(r) {
 					search += string(r)
 					cursor = 0
+					offset = 0
 				}
 			}
 		default:
 			if key.Kind == keyKindRune && searchMode && isPrintableRune(key.Rune) {
 				search += string(key.Rune)
 				cursor = 0
+				offset = 0
 			}
 		}
 	}
 }
 
-func render(cfg SelectConfig, options []Option, cursor int, search string, searchMode bool, showHelp bool) {
+func render(cfg SelectConfig, options []Option, cursor int, offset int, visibleRows int, previewRows int, search string, searchMode bool, showHelp bool) {
 	var b strings.Builder
 	b.WriteString("\r\033[H\033[2J")
 	b.WriteString(uiPrompt(cfg.Prompt))
@@ -175,18 +184,18 @@ func render(cfg SelectConfig, options []Option, cursor int, search string, searc
 	}
 
 	if searchMode {
-		b.WriteString(uiSearch(fmt.Sprintf("%s: %s_", cfg.SearchPlaceholder, search)))
+		b.WriteString(uiSearch(selectorSearchLine(cfg.SearchPlaceholder, search+"_", offset, visibleRows, len(options))))
 		b.WriteString(eol)
 	} else if search != "" {
-		b.WriteString(uiSearch(fmt.Sprintf("%s: %s", cfg.SearchPlaceholder, search)))
+		b.WriteString(uiSearch(selectorSearchLine(cfg.SearchPlaceholder, search, offset, visibleRows, len(options))))
 		b.WriteString(eol)
 	} else {
-		b.WriteString(uiHelp(fmt.Sprintf("%s: (なし)", cfg.SearchPlaceholder)))
+		b.WriteString(uiHelp(selectorSearchLine(cfg.SearchPlaceholder, "(なし)", offset, visibleRows, len(options))))
 		b.WriteString(eol)
 	}
 
-	max := min(len(options), cfg.MaxRows)
-	for i := 0; i < max; i++ {
+	end := min(len(options), offset+visibleRows)
+	for i := offset; i < end; i++ {
 		prefix := "  "
 		label := options[i].Label
 		if i == cursor {
@@ -200,12 +209,12 @@ func render(cfg SelectConfig, options []Option, cursor int, search string, searc
 		b.WriteString(eol)
 	} else if cfg.ShowPreview && cursor >= 0 && cursor < len(options) {
 		preview := strings.TrimSpace(options[cursor].Preview)
-		if preview != "" {
+		if preview != "" && previewRows > 0 {
 			b.WriteString(eol)
 			b.WriteString(uiPreviewHeader("----- preview -----"))
 			b.WriteString(eol)
 			lines := strings.Split(preview, "\n")
-			maxPreviewLines := min(len(lines), 8)
+			maxPreviewLines := min(len(lines), previewRows)
 			for i := 0; i < maxPreviewLines; i++ {
 				b.WriteString(lines[i])
 				b.WriteString(eol)
@@ -217,6 +226,89 @@ func render(cfg SelectConfig, options []Option, cursor int, search string, searc
 		}
 	}
 	fmt.Fprint(os.Stdout, b.String())
+}
+
+func selectorSearchLine(placeholder string, value string, offset int, visibleRows int, total int) string {
+	line := fmt.Sprintf("%s: %s", placeholder, value)
+	if total <= 0 || visibleRows <= 0 {
+		return line
+	}
+	start := offset + 1
+	end := min(total, offset+visibleRows)
+	return fmt.Sprintf("%s  [%d-%d/%d]", line, start, end, total)
+}
+
+func resolveSelectorLayout(cfg SelectConfig, options []Option, cursor int, showHelp bool) (int, int) {
+	visibleRows := min(len(options), cfg.MaxRows)
+	if visibleRows <= 0 {
+		visibleRows = 1
+	}
+
+	hasPreview := cfg.ShowPreview && cursor >= 0 && cursor < len(options) && strings.TrimSpace(options[cursor].Preview) != ""
+	if !hasPreview {
+		return visibleRows, 0
+	}
+
+	width, height, err := term.GetSize(int(os.Stdout.Fd()))
+	_ = width
+	if err != nil || height <= 0 {
+		return visibleRows, 8
+	}
+
+	reservedLines := 3 // prompt, help, search
+	if showHelp {
+		reservedLines++
+	}
+	available := height - reservedLines
+	if available <= 1 {
+		return 1, 0
+	}
+
+	const (
+		minOptionRows      = 4
+		defaultPreviewRows = 8
+		previewOverhead    = 2 // blank line + preview header
+	)
+
+	maxOptionRows := available
+	previewRows := 0
+	if available > minOptionRows+previewOverhead {
+		previewBudget := min(defaultPreviewRows, available-minOptionRows-previewOverhead)
+		if previewBudget > 0 {
+			previewRows = previewBudget
+			maxOptionRows = available - previewOverhead - previewRows
+		}
+	}
+	if maxOptionRows <= 0 {
+		maxOptionRows = 1
+	}
+	return min(visibleRows, maxOptionRows), previewRows
+}
+
+func clampSelectorOffset(offset int, cursor int, total int, visibleRows int) int {
+	if total <= 0 || visibleRows <= 0 {
+		return 0
+	}
+	if visibleRows >= total {
+		return 0
+	}
+	maxOffset := total - visibleRows
+	if offset > maxOffset {
+		offset = maxOffset
+	}
+	if cursor < offset {
+		offset = cursor
+	}
+	if cursor >= offset+visibleRows {
+		offset = cursor - visibleRows + 1
+	}
+	if offset < 0 {
+		return 0
+	}
+	if offset > maxOffset {
+		return maxOffset
+	}
+	return offset
 }
 
 func filterOptions(options []Option, query string) []Option {

@@ -34,6 +34,7 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `q`: 通常時のキャンセル
 - `Ctrl+C`: キャンセル
 - `ArrowUp` / `ArrowDown` も利用可能
+- 候補が多いときはカーソル移動に合わせて自動スクロールし、検索行に表示範囲を出します
 
 ## 検索
 
@@ -117,7 +118,7 @@ type 選択画面では、次の注意文を出します。
 ## `mv` の対話フロー
 
 1. 対象 task を選択（`<id>` 省略時）
-2. 新しい parent を選択（`--parent` 省略時）
+2. 新しい parent を選択（`(root)` または他 task、`--parent` 省略時）
 
 ## `triage` の対話フロー
 

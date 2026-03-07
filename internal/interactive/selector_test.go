@@ -22,3 +22,25 @@ func TestCursorMoveWraps(t *testing.T) {
 		t.Fatalf("moveDown wrap failed: %d", got)
 	}
 }
+
+func TestClampSelectorOffsetKeepsCursorVisible(t *testing.T) {
+	if got := clampSelectorOffset(0, 0, 20, 5); got != 0 {
+		t.Fatalf("expected offset 0, got %d", got)
+	}
+	if got := clampSelectorOffset(0, 6, 20, 5); got != 2 {
+		t.Fatalf("expected offset 2, got %d", got)
+	}
+	if got := clampSelectorOffset(10, 3, 20, 5); got != 3 {
+		t.Fatalf("expected offset 3, got %d", got)
+	}
+	if got := clampSelectorOffset(99, 19, 20, 5); got != 15 {
+		t.Fatalf("expected final offset 15, got %d", got)
+	}
+}
+
+func TestSelectorSearchLineShowsViewportRange(t *testing.T) {
+	line := selectorSearchLine("検索", "(なし)", 5, 10, 42)
+	if line != "検索: (なし)  [6-15/42]" {
+		t.Fatalf("unexpected search line: %q", line)
+	}
+}
