@@ -79,6 +79,37 @@ func TestBuildCalendarMonthView(t *testing.T) {
 	}
 }
 
+func TestRenderCalendarMonthShowsFocusedDateAndUsesFullWidth(t *testing.T) {
+	month := calendarMonthView{
+		Label: "March 2026",
+		Weeks: [][]calendarMonthCell{{
+			{Date: time.Date(2026, 3, 2, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true, TaskCount: 1, DominantStatus: "open"},
+			{Date: time.Date(2026, 3, 3, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+			{Date: time.Date(2026, 3, 4, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+			{Date: time.Date(2026, 3, 5, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+			{Date: time.Date(2026, 3, 6, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+			{Date: time.Date(2026, 3, 7, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+			{Date: time.Date(2026, 3, 8, 0, 0, 0, 0, time.Local), InCurrentMonth: true, InRange: true},
+		}},
+	}
+
+	compact := renderCalendarMonth(month, "2026-03-07", 120, true, 2)
+	full := renderCalendarMonth(month, "2026-03-07", 120, false, 4)
+
+	if !strings.Contains(full, "March 2026 - 2026/03/07") {
+		t.Fatalf("month title should include focused date: %q", full)
+	}
+
+	compactLines := strings.Split(compact, "\n")
+	fullLines := strings.Split(full, "\n")
+	if len(compactLines) < 2 || len(fullLines) < 2 {
+		t.Fatalf("unexpected rendered month output")
+	}
+	if lipgloss.Width(fullLines[1]) <= lipgloss.Width(compactLines[1]) {
+		t.Fatalf("full calendar should use more horizontal space than compact mode: compact=%d full=%d", lipgloss.Width(compactLines[1]), lipgloss.Width(fullLines[1]))
+	}
+}
+
 func TestMoveCalendarIndexByMonth(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
 	days := buildCalendarDays(nil, start, 40)

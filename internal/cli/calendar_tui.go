@@ -2150,17 +2150,20 @@ func renderBoardTaskMeta(task shelf.Task) string {
 func renderCalendarMonth(month calendarMonthView, focusedDate string, width int, compact bool, cellHeight int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	dayHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("244"))
-	maxCellWidth := 12
-	if !compact {
-		maxCellWidth = 13
+	cellWidth := max(8, (width-2)/7)
+	if compact {
+		cellWidth = min(12, cellWidth)
 	}
-	cellWidth := max(8, min(maxCellWidth, (width-2)/7))
 	headers := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 	headerCells := make([]string, 0, len(headers))
 	for _, header := range headers {
 		headerCells = append(headerCells, dayHeaderStyle.Width(cellWidth).Align(lipgloss.Center).Render(header))
 	}
-	rows := []string{titleStyle.Render(month.Label), lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
+	title := month.Label
+	if focusedDate != "" {
+		title = fmt.Sprintf("%s - %s", month.Label, strings.ReplaceAll(focusedDate, "-", "/"))
+	}
+	rows := []string{titleStyle.Width(width).Render(title), lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
 	for _, week := range month.Weeks {
 		cells := make([]string, 0, len(week))
 		for _, cell := range week {
