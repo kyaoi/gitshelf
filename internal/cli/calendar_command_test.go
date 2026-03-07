@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
@@ -132,5 +133,20 @@ func TestResolveCalendarRangeRejectsMixedFlags(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
 	if _, _, err := resolveCalendarRange(start, 7, 1, true, true); err == nil {
 		t.Fatal("expected mixed flag error")
+	}
+}
+
+func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	cell := calendarMonthCell{
+		Date:           time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local),
+		InCurrentMonth: true,
+		InRange:        true,
+		TaskCount:      2,
+		DominantStatus: "blocked",
+	}
+	rendered := renderCalendarCell(cell, "2026-03-09", 14)
+	if got := lipgloss.Width(rendered); got != 14 {
+		t.Fatalf("unexpected rendered width: %d", got)
 	}
 }

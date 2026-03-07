@@ -474,11 +474,10 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	key := cell.Date.Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
 
-	contentWidth := max(6, cellWidth-2)
+	contentWidth := max(6, cellWidth)
 	style := lipgloss.NewStyle().
 		Width(contentWidth).
-		Height(3).
-		Padding(0, 1)
+		Height(3)
 
 	switch {
 	case key == focusedDate:
