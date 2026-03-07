@@ -150,6 +150,9 @@ type 選択画面では、次の注意文を出します。
 - calendar 以外の mode では、右 sidebar に compact calendar が inspector の上に出ます。`Tab` で focus すると日付を直接動かせます
 - `n` / `p`: calendar mode では focused day task 切り替え、review/now では tab 切り替え、board では列移動
 - `now` mode では `Focused Day` / `Overdue` / `Today` を main pane に同時表示します
+- header と mode tabs は上部に固定されます
+- `PgUp` / `PgDn` または `Ctrl+U` / `Ctrl+D`: body をスクロール
+- `Home` / `End`: body の先頭 / 末尾へ移動
 - `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

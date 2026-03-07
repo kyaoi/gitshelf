@@ -270,6 +270,33 @@ func TestBoardPaneKeepsEmptyColumnsFixed(t *testing.T) {
 	}
 }
 
+func TestRenderCalendarViewportKeepsHeaderVisible(t *testing.T) {
+	rendered := renderCalendarViewport(
+		[]string{"Header", "Tabs"},
+		strings.Join([]string{"line1", "line2", "line3", "line4", "line5", "line6"}, "\n"),
+		nil,
+		6,
+		0,
+	)
+	if !strings.Contains(rendered, "Header") || !strings.Contains(rendered, "Tabs") {
+		t.Fatalf("viewport should keep header blocks visible: %q", rendered)
+	}
+	if strings.Contains(rendered, "line6") {
+		t.Fatalf("viewport should clip overflowing body lines: %q", rendered)
+	}
+}
+
+func TestRenderCalendarViewportScrollsBody(t *testing.T) {
+	body := strings.Join([]string{"line1", "line2", "line3", "line4", "line5", "line6"}, "\n")
+	rendered := renderCalendarViewport([]string{"Header", "Tabs"}, body, nil, 6, 3)
+	if !strings.Contains(rendered, "line6") {
+		t.Fatalf("viewport should reveal lower lines after scrolling: %q", rendered)
+	}
+	if strings.Contains(rendered, "line1") {
+		t.Fatalf("viewport should hide top body lines after scrolling: %q", rendered)
+	}
+}
+
 func TestCalendarApplyStatusChange(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

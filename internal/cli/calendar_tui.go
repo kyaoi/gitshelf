@@ -118,6 +118,7 @@ type calendarTUIModel struct {
 	pane           calendarPane
 	width          int
 	height         int
+	bodyScroll     int
 	message        string
 	showHelp       bool
 	showTaskBody   bool
@@ -225,6 +226,18 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "shift+tab":
 			m.prevPane()
+			return m, nil
+		case "pgdown", "ctrl+d":
+			m.scrollBody(m.bodyPageStep())
+			return m, nil
+		case "pgup", "ctrl+u":
+			m.scrollBody(-m.bodyPageStep())
+			return m, nil
+		case "home":
+			m.bodyScroll = 0
+			return m, nil
+		case "end":
+			m.bodyScroll = 1 << 30
 			return m, nil
 		case "left", "h":
 			if m.usesSidebarCalendarNav() {
@@ -426,24 +439,24 @@ func (m calendarTUIModel) View() string {
 
 	gap := lipgloss.NewStyle().Width(gapWidth).Render("")
 	body := lipgloss.JoinHorizontal(lipgloss.Top, main, gap, right)
-	parts := []string{
+	topParts := []string{
 		renderCockpitHeader(m, focused),
 		renderCalendarModeTabs(m.mode),
-		body,
 	}
+	bottomParts := make([]string, 0, 4)
 	if m.showHelp {
-		parts = append(parts, renderCockpitHelpOverlay(m.mode))
+		bottomParts = append(bottomParts, renderCockpitHelpOverlay(m.mode))
 	}
 	if m.snoozeMode {
-		parts = append(parts, renderCalendarSnoozePicker(m.snoozeIndex))
+		bottomParts = append(bottomParts, renderCalendarSnoozePicker(m.snoozeIndex))
 	}
 	if m.addMode {
-		parts = append(parts, renderCalendarAddComposer(m.focusedDayLabel(), m.defaultKind, m.defaultStatus, m.addTitle))
+		bottomParts = append(bottomParts, renderCalendarAddComposer(m.focusedDayLabel(), m.defaultKind, m.defaultStatus, m.addTitle))
 	}
 	if strings.TrimSpace(m.message) != "" {
-		parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color("141")).Render(m.message))
+		bottomParts = append(bottomParts, lipgloss.NewStyle().Foreground(lipgloss.Color("141")).Render(m.message))
 	}
-	return strings.Join(parts, "\n\n") + "\n"
+	return renderCalendarViewport(topParts, body, bottomParts, m.height, m.bodyScroll) + "\n"
 }
 
 func (m calendarTUIModel) layoutWidths() (int, int) {
@@ -486,6 +499,20 @@ func (m calendarTUIModel) layoutColumns() (int, int, int) {
 
 func (m calendarTUIModel) usesSidebarCalendarNav() bool {
 	return m.mode != calendarModeCalendar && m.pane == calendarPaneInspector
+}
+
+func (m calendarTUIModel) bodyPageStep() int {
+	if m.height <= 0 {
+		return 8
+	}
+	return max(3, m.height/3)
+}
+
+func (m *calendarTUIModel) scrollBody(delta int) {
+	m.bodyScroll += delta
+	if m.bodyScroll < 0 {
+		m.bodyScroll = 0
+	}
 }
 
 func (m *calendarTUIModel) nextPane() {
@@ -644,6 +671,7 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.mode = mode
 	m.sectionIndex = 0
 	m.treeRowIndex = 0
+	m.bodyScroll = 0
 	m.rebuildModeState()
 	m.message = fmt.Sprintf("mode: %s", mode)
 }
@@ -1579,6 +1607,61 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
 }
 
+func renderCalendarViewport(topParts []string, body string, bottomParts []string, totalHeight int, scroll int) string {
+	sections := make([]string, 0, 3)
+	topBlock := strings.Join(topParts, "\n\n")
+	bottomBlock := strings.Join(bottomParts, "\n\n")
+	bodyBlock := body
+	if totalHeight > 0 {
+		bodyHeight := availableViewportHeight(totalHeight, topBlock, bottomBlock)
+		bodyBlock, scroll = clipRenderedBlock(body, bodyHeight, scroll)
+		_ = scroll
+	}
+	if strings.TrimSpace(topBlock) != "" {
+		sections = append(sections, topBlock)
+	}
+	sections = append(sections, bodyBlock)
+	if strings.TrimSpace(bottomBlock) != "" {
+		sections = append(sections, bottomBlock)
+	}
+	return strings.Join(sections, "\n\n")
+}
+
+func availableViewportHeight(totalHeight int, topBlock string, bottomBlock string) int {
+	if totalHeight <= 0 {
+		return 0
+	}
+	height := totalHeight
+	if strings.TrimSpace(topBlock) != "" {
+		height -= lipgloss.Height(topBlock)
+		height--
+	}
+	if strings.TrimSpace(bottomBlock) != "" {
+		height -= lipgloss.Height(bottomBlock)
+		height--
+	}
+	return max(3, height)
+}
+
+func clipRenderedBlock(block string, height int, scroll int) (string, int) {
+	if height <= 0 {
+		return block, 0
+	}
+	lines := strings.Split(strings.TrimSuffix(block, "\n"), "\n")
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	maxScroll := max(0, len(lines)-height)
+	if scroll < 0 {
+		scroll = 0
+	}
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+	end := min(len(lines), scroll+height)
+	return strings.Join(lines[scroll:end], "\n"), maxScroll
+}
+
 func renderCockpitHelpOverlay(mode calendarMode) string {
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
@@ -1591,6 +1674,7 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		"Tab: pane  C/T/B/R/N: mode  ?: close",
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
+		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q/Esc/Ctrl+C: quit",

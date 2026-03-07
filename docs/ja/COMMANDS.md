@@ -111,6 +111,8 @@ subcommand:
   - `j` / `k`: calendar mode では週移動、右 sidebar に focus があるときは sidebar calendar を週移動、それ以外では tree/board/review/now の行移動
   - `[` / `]`: 月移動
   - `n` / `p`: calendar mode では focused day task 切り替え、review/now では tab 切り替え、board では列移動
+  - `PgUp` / `PgDn`, `Ctrl+U` / `Ctrl+D`: header を固定したまま body をスクロール
+  - `Home` / `End`: scrollable body の先頭 / 末尾へ移動
   - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

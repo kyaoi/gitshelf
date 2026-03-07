@@ -133,6 +133,9 @@ The type selection screen includes this warning:
 - in non-calendar modes, the right sidebar shows a compact calendar above the inspector; focus it with `Tab` to move the date directly
 - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/now, or move board columns
 - `now` mode shows `Focused Day`, `Overdue`, and `Today` side by side in the main pane
+- the header and mode tabs stay fixed at the top
+- `PgUp` / `PgDn` or `Ctrl+U` / `Ctrl+D`: scroll the body
+- `Home` / `End`: jump to the top or bottom of the body
 - `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`

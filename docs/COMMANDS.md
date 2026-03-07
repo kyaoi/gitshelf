@@ -120,6 +120,8 @@ Due-date calendar view.
   - `j` / `k`: move by week in calendar mode, move the sidebar calendar by week when the right pane is focused, or move rows in tree/board/review/now
   - `[` / `]`: jump by month inside the current range
   - `n` / `p`: switch focused-day tasks in calendar mode, switch cockpit tabs in review/now, or move board columns
+  - `PgUp` / `PgDn`, `Ctrl+U` / `Ctrl+D`: scroll the body while keeping the header fixed
+  - `Home` / `End`: jump to the top or bottom of the scrollable body
   - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
