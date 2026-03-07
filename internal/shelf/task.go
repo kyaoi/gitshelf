@@ -162,25 +162,6 @@ func FormatTaskMarkdown(task Task) ([]byte, error) {
 		}
 		buf.WriteString("]\n")
 	}
-	if len(task.GitHubURLs) > 0 {
-		buf.WriteString("github_urls = [")
-		for i, url := range task.GitHubURLs {
-			if i > 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(fmt.Sprintf("%q", url))
-		}
-		buf.WriteString("]\n")
-	}
-	if task.EstimateMin > 0 {
-		buf.WriteString(fmt.Sprintf("estimate_minutes = %d\n", task.EstimateMin))
-	}
-	if task.SpentMin > 0 {
-		buf.WriteString(fmt.Sprintf("spent_minutes = %d\n", task.SpentMin))
-	}
-	if strings.TrimSpace(task.TimerStart) != "" {
-		buf.WriteString(fmt.Sprintf("timer_started_at = %q\n", task.TimerStart))
-	}
 	if task.DueOn != "" {
 		buf.WriteString(fmt.Sprintf("due_on = %q\n", task.DueOn))
 	}

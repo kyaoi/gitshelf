@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -309,112 +308,6 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString(fmt.Sprintf("default_months = %d\n", cfg.Commands.Calendar.DefaultMonths))
 	buf.WriteString(fmt.Sprintf("default_years = %d\n", cfg.Commands.Calendar.DefaultYears))
 
-	if len(cfg.Views) > 0 {
-		viewNames := make([]string, 0, len(cfg.Views))
-		for name := range cfg.Views {
-			viewNames = append(viewNames, name)
-		}
-		sort.Strings(viewNames)
-		for _, name := range viewNames {
-			view := cfg.Views[name]
-			buf.WriteString("\n")
-			buf.WriteString(fmt.Sprintf("[views.%q]\n", name))
-			writeKinds := func(key string, values []Kind) {
-				if len(values) == 0 {
-					return
-				}
-				buf.WriteString(key + " = [")
-				for i, value := range values {
-					if i > 0 {
-						buf.WriteString(", ")
-					}
-					buf.WriteString(fmt.Sprintf("%q", value))
-				}
-				buf.WriteString("]\n")
-			}
-			writeStatuses := func(key string, values []Status) {
-				if len(values) == 0 {
-					return
-				}
-				buf.WriteString(key + " = [")
-				for i, value := range values {
-					if i > 0 {
-						buf.WriteString(", ")
-					}
-					buf.WriteString(fmt.Sprintf("%q", value))
-				}
-				buf.WriteString("]\n")
-			}
-			writeKinds("kinds", view.Kinds)
-			writeStatuses("statuses", view.Statuses)
-			writeTags := func(key string, values []string) {
-				if len(values) == 0 {
-					return
-				}
-				buf.WriteString(key + " = [")
-				for i, value := range values {
-					if i > 0 {
-						buf.WriteString(", ")
-					}
-					buf.WriteString(fmt.Sprintf("%q", value))
-				}
-				buf.WriteString("]\n")
-			}
-			writeTags("tags", view.Tags)
-			writeKinds("not_kinds", view.NotKinds)
-			writeStatuses("not_statuses", view.NotStatuses)
-			writeTags("not_tags", view.NotTags)
-			if view.ReadyOnly {
-				buf.WriteString("ready = true\n")
-			}
-			if view.DepsBlocked {
-				buf.WriteString("blocked_by_deps = true\n")
-			}
-			if view.DueBefore != "" {
-				buf.WriteString(fmt.Sprintf("due_before = %q\n", view.DueBefore))
-			}
-			if view.DueAfter != "" {
-				buf.WriteString(fmt.Sprintf("due_after = %q\n", view.DueAfter))
-			}
-			if view.Overdue {
-				buf.WriteString("overdue = true\n")
-			}
-			if view.NoDue {
-				buf.WriteString("no_due = true\n")
-			}
-			if view.Parent != "" {
-				buf.WriteString(fmt.Sprintf("parent = %q\n", view.Parent))
-			}
-			if view.Search != "" {
-				buf.WriteString(fmt.Sprintf("search = %q\n", view.Search))
-			}
-			if view.Limit > 0 {
-				buf.WriteString(fmt.Sprintf("limit = %d\n", view.Limit))
-			}
-		}
-	}
-	if len(cfg.OutputPresets) > 0 {
-		names := make([]string, 0, len(cfg.OutputPresets))
-		for name := range cfg.OutputPresets {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			preset := cfg.OutputPresets[name]
-			buf.WriteString("\n")
-			buf.WriteString(fmt.Sprintf("[output_presets.%q]\n", name))
-			buf.WriteString(fmt.Sprintf("command = %q\n", preset.Command))
-			if preset.Format != "" {
-				buf.WriteString(fmt.Sprintf("format = %q\n", preset.Format))
-			}
-			if preset.View != "" {
-				buf.WriteString(fmt.Sprintf("view = %q\n", preset.View))
-			}
-			if preset.Limit > 0 {
-				buf.WriteString(fmt.Sprintf("limit = %d\n", preset.Limit))
-			}
-		}
-	}
 	return buf.Bytes()
 }
 

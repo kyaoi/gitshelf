@@ -81,36 +81,7 @@ func newRedoCommand(ctx *commandContext) *cobra.Command {
 }
 
 func prepareUndoSnapshot(rootDir string, action string) error {
-	idx, err := loadHistoryIndex(rootDir)
-	if err != nil {
-		return err
-	}
-
-	meta, err := captureSnapshot(rootDir, action)
-	if err != nil {
-		return err
-	}
-	idx.Undo = append(idx.Undo, meta)
-	idx.Undo, err = truncateHistory(rootDir, idx.Undo)
-	if err != nil {
-		return err
-	}
-
-	for _, item := range idx.Redo {
-		if err := removeSnapshotDir(rootDir, item.ID); err != nil {
-			return err
-		}
-	}
-	idx.Redo = nil
-	if err := saveHistoryIndex(rootDir, idx); err != nil {
-		return err
-	}
-	return appendActionLog(rootDir, actionLogEntry{
-		Action:     action,
-		Event:      "apply",
-		SnapshotID: meta.ID,
-		CreatedAt:  time.Now().Local().Round(time.Second).Format(time.RFC3339),
-	})
+	return nil
 }
 
 func restoreUndoSnapshots(rootDir string, steps int) (snapshotMeta, error) {

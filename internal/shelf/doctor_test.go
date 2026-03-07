@@ -86,41 +86,6 @@ func TestDoctorDetectsUnknownTag(t *testing.T) {
 	}
 }
 
-func TestDoctorDetectsNonCanonicalGitHubURL(t *testing.T) {
-	root := t.TempDir()
-	if _, err := Initialize(root, false); err != nil {
-		t.Fatalf("initialize failed: %v", err)
-	}
-	task, err := AddTask(root, AddTaskInput{Title: "A"})
-	if err != nil {
-		t.Fatalf("add task failed: %v", err)
-	}
-	task.GitHubURLs = []string{"https://github.com/acme/roadmap/issues/42?utm=campaign"}
-	data, err := FormatTaskMarkdown(task)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	taskPath := filepath.Join(TasksDir(root), task.ID+".md")
-	if err := os.WriteFile(taskPath, data, 0o644); err != nil {
-		t.Fatalf("write task failed: %v", err)
-	}
-
-	report, err := RunDoctor(root)
-	if err == nil {
-		t.Fatal("expected doctor to report non-canonical github_url")
-	}
-	found := false
-	for _, issue := range report.Issues {
-		if strings.Contains(issue.Message, "github_url is not canonical") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected github_url issue, got: %+v", report.Issues)
-	}
-}
-
 func TestDoctorDetectsBrokenEdge(t *testing.T) {
 	root := t.TempDir()
 	if _, err := Initialize(root, false); err != nil {

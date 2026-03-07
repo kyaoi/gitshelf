@@ -16,10 +16,6 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 		Kind:        Kind("todo"),
 		Status:      Status("open"),
 		Tags:        []string{"backend", "urgent"},
-		GitHubURLs:  []string{"https://github.com/acme/roadmap/issues/12"},
-		EstimateMin: 90,
-		SpentMin:    30,
-		TimerStart:  "2026-03-05T13:00:00+09:00",
 		DueOn:       "2026-03-10",
 		RepeatEvery: "1w",
 		ArchivedAt:  "2026-03-05T12:34:56+09:00",
@@ -48,12 +44,6 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	if len(parsed.Tags) != 2 || parsed.Tags[0] != "backend" || parsed.Tags[1] != "urgent" {
 		t.Fatalf("parsed tags mismatch: %+v", parsed.Tags)
 	}
-	if len(parsed.GitHubURLs) != 1 || parsed.GitHubURLs[0] != orig.GitHubURLs[0] {
-		t.Fatalf("parsed github urls mismatch: %+v", parsed.GitHubURLs)
-	}
-	if parsed.EstimateMin != 90 || parsed.SpentMin != 30 || parsed.TimerStart != "2026-03-05T13:00:00+09:00" {
-		t.Fatalf("parsed worklog mismatch: %+v", parsed)
-	}
 	if parsed.DueOn != orig.DueOn {
 		t.Fatalf("parsed due_on mismatch: %+v", parsed)
 	}
@@ -65,6 +55,37 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	}
 	if !parsed.CreatedAt.Equal(orig.CreatedAt) || !parsed.UpdatedAt.Equal(orig.UpdatedAt) {
 		t.Fatalf("parsed timestamps mismatch: %+v", parsed)
+	}
+	if strings.Contains(string(data), "github_urls") || strings.Contains(string(data), "estimate_minutes") || strings.Contains(string(data), "spent_minutes") || strings.Contains(string(data), "timer_started_at") {
+		t.Fatalf("formatted task should omit legacy metadata: %s", string(data))
+	}
+}
+
+func TestParseTaskMarkdownKeepsLegacyMetadataReadable(t *testing.T) {
+	raw := `+++
+id = "01JABCDEF0123456789XYZ"
+title = "legacy metadata"
+kind = "todo"
+status = "open"
+github_urls = ["https://github.com/acme/roadmap/issues/12"]
+estimate_minutes = 90
+spent_minutes = 30
+timer_started_at = "2026-03-05T13:00:00+09:00"
+created_at = "2026-03-05T12:34:56+09:00"
+updated_at = "2026-03-05T12:34:56+09:00"
++++
+
+body
+`
+	task, err := ParseTaskMarkdown([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(task.GitHubURLs) != 1 || task.GitHubURLs[0] != "https://github.com/acme/roadmap/issues/12" {
+		t.Fatalf("parsed github urls mismatch: %+v", task.GitHubURLs)
+	}
+	if task.EstimateMin != 90 || task.SpentMin != 30 || task.TimerStart != "2026-03-05T13:00:00+09:00" {
+		t.Fatalf("parsed worklog mismatch: %+v", task)
 	}
 }
 

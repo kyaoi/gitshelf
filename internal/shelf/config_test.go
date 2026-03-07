@@ -36,16 +36,6 @@ func TestDefaultConfigIsValid(t *testing.T) {
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Tags = []string{"backend", "urgent"}
-	cfg.Views["active"] = TaskView{
-		Tags:        []string{"backend"},
-		NotStatuses: []Status{"done", "cancelled"},
-	}
-	cfg.OutputPresets["focus"] = OutputPreset{
-		Command: "ls",
-		Format:  "detail",
-		View:    "active",
-		Limit:   10,
-	}
 	data := FormatConfigTOML(cfg)
 
 	parsed, err := ParseConfigTOML(data)
@@ -68,14 +58,23 @@ func TestConfigRoundTrip(t *testing.T) {
 		parsed.Commands.Calendar.DefaultYears != cfg.Commands.Calendar.DefaultYears {
 		t.Fatalf("parsed calendar defaults mismatch: %+v", parsed)
 	}
-	if _, ok := parsed.Views["active"]; !ok {
-		t.Fatalf("parsed views mismatch: %+v", parsed.Views)
+}
+
+func TestFormatConfigTOMLOmitsLegacyViewsAndOutputPresets(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Views["active"] = TaskView{
+		Tags:        []string{"backend"},
+		NotStatuses: []Status{"done", "cancelled"},
 	}
-	if len(parsed.Views["active"].Tags) != 1 || parsed.Views["active"].Tags[0] != "backend" {
-		t.Fatalf("parsed view tags mismatch: %+v", parsed.Views["active"].Tags)
+	cfg.OutputPresets["focus"] = OutputPreset{
+		Command: "ls",
+		Format:  "detail",
+		View:    "active",
+		Limit:   10,
 	}
-	if _, ok := parsed.OutputPresets["focus"]; !ok {
-		t.Fatalf("parsed output presets mismatch: %+v", parsed.OutputPresets)
+	data := string(FormatConfigTOML(cfg))
+	if strings.Contains(data, "[views.") || strings.Contains(data, "[output_presets.") {
+		t.Fatalf("formatted config should omit legacy sections: %s", data)
 	}
 }
 
