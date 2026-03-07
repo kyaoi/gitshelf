@@ -22,6 +22,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 		start    string
 		days     int
 		months   int
+		years    int
 		statuses []string
 		asJSON   bool
 	)
@@ -29,8 +30,12 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "calendar",
 		Short: "Show due tasks in a calendar TUI",
+		Long: "Show due tasks in a calendar TUI.\n\n" +
+			"If no explicit range flag is set, config calendar_default_use and\n" +
+			"calendar_default_days/months/years decide the range.",
 		Example: "  shelf calendar\n" +
-			"  shelf calendar --start 2026-03-09\n" +
+			"  shelf calendar --months 3\n" +
+			"  shelf calendar --start 2026-03-09 --days 14\n" +
 			"  shelf calendar --status open --status blocked --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
@@ -41,7 +46,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, cfg.CalendarDefaultDays, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"))
+			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, years, cfg, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"), cmd.Flags().Changed("years"))
 			if err != nil {
 				return err
 			}
@@ -74,9 +79,10 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&start, "start", "", "Week start date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
-	cmd.Flags().IntVar(&days, "days", 7, "Number of days to render")
-	cmd.Flags().IntVar(&months, "months", 0, "Number of whole months to render from the month containing --start")
+	cmd.Flags().StringVar(&start, "start", "", "Anchor date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
+	cmd.Flags().IntVar(&days, "days", 0, "Render an explicit day range")
+	cmd.Flags().IntVar(&months, "months", 0, "Render an explicit month range from the month containing --start")
+	cmd.Flags().IntVar(&years, "years", 0, "Render an explicit year range from the year containing --start")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
@@ -124,9 +130,15 @@ func buildCalendarDays(tasks []shelf.Task, startDate time.Time, days int) []cale
 	return rows
 }
 
-func resolveCalendarRange(startDate time.Time, days int, months int, defaultDays int, daysChanged bool, monthsChanged bool) (time.Time, int, error) {
-	if daysChanged && monthsChanged {
-		return time.Time{}, 0, fmt.Errorf("--days と --months は同時に指定できません")
+func resolveCalendarRange(startDate time.Time, days int, months int, years int, cfg shelf.Config, daysChanged bool, monthsChanged bool, yearsChanged bool) (time.Time, int, error) {
+	changedCount := 0
+	for _, changed := range []bool{daysChanged, monthsChanged, yearsChanged} {
+		if changed {
+			changedCount++
+		}
+	}
+	if changedCount > 1 {
+		return time.Time{}, 0, fmt.Errorf("--days / --months / --years はどれか1つだけ指定してください")
 	}
 	if monthsChanged {
 		if months <= 0 {
@@ -137,8 +149,28 @@ func resolveCalendarRange(startDate time.Time, days int, months int, defaultDays
 		dayCount := int(monthEndExclusive.Sub(monthStart).Hours() / 24)
 		return monthStart, dayCount, nil
 	}
-	if !daysChanged {
-		days = defaultDays
+	if yearsChanged {
+		if years <= 0 {
+			return time.Time{}, 0, fmt.Errorf("--years must be > 0")
+		}
+		yearStart := time.Date(startDate.Year(), time.January, 1, 0, 0, 0, 0, startDate.Location())
+		yearEndExclusive := yearStart.AddDate(years, 0, 0)
+		dayCount := int(yearEndExclusive.Sub(yearStart).Hours() / 24)
+		return yearStart, dayCount, nil
+	}
+	if !daysChanged && !monthsChanged && !yearsChanged {
+		switch cfg.CalendarDefaultUse {
+		case "months":
+			months = cfg.CalendarDefaultMonths
+			monthsChanged = true
+		case "years":
+			years = cfg.CalendarDefaultYears
+			yearsChanged = true
+		default:
+			days = cfg.CalendarDefaultDays
+			daysChanged = true
+		}
+		return resolveCalendarRange(startDate, days, months, years, cfg, daysChanged, monthsChanged, yearsChanged)
 	}
 	if days <= 0 {
 		return time.Time{}, 0, fmt.Errorf("--days must be > 0")

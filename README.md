@@ -102,7 +102,7 @@ go build -o shelf ./cmd/shelf
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
-- `shelf calendar [--root <dir>] [--start <date> --days N | --months N --status ... --json]`
+- `shelf calendar [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
   - calendar TUI by default
   - use `--json` for non-TTY contexts
 - `shelf board [--root <dir>] [--show-id]`
@@ -244,7 +244,10 @@ Task selectors always show body preview. Enum selectors intentionally do not.
 ```toml
 [views."only_done"]
 statuses = ["done"]
+calendar_default_use = "days"
 calendar_default_days = 14
+calendar_default_months = 6
+calendar_default_years = 2
 ```
 
 You can also manage this from CLI:

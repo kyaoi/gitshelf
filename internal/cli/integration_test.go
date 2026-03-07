@@ -404,7 +404,15 @@ func TestCLICalendarRequiresTTYUnlessJSON(t *testing.T) {
 		t.Fatalf("unexpected calendar month json output: %s", out)
 	}
 
-	if _, err := executeCLI(t, "calendar", "--root", root, "--days", "7", "--months", "1", "--json"); err == nil || !strings.Contains(err.Error(), "同時に指定") {
+	out, err = executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09", "--years", "1", "--json")
+	if err != nil {
+		t.Fatalf("calendar --years --json failed: %v", err)
+	}
+	if !strings.Contains(out, "\"2026-01-01\"") || !strings.Contains(out, "\"2026-12-31\"") {
+		t.Fatalf("unexpected calendar year json output: %s", out)
+	}
+
+	if _, err := executeCLI(t, "calendar", "--root", root, "--days", "7", "--months", "1", "--json"); err == nil || !strings.Contains(err.Error(), "どれか1つ") {
 		t.Fatalf("expected mixed range error, got: %v", err)
 	}
 }

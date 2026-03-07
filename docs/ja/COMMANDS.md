@@ -102,7 +102,7 @@ subcommand:
 - 既定の開始日: 今週の月曜日
 - 既定の status: `open`, `in_progress`, `blocked`
 - 既定は月グリッド + 詳細の TUI 表示
-- 既定の日数レンジは config `calendar_default_days`
+- 既定レンジは config `calendar_default_use` に従う
 - 非TTYでは `--json` を使う
 - 主な操作:
   - `h` / `l`: 日移動
@@ -119,13 +119,15 @@ subcommand:
 
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
-- `--days <n>`（既定: `7`）
+- `--days <n>`（明示的な day range）
 - `--months <n>`（`--start` を含む月の先頭から月単位レンジ）
+- `--years <n>`（`--start` を含む年の先頭から年単位レンジ）
 - `--status <status>`（複数可）
 - `--json`
 
 ルール:
-- `--days` と `--months` は同時指定不可
+- `--days` / `--months` / `--years` はどれか1つだけ指定可
+- 未指定時は config `calendar_default_use` と `calendar_default_days|months|years` を使う
 
 ## `shelf board`
 

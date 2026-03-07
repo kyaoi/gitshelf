@@ -12,15 +12,18 @@ import (
 )
 
 type Config struct {
-	Kinds               []Kind
-	Statuses            []Status
-	Tags                []string
-	LinkTypes           []LinkType
-	DefaultKind         Kind
-	DefaultStatus       Status
-	CalendarDefaultDays int
-	Views               map[string]TaskView
-	OutputPresets       map[string]OutputPreset
+	Kinds                 []Kind
+	Statuses              []Status
+	Tags                  []string
+	LinkTypes             []LinkType
+	DefaultKind           Kind
+	DefaultStatus         Status
+	CalendarDefaultUse    string
+	CalendarDefaultDays   int
+	CalendarDefaultMonths int
+	CalendarDefaultYears  int
+	Views                 map[string]TaskView
+	OutputPresets         map[string]OutputPreset
 }
 
 type TaskView struct {
@@ -49,17 +52,20 @@ type OutputPreset struct {
 }
 
 type configFile struct {
-	Kinds               []string `toml:"kinds"`
-	Statuses            []string `toml:"statuses"`
-	Tags                []string `toml:"tags"`
-	LegacyStates        []string `toml:"states"`
-	LinkTypes           []string `toml:"link_types"`
-	DefaultKind         string   `toml:"default_kind"`
-	DefaultStatus       string   `toml:"default_status"`
-	CalendarDefaultDays int      `toml:"calendar_default_days"`
-	LegacyDefaultState  string   `toml:"default_state"`
-	Views               map[string]configView
-	OutputPresets       map[string]configOutputPreset `toml:"output_presets"`
+	Kinds                 []string `toml:"kinds"`
+	Statuses              []string `toml:"statuses"`
+	Tags                  []string `toml:"tags"`
+	LegacyStates          []string `toml:"states"`
+	LinkTypes             []string `toml:"link_types"`
+	DefaultKind           string   `toml:"default_kind"`
+	DefaultStatus         string   `toml:"default_status"`
+	CalendarDefaultUse    string   `toml:"calendar_default_use"`
+	CalendarDefaultDays   int      `toml:"calendar_default_days"`
+	CalendarDefaultMonths int      `toml:"calendar_default_months"`
+	CalendarDefaultYears  int      `toml:"calendar_default_years"`
+	LegacyDefaultState    string   `toml:"default_state"`
+	Views                 map[string]configView
+	OutputPresets         map[string]configOutputPreset `toml:"output_presets"`
 }
 
 type configView struct {
@@ -89,15 +95,18 @@ type configOutputPreset struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:               []Kind{"todo", "idea", "memo", "inbox"},
-		Statuses:            []Status{"open", "in_progress", "blocked", "done", "cancelled"},
-		Tags:                []string{},
-		LinkTypes:           []LinkType{"depends_on", "related"},
-		DefaultKind:         Kind("todo"),
-		DefaultStatus:       Status("open"),
-		CalendarDefaultDays: 7,
-		Views:               map[string]TaskView{},
-		OutputPresets:       map[string]OutputPreset{},
+		Kinds:                 []Kind{"todo", "idea", "memo", "inbox"},
+		Statuses:              []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:                  []string{},
+		LinkTypes:             []LinkType{"depends_on", "related"},
+		DefaultKind:           Kind("todo"),
+		DefaultStatus:         Status("open"),
+		CalendarDefaultUse:    "days",
+		CalendarDefaultDays:   7,
+		CalendarDefaultMonths: 6,
+		CalendarDefaultYears:  2,
+		Views:                 map[string]TaskView{},
+		OutputPresets:         map[string]OutputPreset{},
 	}
 }
 
@@ -140,18 +149,31 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 
 	cfg := Config{
-		Kinds:               make([]Kind, len(f.Kinds)),
-		Statuses:            make([]Status, len(statuses)),
-		Tags:                make([]string, len(f.Tags)),
-		LinkTypes:           make([]LinkType, len(f.LinkTypes)),
-		DefaultKind:         Kind(strings.TrimSpace(f.DefaultKind)),
-		DefaultStatus:       Status(defaultStatus),
-		CalendarDefaultDays: f.CalendarDefaultDays,
-		Views:               map[string]TaskView{},
-		OutputPresets:       map[string]OutputPreset{},
+		Kinds:                 make([]Kind, len(f.Kinds)),
+		Statuses:              make([]Status, len(statuses)),
+		Tags:                  make([]string, len(f.Tags)),
+		LinkTypes:             make([]LinkType, len(f.LinkTypes)),
+		DefaultKind:           Kind(strings.TrimSpace(f.DefaultKind)),
+		DefaultStatus:         Status(defaultStatus),
+		CalendarDefaultUse:    strings.TrimSpace(f.CalendarDefaultUse),
+		CalendarDefaultDays:   f.CalendarDefaultDays,
+		CalendarDefaultMonths: f.CalendarDefaultMonths,
+		CalendarDefaultYears:  f.CalendarDefaultYears,
+		Views:                 map[string]TaskView{},
+		OutputPresets:         map[string]OutputPreset{},
+	}
+	defaults := DefaultConfig()
+	if cfg.CalendarDefaultUse == "" {
+		cfg.CalendarDefaultUse = defaults.CalendarDefaultUse
 	}
 	if cfg.CalendarDefaultDays == 0 {
-		cfg.CalendarDefaultDays = DefaultConfig().CalendarDefaultDays
+		cfg.CalendarDefaultDays = defaults.CalendarDefaultDays
+	}
+	if cfg.CalendarDefaultMonths == 0 {
+		cfg.CalendarDefaultMonths = defaults.CalendarDefaultMonths
+	}
+	if cfg.CalendarDefaultYears == 0 {
+		cfg.CalendarDefaultYears = defaults.CalendarDefaultYears
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -257,7 +279,10 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString("]\n\n")
 	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
 	buf.WriteString(fmt.Sprintf("default_status = %q\n", cfg.DefaultStatus))
+	buf.WriteString(fmt.Sprintf("calendar_default_use = %q\n", cfg.CalendarDefaultUse))
 	buf.WriteString(fmt.Sprintf("calendar_default_days = %d\n", cfg.CalendarDefaultDays))
+	buf.WriteString(fmt.Sprintf("calendar_default_months = %d\n", cfg.CalendarDefaultMonths))
+	buf.WriteString(fmt.Sprintf("calendar_default_years = %d\n", cfg.CalendarDefaultYears))
 
 	if len(cfg.Views) > 0 {
 		viewNames := make([]string, 0, len(cfg.Views))
@@ -396,8 +421,19 @@ func (c Config) Validate() error {
 	if err := c.ValidateStatus(c.DefaultStatus); err != nil {
 		return fmt.Errorf("default_status: %w", err)
 	}
+	switch c.CalendarDefaultUse {
+	case "days", "months", "years":
+	default:
+		return fmt.Errorf("calendar_default_use must be one of days/months/years")
+	}
 	if c.CalendarDefaultDays <= 0 {
 		return fmt.Errorf("calendar_default_days must be > 0")
+	}
+	if c.CalendarDefaultMonths <= 0 {
+		return fmt.Errorf("calendar_default_months must be > 0")
+	}
+	if c.CalendarDefaultYears <= 0 {
+		return fmt.Errorf("calendar_default_years must be > 0")
 	}
 	for name, view := range c.Views {
 		if strings.TrimSpace(name) == "" {

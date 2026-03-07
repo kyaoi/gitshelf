@@ -28,7 +28,10 @@
 - `link_types`
 - `default_kind`
 - `default_status`
+- `calendar_default_use`
 - `calendar_default_days`
+- `calendar_default_months`
+- `calendar_default_years`
 
 保存済み view:
 
@@ -149,7 +152,10 @@ body の典型用途:
 - `title` は空不可
 - `kind` は config `kinds` に存在する
 - `status` は config `statuses` に存在する
+- `calendar_default_use` は `days` / `months` / `years`
 - `calendar_default_days` は 1 以上
+- `calendar_default_months` は 1 以上
+- `calendar_default_years` は 1 以上
 - 各 `tag` は config `tags` に存在する
 - 各 `github_urls` は canonical な GitHub issue / PR URL
 - `due_on` は存在時 `YYYY-MM-DD`
