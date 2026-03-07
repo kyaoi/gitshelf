@@ -307,6 +307,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			if m.mode == calendarModeBoard {
 				m.moveBoardColumn(1)
+			} else if m.mode == calendarModeCalendar {
+				m.moveFocusedDayTask(1)
 			} else {
 				m.moveSectionSelection(1)
 			}
@@ -314,6 +316,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "p":
 			if m.mode == calendarModeBoard {
 				m.moveBoardColumn(-1)
+			} else if m.mode == calendarModeCalendar {
+				m.moveFocusedDayTask(-1)
 			} else {
 				m.moveSectionSelection(-1)
 			}
@@ -394,6 +398,9 @@ func (m calendarTUIModel) View() string {
 	main := renderCalendarMainPane(m, month, mainWidth, m.pane == calendarPaneMain)
 	selectedTask, selectedTaskOK := m.selectedTask()
 	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth)
+	if m.mode == calendarModeCalendar {
+		right = renderCalendarSidebarPane(m, selectedTask, selectedTaskOK, inspectorWidth)
+	}
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, main, right)
 	parts := []string{
@@ -418,10 +425,17 @@ func (m calendarTUIModel) View() string {
 
 func (m calendarTUIModel) layoutWidths() (int, int) {
 	if m.width <= 0 {
+		if m.mode == calendarModeCalendar {
+			return 96, 44
+		}
 		return 88, 54
 	}
 	usable := max(96, m.width-2)
-	inspector := max(40, usable*34/100)
+	inspectorRatio := 34
+	if m.mode == calendarModeCalendar {
+		inspectorRatio = 28
+	}
+	inspector := max(40, usable*inspectorRatio/100)
 	main := usable - inspector
 	if main < 56 {
 		main = 56
@@ -1042,6 +1056,15 @@ func (m *calendarTUIModel) currentSection() *calendarSection {
 	return &m.sections[m.sectionIndex]
 }
 
+func (m *calendarTUIModel) focusedDaySection() *calendarSection {
+	for i := range m.sections {
+		if m.sections[i].ID == calendarSectionFocusedDay {
+			return &m.sections[i]
+		}
+	}
+	return nil
+}
+
 func (m *calendarTUIModel) moveTreeRow(delta int) {
 	if len(m.treeRows) == 0 {
 		return
@@ -1054,6 +1077,23 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 		m.treeRowIndex = 0
 	}
 	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+}
+
+func (m *calendarTUIModel) moveFocusedDayTask(delta int) {
+	section := m.focusedDaySection()
+	if section == nil || len(section.Items) == 0 {
+		m.message = "focused day に task がありません"
+		return
+	}
+	row := m.sectionRows[section.ID] + delta
+	if row < 0 {
+		row = len(section.Items) - 1
+	}
+	if row >= len(section.Items) {
+		row = 0
+	}
+	m.sectionRows[section.ID] = row
+	m.selectedTaskID = section.Items[row].Task.ID
 }
 
 func (m *calendarTUIModel) clampBoardSelection() {
@@ -1199,6 +1239,17 @@ func (m calendarTUIModel) focusedDayLabel() string {
 }
 
 func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
+	if m.mode == calendarModeCalendar {
+		section := m.focusedDaySection()
+		if section == nil || len(section.Items) == 0 {
+			return shelf.Task{}, false
+		}
+		row := m.sectionRows[section.ID]
+		if row < 0 || row >= len(section.Items) {
+			row = 0
+		}
+		return section.Items[row].Task, true
+	}
 	if m.mode == calendarModeTree {
 		if len(m.treeRows) == 0 || m.treeRowIndex < 0 || m.treeRowIndex >= len(m.treeRows) {
 			return shelf.Task{}, false
@@ -1495,7 +1546,7 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		"Tab: pane  C/T/B/R/Y: mode  ?: close",
-		"h/l: move  j/k: move rows or weeks  n/p: tabs or columns",
+		"h/l: move  j/k: move rows or weeks  n/p: task or tabs or columns",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q/Esc/Ctrl+C: quit",
 	}
@@ -1591,10 +1642,13 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	if m.mode != calendarModeCalendar {
 		parts = append(parts, renderCockpitContextStrip(m, max(24, width-4)))
 	}
-	parts = append(parts, renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)))
+	if m.mode != calendarModeCalendar {
+		parts = append(parts, renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)))
+	}
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
 		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
+		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
 	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
 	return boxStyle.Render(strings.Join(parts, "\n\n"))
@@ -1632,6 +1686,25 @@ func countSectionItems(sections []calendarSection, target calendarSectionID) int
 		}
 	}
 	return 0
+}
+
+func renderCalendarSidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int) string {
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width)
+	focusedSection := m.focusedDaySection()
+	dayList := renderCalendarActiveSection(focusedSection, m.sectionRows, m.showID, width)
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1).
+		Width(width)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	sidebar := boxStyle.Render(strings.Join([]string{
+		titleStyle.Render("Focused Day"),
+		metaStyle.Render("n/p: task switch"),
+		dayList,
+	}, "\n"))
+	return lipgloss.JoinVertical(lipgloss.Left, inspector, "", sidebar)
 }
 
 func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {

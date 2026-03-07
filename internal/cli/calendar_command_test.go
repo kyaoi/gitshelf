@@ -611,3 +611,65 @@ func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 		t.Fatalf("review pane should render context strip: %q", rendered)
 	}
 }
+
+func TestCalendarViewUsesSidebarForFocusedDayTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Focused task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	}); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.width = 120
+	rendered := model.View()
+	if !strings.Contains(rendered, "Focused Day") {
+		t.Fatalf("calendar view should render focused day sidebar: %q", rendered)
+	}
+	if !strings.Contains(rendered, "n/p: task switch") {
+		t.Fatalf("calendar view should show focused day switch hint: %q", rendered)
+	}
+}
+
+func TestCalendarNPSwitchesFocusedDayTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	task, ok := model.selectedTask()
+	if !ok || task.ID != first.ID {
+		t.Fatalf("unexpected initial selected task: %+v ok=%t", task, ok)
+	}
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	calendarModel := updatedModel.(calendarTUIModel)
+	task, ok = calendarModel.selectedTask()
+	if !ok || task.ID != second.ID {
+		t.Fatalf("expected n to select second focused-day task, got %+v ok=%t", task, ok)
+	}
+	updatedModel, _ = calendarModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	calendarModel = updatedModel.(calendarTUIModel)
+	task, ok = calendarModel.selectedTask()
+	if !ok || task.ID != first.ID {
+		t.Fatalf("expected p to select first focused-day task, got %+v ok=%t", task, ok)
+	}
+}
