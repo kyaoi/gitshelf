@@ -765,6 +765,81 @@ func TestTreeModeMoveSelectionToRoot(t *testing.T) {
 	}
 }
 
+func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add third failed: %v", err)
+	}
+	target, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Target", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add target failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, calendarTUIOptions{
+		Mode:   calendarModeTree,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	treeModel := updatedModel.(calendarTUIModel)
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	if treeModel.rangeMarkMode {
+		t.Fatal("expected m to stop range select before move mode")
+	}
+	if len(treeModel.moveSourceIDs) != 3 {
+		t.Fatalf("expected 3 frozen move sources, got %d", len(treeModel.moveSourceIDs))
+	}
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	if treeModel.markedCount() != 3 {
+		t.Fatalf("expected marks frozen after move start, got %d", treeModel.markedCount())
+	}
+	if treeModel.isMarkedTask(target.ID) {
+		t.Fatal("expected move target not to be added to marked tasks after move start")
+	}
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	treeModel = updatedModel.(calendarTUIModel)
+	store := shelf.NewTaskStore(root)
+	tasks, err := store.List()
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	byID := map[string]shelf.Task{}
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+	for _, movedID := range []string{first.ID, second.ID, third.ID} {
+		if byID[movedID].Parent != target.ID {
+			t.Fatalf("expected %s moved under target, got parent=%q", movedID, byID[movedID].Parent)
+		}
+	}
+	if byID[target.ID].Parent != "" {
+		t.Fatalf("expected target to stay at root, got parent=%q", byID[target.ID].Parent)
+	}
+	if treeModel.moveMode {
+		t.Fatal("expected move mode finished after apply")
+	}
+}
+
 func TestTreeModeBulkStatusChangeUsesMarkedTasks(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

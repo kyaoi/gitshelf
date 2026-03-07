@@ -1793,6 +1793,11 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 		m.message = "move は Tree mode で使ってください"
 		return m, nil
 	}
+	if m.rangeMarkMode {
+		m.rangeMarkMode = false
+		m.rangeAnchorID = ""
+		m.rangeBaseIDs = map[string]struct{}{}
+	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
 		m.message = "move 対象の task がありません"
