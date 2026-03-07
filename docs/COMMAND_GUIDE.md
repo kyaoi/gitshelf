@@ -151,7 +151,7 @@ You want one screen that answers:
 - what is ready
 
 Notes:
-- On TTY, `review` opens the Daily Cockpit in `review` mode by default.
+- On TTY, `review` opens Cockpit in `review` mode by default.
 - Use `--plain` to force the legacy text summary.
 - Use `--json` for scripts.
 
@@ -172,7 +172,7 @@ Use when:
 You are planning the current day.
 
 Notes:
-- On TTY, `now` opens the Daily Cockpit in `now` mode by default. `today` remains as an alias.
+- On TTY, `now` opens Cockpit in `now` mode by default. `today` remains as an alias.
 - Use `--plain` to keep the legacy text summary.
 - `--carry-over` still uses the legacy batch flow and does not open the cockpit.
 
@@ -199,7 +199,7 @@ Notes:
 - `--days` controls an explicit day range.
 - `--months` opens whole-month ranges such as one month or three months.
 - `--years` opens whole-year ranges.
-- The TUI is the shared Daily Cockpit shell.
+- The TUI is the shared Cockpit shell.
 - Layout is now `main + right sidebar`, with mode tabs instead of a fixed three-column layout.
 - In calendar mode, the month grid is larger and the `Focused Day` task list sits above the inspector.
 - In non-calendar modes, the right sidebar shows a small calendar above the inspector. Focus it with `Tab` and move dates directly with `h/j/k/l/[ ]`.
@@ -231,7 +231,7 @@ shelf cockpit --mode board --months 3
 ### `shelf board`
 
 Meaning:
-Open the Daily Cockpit in `board` mode.
+Open Cockpit in `board` mode.
 
 Use when:
 You want to move through active work visually and change statuses in place.
@@ -268,7 +268,7 @@ Use when:
 The tree structure matters more than a flat filtered list.
 
 Notes:
-- On TTY, `tree` opens the Daily Cockpit in `tree` mode by default.
+- On TTY, `tree` opens Cockpit in `tree` mode by default.
 - Use `--plain` to keep the legacy text tree output.
 
 ### `shelf show`

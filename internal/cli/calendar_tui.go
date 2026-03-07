@@ -2156,9 +2156,9 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 	parts := []string{
-		titleStyle.Render("Daily Cockpit"),
+		titleStyle.Render("Cockpit"),
 		accentStyle.Render("[" + strings.ToUpper(string(m.mode)) + "]"),
-		metaStyle.Render("Focus " + focused.Format("Mon 2006-01-02")),
+		metaStyle.Render("Date " + focused.Format("Mon 2006-01-02")),
 		metaStyle.Render(fmt.Sprintf("Range %s..%s", m.days[0].Date, m.days[len(m.days)-1].Date)),
 		metaStyle.Render("Filter " + formatCalendarStatusFilter(m.statuses)),
 		metaStyle.Render("?:help"),
@@ -2446,7 +2446,7 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 func renderCockpitContextStrip(m calendarTUIModel, width int) string {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	parts := []string{
-		"Focus " + m.focusedDayLabel(),
+		"Date " + m.focusedDayLabel(),
 	}
 	switch m.mode {
 	case calendarModeReview:
@@ -2825,7 +2825,7 @@ func renderCalendarSectionsPane(sections []calendarSection, sectionIndex int, se
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	sectionTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 
-	lines := []string{titleStyle.Render("Daily Cockpit")}
+	lines := []string{titleStyle.Render("Cockpit")}
 	for secIdx, section := range sections {
 		heading := fmt.Sprintf("%d. %s (%d)", secIdx+1, section.Title, len(section.Items))
 		if secIdx == sectionIndex {

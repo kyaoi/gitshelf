@@ -106,7 +106,7 @@ go build -o shelf ./cmd/shelf
 - `shelf cockpit|cp [--root <dir>] [--mode calendar|tree|board|review|now --start <date> --days N | --months N | --years N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ...]`
   - main Cockpit workspace entry point
 - `shelf calendar|cal [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
-  - opens Daily Cockpit in `calendar` mode by default
+  - opens Cockpit in `calendar` mode by default
   - use `--json` for non-TTY contexts
 - `shelf board|kb [--root <dir>] [--show-id]`
 - `shelf review|rv [--root <dir>] [--limit N --plain --json]`
@@ -183,7 +183,7 @@ Color output:
 - GitHub API base can be overridden with `GITSHELF_GITHUB_API_URL`
 - `GITHUB_TOKEN` is used automatically when present
 
-## Daily Cockpit
+## Cockpit
 
 `shelf cockpit` is the main TUI workspace. `calendar`, `tree`, `board`, `review`, and `now` are launcher commands that open `cockpit` in different starting modes. Running `shelf` without a subcommand opens the same workspace on TTY.
 
@@ -211,7 +211,7 @@ Mode switching inside the TUI:
 - `Blocked`
 - `Ready`
 
-On TTY, `shelf review`, `shelf now`, `shelf tree`, and `shelf board` open the Daily Cockpit with different starting modes.
+On TTY, `shelf review`, `shelf now`, `shelf tree`, and `shelf board` open Cockpit with different starting modes.
 Use `--plain` to force the legacy text summary, or `--json` for scripting.
 `shelf now` follows the same rule, except `--carry-over` stays on the legacy batch flow. `shelf today` remains as an alias.
 

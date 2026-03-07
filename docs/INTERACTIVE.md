@@ -17,9 +17,9 @@ If not TTY, users must provide required flags.
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
 - `shelf triage` (without `--auto`)
-- `shelf board` (TTY only, Daily Cockpit `board` mode)
-- `shelf calendar` (TTY only, Daily Cockpit `calendar` mode unless `--json`)
-- `shelf tree` (TTY only, Daily Cockpit `tree` mode unless `--plain` / `--json`)
+- `shelf board` (TTY only, Cockpit `board` mode)
+- `shelf calendar` (TTY only, Cockpit `calendar` mode unless `--json`)
+- `shelf tree` (TTY only, Cockpit `tree` mode unless `--plain` / `--json`)
 - `shelf cockpit` (TTY only, main Cockpit workspace entry point)
 
 ## Key Bindings
@@ -115,7 +115,7 @@ The type selection screen includes this warning:
 
 ## board TUI
 
-- `shelf board` now opens the shared Daily Cockpit in `board` mode
+- `shelf board` now opens the shared Cockpit in `board` mode
 - status columns follow config order
 - use `C/T/B/R/N` to switch modes without leaving the shell
 

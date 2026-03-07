@@ -1256,7 +1256,7 @@ func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 	if strings.Contains(rendered, "March 2026") {
 		t.Fatalf("review pane should not render month grid label: %q", rendered)
 	}
-	if !strings.Contains(rendered, "Focus ") || !strings.Contains(rendered, "Inbox 1") {
+	if !strings.Contains(rendered, "Date ") || !strings.Contains(rendered, "Inbox 1") {
 		t.Fatalf("review pane should render context strip: %q", rendered)
 	}
 }

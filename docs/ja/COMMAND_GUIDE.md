@@ -139,7 +139,7 @@ inbox を処理します。
 - inbox、期限切れ、今日、blocked、ready を一度に見たい
 
 補足:
-- TTY では Daily Cockpit を `review` mode で開きます。
+- TTY では Cockpit を `review` mode で開きます。
 - `--plain` で従来の text summary を強制できます。
 - script 用には `--json` を使います。
 
@@ -160,7 +160,7 @@ overdue と today に集中した確認です。
 - 今日の作業計画を立てるとき
 
 補足:
-- TTY では Daily Cockpit を `now` mode で開きます。`today` は alias のまま使えます。
+- TTY では Cockpit を `now` mode で開きます。`today` は alias のまま使えます。
 - `--plain` で従来の text summary を維持できます。
 - `--carry-over` は従来の batch path のままです。
 
@@ -187,7 +187,7 @@ due date カレンダービューです。
 - `--days` は明示的な day range です。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - `--years` で年単位レンジも開けます。
-- shared Daily Cockpit shell を開きます。
+- shared Cockpit shell を開きます。
 - レイアウトは `main + right sidebar` で、mode tab を切り替えながら使います。
 - calendar mode では month grid を大きく取り、`Focused Day` task list は inspector の上に出します。
 - calendar 以外の mode では、右 sidebar に小さな calendar を inspector の上へ表示します。`Tab` で右 sidebar に focus して `h/j/k/l/[ ]` で日付を直接動かせます。
@@ -220,7 +220,7 @@ shelf cockpit --mode board --months 3
 ### `shelf board`
 
 意味:
-Daily Cockpit の `board` mode を開きます。
+Cockpit の `board` mode を開きます。
 
 使う場面:
 - いまの進捗を視覚的に整理したい
@@ -259,7 +259,7 @@ shelf ls --tag backend --ready
 - 分解した作業の親子関係を確認したい
 
 補足:
-- TTY では `tree` が既定で Daily Cockpit の `tree` mode を開きます。
+- TTY では `tree` が既定で Cockpit の `tree` mode を開きます。
 - `--plain` を付けると従来の text tree 出力を維持できます。
 
 ### `shelf show`

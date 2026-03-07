@@ -17,9 +17,9 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf done`（`<id>` 省略時、`status!=done` を優先表示）
 - `shelf links`（`<id>` 省略時）
 - `shelf triage`（`--auto` なし）
-- `shelf board`（TTY 専用、Daily Cockpit の `board` mode）
-- `shelf calendar`（`--json` なしでは Daily Cockpit の `calendar` mode）
-- `shelf tree`（`--plain` / `--json` なしでは Daily Cockpit の `tree` mode）
+- `shelf board`（TTY 専用、Cockpit の `board` mode）
+- `shelf calendar`（`--json` なしでは Cockpit の `calendar` mode）
+- `shelf tree`（`--plain` / `--json` なしでは Cockpit の `tree` mode）
 - `shelf cockpit`（TTY 専用、主入口の Cockpit workspace）
 
 ## キーバインド
@@ -131,7 +131,7 @@ type 選択画面では、次の注意文を出します。
 
 ## `board` TUI
 
-- `shelf board` は shared Daily Cockpit を `board` mode で開きます
+- `shelf board` は shared Cockpit を `board` mode で開きます
 - status 列は config の順序に従います
 - `C/T/B/R/N` で他 mode へ切り替えられます
 

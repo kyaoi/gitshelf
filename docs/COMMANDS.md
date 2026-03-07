@@ -110,7 +110,7 @@ Due-date calendar view.
 
 - default start: current week Monday
 - default statuses: `open`, `in_progress`, `blocked`
-- default mode: Daily Cockpit `calendar` mode
+- default mode: Cockpit `calendar` mode
 - default range follows config `[commands.calendar]`
 - requires TTY unless `--json` is used
 - keybindings:
@@ -270,7 +270,7 @@ Sections:
 
 TTY behavior:
 
-- on TTY, opens the Daily Cockpit in `review` mode
+- on TTY, opens Cockpit in `review` mode
 - use `--plain` to force the legacy text summary
 - non-TTY stays on the legacy text path unless `--json` is used
 
@@ -397,7 +397,7 @@ Default target statuses are `open`, `in_progress`, `blocked`.
 
 TTY behavior:
 
-- on TTY, opens the Daily Cockpit in `now` mode
+- on TTY, opens Cockpit in `now` mode
 - use `--plain` to force the legacy text summary
 - `--carry-over` stays on the legacy batch flow
 - non-TTY stays on the legacy text path unless `--json` is used
@@ -422,7 +422,7 @@ ID is omitted from tree output by default.
 
 TTY behavior:
 
-- on TTY, opens the Daily Cockpit in `tree` mode unless `--plain` or `--json` is specified
+- on TTY, opens Cockpit in `tree` mode unless `--plain` or `--json` is specified
 - use `--plain` to force legacy text tree output
 
 Flags:

@@ -101,7 +101,7 @@ subcommand:
 仕様:
 - 既定の開始日: 今週の月曜日
 - 既定の status: `open`, `in_progress`, `blocked`
-- 既定は Daily Cockpit の `calendar` mode
+- 既定は Cockpit の `calendar` mode
 - 既定レンジは config `[commands.calendar]` に従う
 - 非TTYでは `--json` を使う
 - 主な操作:
@@ -252,7 +252,7 @@ section:
 - `Ready`
 
 TTY時の挙動:
-- TTY では Daily Cockpit を `review` mode で開きます
+- TTY では Cockpit を `review` mode で開きます
 - `--plain` で従来の text summary を強制できます
 - 非TTYでは `--json` を使わない限り従来の text path のままです
 
@@ -347,7 +347,7 @@ overdue と today に集中した一覧です。
 alias: `today`, `td`, `nw`
 
 TTY時の挙動:
-- TTY では Daily Cockpit を `now` mode で開きます
+- TTY では Cockpit を `now` mode で開きます
 - `--plain` で従来の text summary を維持できます
 - `--carry-over` は従来の batch path のままです
 
@@ -369,7 +369,7 @@ TTY時の挙動:
 親子関係による階層表示です。
 
 TTY時の挙動:
-- TTY では `--plain` / `--json` 未指定時に Daily Cockpit の `tree` mode を開きます
+- TTY では `--plain` / `--json` 未指定時に Cockpit の `tree` mode を開きます
 - `--plain` で従来の text tree 出力を強制できます
 
 主なフラグ:
