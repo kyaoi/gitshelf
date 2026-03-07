@@ -287,6 +287,18 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "1", "2", "3", "4", "5", "6":
 			m.jumpToSection(int(msg.String()[0] - '1'))
 			return m, nil
+		case "C":
+			m.switchMode(calendarModeCalendar)
+			return m, nil
+		case "T":
+			m.switchMode(calendarModeTree)
+			return m, nil
+		case "R":
+			m.switchMode(calendarModeReview)
+			return m, nil
+		case "Y":
+			m.switchMode(calendarModeToday)
+			return m, nil
 		case "enter", "v":
 			if _, ok := m.selectedTask(); ok {
 				m.showTaskBody = !m.showTaskBody
@@ -345,7 +357,7 @@ func (m calendarTUIModel) View() string {
 
 	header := []string{
 		headerStyle.Render(fmt.Sprintf("Daily Cockpit [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("Tab: pane  h/l: day or tab  j/k: week or row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
+		helpStyle.Render("Tab: pane  C/T/R/Y: mode  h/l: day or tab  j/k: week or row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
 		metaStyle.Render(fmt.Sprintf("Pane: %s  Focused: %s  Filter: %s", m.paneLabel(), focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
 	}
 
@@ -524,6 +536,17 @@ func (m *calendarTUIModel) rebuildModeState() {
 		return
 	}
 	m.rebuildSections()
+}
+
+func (m *calendarTUIModel) switchMode(mode calendarMode) {
+	if m.mode == mode {
+		return
+	}
+	m.mode = mode
+	m.sectionIndex = 0
+	m.treeRowIndex = 0
+	m.rebuildModeState()
+	m.message = fmt.Sprintf("mode: %s", mode)
 }
 
 func buildCalendarLinkCounts(rootDir string, tasks []shelf.Task) (map[string]int, map[string]int, error) {

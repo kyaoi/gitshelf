@@ -468,3 +468,38 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 		t.Fatalf("unexpected child row: %s", rows[1].Label)
 	}
 }
+
+func TestCalendarSwitchModeKeepsSelectedTaskWhenPossible(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Today",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  time.Now().Local().Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, startOfWeek(time.Now().Local()), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(task.ID)
+	model.switchMode(calendarModeReview)
+	if model.mode != calendarModeReview {
+		t.Fatalf("unexpected mode: %s", model.mode)
+	}
+	if model.selectedTaskID != task.ID {
+		t.Fatalf("expected selected task preserved, got %s", model.selectedTaskID)
+	}
+	model.switchMode(calendarModeTree)
+	if model.mode != calendarModeTree {
+		t.Fatalf("unexpected mode: %s", model.mode)
+	}
+	if model.selectedTaskID != task.ID {
+		t.Fatalf("expected selected task preserved in tree mode, got %s", model.selectedTaskID)
+	}
+}
