@@ -576,7 +576,7 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 			},
 		},
 	}
-	rows := flattenCockpitTreeRows(nodes, "", true, false)
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{})
 	if len(rows) != 2 {
 		t.Fatalf("unexpected row count: %d", len(rows))
 	}
@@ -585,6 +585,27 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 	}
 	if !strings.Contains(rows[1].Label, "Child") || !strings.Contains(rows[1].Label, "└─") || rows[1].Meta != "memo/blocked" {
 		t.Fatalf("unexpected child row: %+v", rows[1])
+	}
+}
+
+func TestFlattenCockpitTreeRowsSkipsCollapsedChildren(t *testing.T) {
+	nodes := []shelf.TreeNode{
+		{
+			Task: shelf.Task{ID: "01A", Title: "Parent", Kind: "todo", Status: "open"},
+			Children: []shelf.TreeNode{
+				{Task: shelf.Task{ID: "01B", Title: "Child", Kind: "memo", Status: "blocked"}},
+			},
+		},
+	}
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{"01A": {}})
+	if len(rows) != 1 {
+		t.Fatalf("expected collapsed tree to hide children, got %d rows", len(rows))
+	}
+	if !rows[0].Collapsed || !rows[0].HasChildren {
+		t.Fatalf("expected parent row marked collapsed with children, got %+v", rows[0])
+	}
+	if !strings.Contains(rows[0].Label, "[+]") {
+		t.Fatalf("expected collapsed marker in label, got %q", rows[0].Label)
 	}
 }
 
@@ -837,6 +858,48 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	}
 	if treeModel.moveMode {
 		t.Fatal("expected move mode finished after apply")
+	}
+}
+
+func TestTreeModeCollapseAndExpandCurrentNode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode:   calendarModeTree,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(parent.ID)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	treeModel := updatedModel.(calendarTUIModel)
+	if len(treeModel.treeRows) != 1 {
+		t.Fatalf("expected child hidden after collapse, got %d rows", len(treeModel.treeRows))
+	}
+	if !treeModel.treeRows[0].Collapsed {
+		t.Fatalf("expected parent row collapsed, got %+v", treeModel.treeRows[0])
+	}
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	if len(treeModel.treeRows) != 2 {
+		t.Fatalf("expected child visible after expand, got %d rows", len(treeModel.treeRows))
+	}
+	if treeModel.treeRows[0].Collapsed {
+		t.Fatalf("expected parent row expanded, got %+v", treeModel.treeRows[0])
+	}
+	if treeModel.treeRows[1].Task.ID != child.ID {
+		t.Fatalf("expected child row restored, got %+v", treeModel.treeRows[1])
 	}
 }
 

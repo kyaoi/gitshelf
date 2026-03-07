@@ -79,9 +79,11 @@ type calendarSection struct {
 }
 
 type cockpitTreeRow struct {
-	Task  shelf.Task
-	Label string
-	Meta  string
+	Task        shelf.Task
+	Label       string
+	Meta        string
+	HasChildren bool
+	Collapsed   bool
 }
 
 type calendarTUIModel struct {
@@ -111,6 +113,7 @@ type calendarTUIModel struct {
 	sectionRows    map[calendarSectionID]int
 	treeRows       []cockpitTreeRow
 	treeRowIndex   int
+	collapsedTree  map[string]struct{}
 	boardColumns   []boardColumn
 	boardColumnIdx int
 	boardRowIndex  map[int]int
@@ -180,6 +183,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		boardRowIndex: map[int]int{},
 		markedTaskIDs: map[string]struct{}{},
 		rangeBaseIDs:  map[string]struct{}{},
+		collapsedTree: map[string]struct{}{},
 		readiness:     map[string]shelf.TaskReadiness{},
 		taskByID:      map[string]shelf.Task{},
 		titleByID:     map[string]string{},
@@ -283,6 +287,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.moveFocusByDays(-1)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-1)
+			} else if m.mode == calendarModeTree {
+				m.collapseCurrentTreeNode()
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardColumn(-1)
 			} else {
@@ -294,6 +300,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.moveFocusByDays(1)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(1)
+			} else if m.mode == calendarModeTree {
+				m.expandCurrentTreeNode()
 			} else if m.mode == calendarModeBoard {
 				m.moveBoardColumn(1)
 			} else {
@@ -1108,7 +1116,7 @@ func (m *calendarTUIModel) rebuildTreeRows() {
 		m.selectedTaskID = ""
 		return
 	}
-	m.treeRows = flattenCockpitTreeRows(nodes, "", true, m.showID)
+	m.treeRows = flattenCockpitTreeRows(nodes, "", true, m.showID, m.collapsedTree)
 	if len(m.treeRows) == 0 {
 		m.treeRowIndex = 0
 		m.selectedTaskID = ""
@@ -1132,7 +1140,7 @@ func (m *calendarTUIModel) rebuildTreeRows() {
 	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
 }
 
-func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, showID bool) []cockpitTreeRow {
+func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, showID bool, collapsed map[string]struct{}) []cockpitTreeRow {
 	rows := make([]cockpitTreeRow, 0)
 	for i, node := range nodes {
 		isLast := i == len(nodes)-1
@@ -1149,17 +1157,32 @@ func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, 
 		if showID {
 			label = fmt.Sprintf("[%s] %s", shelf.ShortID(node.Task.ID), label)
 		}
+		hasChildren := len(node.Children) > 0
+		collapsedNode := false
+		if hasChildren {
+			_, collapsedNode = collapsed[node.Task.ID]
+		}
+		marker := "  "
+		if hasChildren && collapsedNode {
+			marker = "[+] "
+		} else if hasChildren {
+			marker = "[-] "
+		}
 		meta := fmt.Sprintf("%s/%s", node.Task.Kind, node.Task.Status)
 		if strings.TrimSpace(node.Task.DueOn) != "" {
 			meta += "  due=" + node.Task.DueOn
 		}
-		label = fmt.Sprintf("%s%s%s", prefix, branch, label)
+		label = fmt.Sprintf("%s%s%s%s", prefix, branch, marker, label)
 		rows = append(rows, cockpitTreeRow{
-			Task:  node.Task,
-			Label: label,
-			Meta:  meta,
+			Task:        node.Task,
+			Label:       label,
+			Meta:        meta,
+			HasChildren: hasChildren,
+			Collapsed:   collapsedNode,
 		})
-		rows = append(rows, flattenCockpitTreeRows(node.Children, nextPrefix, false, showID)...)
+		if !collapsedNode {
+			rows = append(rows, flattenCockpitTreeRows(node.Children, nextPrefix, false, showID, collapsed)...)
+		}
 	}
 	return rows
 }
@@ -1514,6 +1537,37 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 	}
 	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
 	m.syncRangeSelection()
+}
+
+func (m *calendarTUIModel) collapseCurrentTreeNode() {
+	if len(m.treeRows) == 0 || m.treeRowIndex < 0 || m.treeRowIndex >= len(m.treeRows) {
+		return
+	}
+	row := m.treeRows[m.treeRowIndex]
+	if row.HasChildren && !row.Collapsed {
+		m.collapsedTree[row.Task.ID] = struct{}{}
+		m.rebuildTreeRows()
+		m.message = fmt.Sprintf("collapsed: %s", row.Task.Title)
+		return
+	}
+	parentID := m.taskByID[row.Task.ID].Parent
+	if strings.TrimSpace(parentID) == "" {
+		return
+	}
+	m.selectTaskByID(parentID)
+}
+
+func (m *calendarTUIModel) expandCurrentTreeNode() {
+	if len(m.treeRows) == 0 || m.treeRowIndex < 0 || m.treeRowIndex >= len(m.treeRows) {
+		return
+	}
+	row := m.treeRows[m.treeRowIndex]
+	if row.HasChildren && row.Collapsed {
+		delete(m.collapsedTree, row.Task.ID)
+		m.rebuildTreeRows()
+		m.message = fmt.Sprintf("expanded: %s", row.Task.Title)
+		return
+	}
 }
 
 func (m *calendarTUIModel) moveFocusedDayTask(delta int) {
@@ -2278,7 +2332,7 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		"Tab: pane  C/T/B/R/N: mode  ?: close",
-		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
+		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: task or tabs or columns",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
@@ -2479,6 +2533,8 @@ func renderCockpitTreePane(rows []cockpitTreeRow, selected int, marked map[strin
 		} else {
 			lines = append(lines, "  "+rootLabel)
 		}
+	} else {
+		lines = append(lines, mutedStyle.Render("h: collapse / parent  l: expand"))
 	}
 	if len(rows) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))

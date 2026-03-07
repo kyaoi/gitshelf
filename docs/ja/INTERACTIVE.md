@@ -145,6 +145,7 @@ type 選択画面では、次の注意文を出します。
 - `t`: calendar focus を今日へ移動
 - `Tab` / `Shift+Tab`: ペイン切り替え
 - `h` / `l`: calendar mode では1日移動、右 sidebar に focus があるときは sidebar calendar を1日移動、それ以外では review/now tab 切り替えまたは board 列移動
+- `tree` mode では `h` で現在 subtree を閉じる（leaf / 閉じた状態では親へ移動）、`l` で現在 subtree を開く
 - `j` / `k`: calendar mode では1週移動、右 sidebar に focus があるときは sidebar calendar を1週移動、それ以外では tree/board/review/now の行移動
 - `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジ先頭 / 末尾、または section 先頭行 / 末尾行へ移動

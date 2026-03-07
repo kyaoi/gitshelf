@@ -128,6 +128,7 @@ The type selection screen includes this warning:
 - `t`: jump the calendar focus to today
 - `Tab` / `Shift+Tab`: move between panes
 - `h` / `l`: move by one day in calendar mode, move the sidebar calendar by one day when the right pane is focused, or switch review/now tabs / board columns otherwise
+- in `tree` mode, `h` collapses the current subtree (or jumps to the parent when already collapsed/leaf) and `l` expands the current subtree
 - `j` / `k`: move by one week in calendar mode, move the sidebar calendar by one week when the right pane is focused, or move rows in tree/board/review/now
 - `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
