@@ -28,14 +28,14 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "today",
-		Aliases: []string{"td"},
-		Short:   "Show overdue and today tasks",
-		Example: "  shelf today\n" +
-			"  shelf today --view active\n" +
-			"  shelf today --plain\n" +
-			"  shelf today --carry-over --yes\n" +
-			"  shelf today --json",
+		Use:     "now",
+		Aliases: []string{"today", "td", "nw"},
+		Short:   "Show overdue and today tasks in the Now view",
+		Example: "  shelf now\n" +
+			"  shelf now --view active\n" +
+			"  shelf now --plain\n" +
+			"  shelf now --carry-over --yes\n" +
+			"  shelf now --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			outputPreset, err := loadOutputPreset(ctx.rootDir, presetName, "today")
 			if err != nil {
@@ -73,7 +73,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 					return err
 				}
 				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, filter.Statuses, calendarTUIOptions{
-					Mode:   calendarModeToday,
+					Mode:   calendarModeNow,
 					ShowID: ctx.showID,
 					Filter: filter,
 				})

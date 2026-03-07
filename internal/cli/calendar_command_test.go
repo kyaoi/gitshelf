@@ -406,7 +406,7 @@ func TestBuildCalendarSectionsTodayModeHonorsLimit(t *testing.T) {
 		{ID: "01C", Title: "C", Kind: "todo", Status: "open", DueOn: today},
 		{ID: "01D", Title: "D", Kind: "todo", Status: "open", DueOn: today},
 	}
-	sections := buildCalendarSections(calendarModeToday, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, 1)
+	sections := buildCalendarSections(calendarModeNow, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, 1)
 	if len(sections) != 3 {
 		t.Fatalf("unexpected section count: %d", len(sections))
 	}
@@ -739,5 +739,30 @@ func TestSidebarCalendarNavigationMovesFocusedDate(t *testing.T) {
 	reviewModel = updatedModel.(calendarTUIModel)
 	if reviewModel.focusedDayLabel() == original {
 		t.Fatalf("expected sidebar calendar navigation to move focused day, still %s", reviewModel.focusedDayLabel())
+	}
+}
+
+func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
+	today := time.Now().Local().Format("2006-01-02")
+	model := calendarTUIModel{
+		mode: calendarModeNow,
+		days: []calendarDay{{Date: today}},
+		sections: []calendarSection{
+			{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+			{ID: calendarSectionOverdue, Title: "Overdue", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Late"}}}},
+			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01C", Title: "Today"}}}},
+		},
+		sectionRows:  map[calendarSectionID]int{},
+		sectionIndex: 1,
+	}
+	month := calendarMonthView{Label: "March 2026"}
+	rendered := renderCalendarMainPane(model, month, 120, true)
+	for _, want := range []string{"Focused Day 1", "Overdue 1", "Today 1"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("now pane should render all three sections, missing %q in %q", want, rendered)
+		}
+	}
+	if strings.Contains(rendered, "Focused Day 1  Overdue 1") {
+		t.Fatalf("now pane should render separate columns, got %q", rendered)
 	}
 }

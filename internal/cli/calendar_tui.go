@@ -36,7 +36,7 @@ type calendarMode string
 const (
 	calendarModeCalendar calendarMode = "calendar"
 	calendarModeReview   calendarMode = "review"
-	calendarModeToday    calendarMode = "today"
+	calendarModeNow      calendarMode = "now"
 	calendarModeTree     calendarMode = "tree"
 	calendarModeBoard    calendarMode = "board"
 )
@@ -360,8 +360,8 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "R":
 			m.switchMode(calendarModeReview)
 			return m, nil
-		case "Y":
-			m.switchMode(calendarModeToday)
+		case "N":
+			m.switchMode(calendarModeNow)
 			return m, nil
 		case "enter", "v":
 			if _, ok := m.selectedTask(); ok {
@@ -806,7 +806,7 @@ func calendarSectionsForMode(mode calendarMode) []calendarSection {
 	switch mode {
 	case calendarModeReview:
 		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionInbox, Title: "Inbox"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}, {ID: calendarSectionBlocked, Title: "Blocked"}, {ID: calendarSectionReady, Title: "Ready"}}
-	case calendarModeToday:
+	case calendarModeNow:
 		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}}
 	default:
 		return []calendarSection{{ID: calendarSectionFocusedDay, Title: "Focused Day"}, {ID: calendarSectionOverdue, Title: "Overdue"}, {ID: calendarSectionToday, Title: "Today"}, {ID: calendarSectionReady, Title: "Ready"}}
@@ -1571,7 +1571,7 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 	lines := []string{
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
-		"Tab: pane  C/T/B/R/Y: mode  ?: close",
+		"Tab: pane  C/T/B/R/N: mode  ?: close",
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
 		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
@@ -1596,7 +1596,7 @@ func renderCalendarModeTabs(mode calendarMode) string {
 		{calendarModeTree, "Tree"},
 		{calendarModeBoard, "Board"},
 		{calendarModeReview, "Review"},
-		{calendarModeToday, "Today"},
+		{calendarModeNow, "Now"},
 	}
 	activeStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("81")).
@@ -1669,12 +1669,16 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	if m.mode != calendarModeCalendar {
 		parts = append(parts, renderCockpitContextStrip(m, max(24, width-4)))
 	}
-	if m.mode != calendarModeCalendar {
+	if m.mode != calendarModeCalendar && m.mode != calendarModeNow {
 		parts = append(parts, renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)))
 	}
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
 		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(56, width-4), false))
+		return boxStyle.Render(strings.Join(parts, "\n\n"))
+	}
+	if m.mode == calendarModeNow {
+		parts = append(parts, renderCalendarTriptychSections(m.sections, m.sectionIndex, m.sectionRows, m.showID, max(36, width-4)))
 		return boxStyle.Render(strings.Join(parts, "\n\n"))
 	}
 	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
@@ -1695,7 +1699,7 @@ func renderCockpitContextStrip(m calendarTUIModel, width int) string {
 			fmt.Sprintf("Blocked %d", countSectionItems(m.sections, calendarSectionBlocked)),
 			fmt.Sprintf("Ready %d", countSectionItems(m.sections, calendarSectionReady)),
 		)
-	case calendarModeToday:
+	case calendarModeNow:
 		parts = append(parts,
 			fmt.Sprintf("Overdue %d", countSectionItems(m.sections, calendarSectionOverdue)),
 			fmt.Sprintf("Today %d", countSectionItems(m.sections, calendarSectionToday)),
@@ -1877,6 +1881,62 @@ func renderCalendarActiveSection(section *calendarSection, sectionRows map[calen
 		lines = append(lines, rendered)
 		lines = append(lines, mutedStyle.Render("  "+trimLine(item.Subtitle, max(18, width-2))))
 		if i == row && strings.TrimSpace(item.Reason) != "" {
+			lines = append(lines, mutedStyle.Render("  "+trimLine(item.Reason, max(18, width-2))))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func renderCalendarTriptychSections(sections []calendarSection, selected int, sectionRows map[calendarSectionID]int, showID bool, width int) string {
+	if len(sections) == 0 {
+		return ""
+	}
+	gap := 3
+	columnWidth := max(22, (width-gap*2)/3)
+	rendered := make([]string, 0, 3)
+	for i, section := range sections {
+		rendered = append(rendered, lipgloss.NewStyle().Width(columnWidth).Render(
+			renderCalendarSectionColumn(&section, i == selected, sectionRows, showID, columnWidth),
+		))
+	}
+	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
+	return strings.Join(rendered, separator)
+}
+
+func renderCalendarSectionColumn(section *calendarSection, active bool, sectionRows map[calendarSectionID]int, showID bool, width int) string {
+	if section == nil {
+		return ""
+	}
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	if active {
+		titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
+	}
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
+	lines := []string{titleStyle.Render(fmt.Sprintf("%s %d", section.Title, len(section.Items)))}
+	if len(section.Items) == 0 {
+		lines = append(lines, mutedStyle.Render("(none)"))
+		return strings.Join(lines, "\n")
+	}
+	row := sectionRows[section.ID]
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(section.Items) {
+		row = len(section.Items) - 1
+	}
+	for i, item := range section.Items {
+		label := item.Task.Title
+		if showID {
+			label = fmt.Sprintf("[%s] %s", shelf.ShortID(item.Task.ID), label)
+		}
+		if i == row && active {
+			lines = append(lines, selectedStyle.Render("> "+trimLine(label, max(18, width))))
+		} else {
+			lines = append(lines, "  "+trimLine(label, max(18, width)))
+		}
+		lines = append(lines, mutedStyle.Render("  "+trimLine(item.Subtitle, max(18, width-2))))
+		if i == row && active && strings.TrimSpace(item.Reason) != "" {
 			lines = append(lines, mutedStyle.Render("  "+trimLine(item.Reason, max(18, width-2))))
 		}
 	}

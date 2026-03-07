@@ -97,7 +97,7 @@ func TestTodayCommandRoutesTTYToCockpitWithFilter(t *testing.T) {
 	dailyCockpitIsTTY = func() bool { return true }
 	runCalendarModeTUIFn = func(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, opts calendarTUIOptions) error {
 		called = true
-		if opts.Mode != calendarModeToday {
+		if opts.Mode != calendarModeNow {
 			t.Fatalf("unexpected mode: %s", opts.Mode)
 		}
 		if len(opts.Filter.Kinds) != 1 || opts.Filter.Kinds[0] != "todo" {

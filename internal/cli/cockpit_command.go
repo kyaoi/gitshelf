@@ -113,7 +113,7 @@ func newCockpitCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&mode, "mode", "calendar", "Starting mode: calendar|tree|board|review|today")
+	cmd.Flags().StringVar(&mode, "mode", "calendar", "Starting mode: calendar|tree|board|review|now")
 	cmd.Flags().StringVar(&start, "start", "", "Anchor date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
 	cmd.Flags().IntVar(&days, "days", 0, "Render an explicit day range")
 	cmd.Flags().IntVar(&months, "months", 0, "Render an explicit month range from the month containing --start")
@@ -138,8 +138,8 @@ func parseCockpitMode(value string) (calendarMode, error) {
 		return calendarModeBoard, nil
 	case "review":
 		return calendarModeReview, nil
-	case "today":
-		return calendarModeToday, nil
+	case "now", "today":
+		return calendarModeNow, nil
 	default:
 		return "", fmt.Errorf("unknown cockpit mode: %s", value)
 	}
@@ -147,7 +147,7 @@ func parseCockpitMode(value string) (calendarMode, error) {
 
 func defaultCockpitStatuses(mode calendarMode, cfg shelf.Config) []shelf.Status {
 	switch mode {
-	case calendarModeCalendar, calendarModeReview, calendarModeToday:
+	case calendarModeCalendar, calendarModeReview, calendarModeNow:
 		return activeStatusFilter()
 	case calendarModeTree, calendarModeBoard:
 		return append([]shelf.Status{}, cfg.Statuses...)
