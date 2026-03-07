@@ -116,6 +116,8 @@ type calendarTUIModel struct {
 	boardRowIndex  map[int]int
 	selectedTaskID string
 	markedTaskIDs  map[string]struct{}
+	rangeMarkMode  bool
+	rangeAnchorID  string
 	moveMode       bool
 	moveSourceIDs  []string
 	pane           calendarPane
@@ -410,8 +412,18 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showTaskBody = !m.showTaskBody
 			}
 			return m, nil
+		case "V":
+			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
+				m.toggleRangeSelectionMode()
+				return m, nil
+			}
+			return m, nil
 		case "v":
 			if m.mode == calendarModeTree || m.mode == calendarModeBoard {
+				if m.rangeMarkMode {
+					m.rangeMarkMode = false
+					m.rangeAnchorID = ""
+				}
 				m.toggleMarkedSelection()
 				return m, nil
 			}
@@ -729,6 +741,8 @@ func (m *calendarTUIModel) switchMode(mode calendarMode) {
 	m.sectionIndex = 0
 	m.treeRowIndex = 0
 	m.bodyScroll = 0
+	m.rangeMarkMode = false
+	m.rangeAnchorID = ""
 	m.moveMode = false
 	m.moveSourceIDs = nil
 	m.rebuildModeState()
@@ -760,6 +774,24 @@ func (m *calendarTUIModel) toggleMarkedSelection() {
 	}
 	m.markedTaskIDs[task.ID] = struct{}{}
 	m.message = fmt.Sprintf("marked %d task(s)", len(m.markedTaskIDs))
+}
+
+func (m *calendarTUIModel) toggleRangeSelectionMode() {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.message = "選択中の task がありません"
+		return
+	}
+	if m.rangeMarkMode {
+		m.rangeMarkMode = false
+		m.rangeAnchorID = ""
+		m.message = fmt.Sprintf("range select fixed (%d task)", m.markedCount())
+		return
+	}
+	m.rangeMarkMode = true
+	m.rangeAnchorID = task.ID
+	m.markedTaskIDs = map[string]struct{}{task.ID: {}}
+	m.message = "range select started"
 }
 
 func (m calendarTUIModel) activeTaskIDs() []string {
@@ -802,6 +834,71 @@ func (m calendarTUIModel) orderedMarkedTaskIDs() []string {
 
 func (m *calendarTUIModel) clearMarkedSelection() {
 	m.markedTaskIDs = map[string]struct{}{}
+	m.rangeMarkMode = false
+	m.rangeAnchorID = ""
+}
+
+func (m *calendarTUIModel) syncRangeSelection() {
+	if !m.rangeMarkMode || strings.TrimSpace(m.rangeAnchorID) == "" {
+		return
+	}
+	order := m.selectionOrder()
+	if len(order) == 0 {
+		return
+	}
+	currentID := m.currentSelectableTaskID()
+	if strings.TrimSpace(currentID) == "" {
+		return
+	}
+	start := -1
+	end := -1
+	for i, taskID := range order {
+		if taskID == m.rangeAnchorID {
+			start = i
+		}
+		if taskID == currentID {
+			end = i
+		}
+	}
+	if start == -1 || end == -1 {
+		return
+	}
+	if start > end {
+		start, end = end, start
+	}
+	m.markedTaskIDs = map[string]struct{}{}
+	for _, taskID := range order[start : end+1] {
+		m.markedTaskIDs[taskID] = struct{}{}
+	}
+}
+
+func (m calendarTUIModel) selectionOrder() []string {
+	switch m.mode {
+	case calendarModeTree:
+		ids := make([]string, 0, len(m.treeRows))
+		for _, row := range m.treeRows {
+			ids = append(ids, row.Task.ID)
+		}
+		return ids
+	case calendarModeBoard:
+		ids := make([]string, 0)
+		for _, column := range m.boardColumns {
+			for _, task := range column.Tasks {
+				ids = append(ids, task.ID)
+			}
+		}
+		return ids
+	default:
+		return nil
+	}
+}
+
+func (m calendarTUIModel) currentSelectableTaskID() string {
+	task, ok := m.selectedTask()
+	if !ok {
+		return ""
+	}
+	return task.ID
 }
 
 func (m *calendarTUIModel) cycleMode(delta int) {
@@ -1227,11 +1324,17 @@ func (m *calendarTUIModel) moveSectionRow(delta int) {
 
 func (m *calendarTUIModel) jumpSectionRowStart() {
 	if m.mode == calendarModeTree {
+		if m.moveMode {
+			m.treeRowIndex = -1
+			m.syncRangeSelection()
+			return
+		}
 		if len(m.treeRows) == 0 {
 			return
 		}
 		m.treeRowIndex = 0
 		m.selectedTaskID = m.treeRows[0].Task.ID
+		m.syncRangeSelection()
 		return
 	}
 	section := m.currentSection()
@@ -1249,6 +1352,7 @@ func (m *calendarTUIModel) jumpSectionRowEnd() {
 		}
 		m.treeRowIndex = len(m.treeRows) - 1
 		m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+		m.syncRangeSelection()
 		return
 	}
 	section := m.currentSection()
@@ -1294,6 +1398,21 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 	if len(m.treeRows) == 0 {
 		return
 	}
+	if m.moveMode {
+		rowCount := len(m.treeRows) + 1
+		m.treeRowIndex += delta
+		if m.treeRowIndex < -1 {
+			m.treeRowIndex = rowCount - 2
+		}
+		if m.treeRowIndex >= rowCount-1 {
+			m.treeRowIndex = -1
+		}
+		if m.treeRowIndex >= 0 {
+			m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+		}
+		m.syncRangeSelection()
+		return
+	}
 	m.treeRowIndex += delta
 	if m.treeRowIndex < 0 {
 		m.treeRowIndex = len(m.treeRows) - 1
@@ -1302,6 +1421,7 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 		m.treeRowIndex = 0
 	}
 	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+	m.syncRangeSelection()
 }
 
 func (m *calendarTUIModel) moveFocusedDayTask(delta int) {
@@ -1349,6 +1469,7 @@ func (m *calendarTUIModel) clampBoardSelection() {
 	}
 	m.boardRowIndex[m.boardColumnIdx] = row
 	m.selectedTaskID = column.Tasks[row].ID
+	m.syncRangeSelection()
 }
 
 func (m *calendarTUIModel) moveBoardColumn(delta int) {
@@ -1382,6 +1503,7 @@ func (m *calendarTUIModel) moveBoardRow(delta int) {
 	}
 	m.boardRowIndex[m.boardColumnIdx] = row
 	m.selectedTaskID = column.Tasks[row].ID
+	m.syncRangeSelection()
 }
 
 func (m *calendarTUIModel) jumpBoardRowStart() {
@@ -1394,6 +1516,7 @@ func (m *calendarTUIModel) jumpBoardRowStart() {
 	}
 	m.boardRowIndex[m.boardColumnIdx] = 0
 	m.selectedTaskID = column.Tasks[0].ID
+	m.syncRangeSelection()
 }
 
 func (m *calendarTUIModel) jumpBoardRowEnd() {
@@ -1407,6 +1530,7 @@ func (m *calendarTUIModel) jumpBoardRowEnd() {
 	row := len(column.Tasks) - 1
 	m.boardRowIndex[m.boardColumnIdx] = row
 	m.selectedTaskID = column.Tasks[row].ID
+	m.syncRangeSelection()
 }
 
 func (m *calendarTUIModel) moveFocusByDays(delta int) {
@@ -1595,11 +1719,6 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		m.message = "move は Tree mode で使ってください"
 		return m, nil
 	}
-	target, ok := m.selectedTask()
-	if !ok {
-		m.message = "move 先の task がありません"
-		return m, nil
-	}
 	sources := append([]string{}, m.moveSourceIDs...)
 	if len(sources) == 0 {
 		sources = m.activeTaskIDs()
@@ -1609,12 +1728,23 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		m.message = "move 対象の task がありません"
 		return m, nil
 	}
+	targetParentID := ""
+	targetLabel := "root"
+	if m.treeRowIndex >= 0 {
+		target, ok := m.selectedTask()
+		if !ok {
+			m.message = "move 先の task がありません"
+			return m, nil
+		}
+		targetParentID = target.ID
+		targetLabel = target.Title
+	}
 	for _, sourceID := range sources {
-		if sourceID == target.ID {
+		if targetParentID != "" && sourceID == targetParentID {
 			m.message = "自分自身の下には移動できません"
 			return m, nil
 		}
-		if isDescendantTask(m.taskByID, target.ID, sourceID) {
+		if targetParentID != "" && isDescendantTask(m.taskByID, targetParentID, sourceID) {
 			m.message = "子孫 task の下には移動できません"
 			return m, nil
 		}
@@ -1626,7 +1756,7 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 			return err
 		}
 		for _, sourceID := range sources {
-			task, err := shelf.SetTask(m.rootDir, sourceID, shelf.SetTaskInput{Parent: &target.ID})
+			task, err := shelf.SetTask(m.rootDir, sourceID, shelf.SetTaskInput{Parent: &targetParentID})
 			if err != nil {
 				return err
 			}
@@ -1645,8 +1775,10 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	m.moveMode = false
 	m.moveSourceIDs = nil
 	m.clearMarkedSelection()
-	m.selectTaskByID(target.ID)
-	m.message = fmt.Sprintf("moved %d task(s) under %s", len(updated), target.Title)
+	if targetParentID != "" {
+		m.selectTaskByID(targetParentID)
+	}
+	m.message = fmt.Sprintf("moved %d task(s) under %s", len(updated), targetLabel)
 	return m, nil
 }
 
@@ -1809,6 +1941,7 @@ func (m *calendarTUIModel) selectTaskByID(taskID string) {
 		for i, row := range m.treeRows {
 			if row.Task.ID == taskID {
 				m.treeRowIndex = i
+				m.syncRangeSelection()
 				return
 			}
 		}
@@ -1820,6 +1953,7 @@ func (m *calendarTUIModel) selectTaskByID(taskID string) {
 				if task.ID == taskID {
 					m.boardColumnIdx = colIdx
 					m.boardRowIndex[colIdx] = rowIdx
+					m.syncRangeSelection()
 					return
 				}
 			}
@@ -1993,8 +2127,8 @@ func renderCockpitHelpOverlay(mode calendarMode) string {
 		"h/l: move  j/k: rows or weeks  n/p: task or tabs or columns",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: in non-calendar modes, focus the right pane to move dates",
-		"v: mark in tree/board  m: move in tree  o/i/b/d/c: status",
-		"a: add  e: edit  z: snooze  r: reload",
+		"v: mark  V: range mark  m: move in tree (root included)",
+		"o/i/b/d/c: status  a: add  e: edit  z: snooze  r: reload",
 		"Enter: details  q: close help or quit  Esc/Ctrl+C: quit",
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
@@ -2185,6 +2319,12 @@ func renderCockpitTreePane(rows []cockpitTreeRow, selected int, marked map[strin
 	lines := []string{titleStyle.Render("Tree")}
 	if moveMode {
 		lines = append(lines, mutedStyle.Render("move target を選んで Enter"))
+		rootLabel := trimLine("(root)", max(20, width))
+		if selected == -1 {
+			lines = append(lines, selectedStyle.Render("> "+rootLabel))
+		} else {
+			lines = append(lines, "  "+rootLabel)
+		}
 	}
 	if len(rows) == 0 {
 		lines = append(lines, mutedStyle.Render("(none)"))

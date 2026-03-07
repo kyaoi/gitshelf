@@ -139,8 +139,9 @@ The type selection screen includes this warning:
 - `PgUp` / `PgDn` or `Ctrl+U` / `Ctrl+D`: scroll the body
 - `Home` / `End`: jump to the top or bottom of the body
 - `1..6`: jump directly to a visible section
-- `v`: toggle multi-select marks in tree/board modes
-- `m`: in tree mode, move the current task or marked tasks under the currently highlighted task
+- `v`: toggle a single multi-select mark in tree/board modes
+- `V`: start/finish continuous range selection in tree/board modes; move to expand the marked range
+- `m`: in tree mode, move the current task or marked tasks under the currently highlighted task; move mode also exposes `(root)` as a target
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set the selected task, or all marked tree/board tasks, to `open` / `in_progress` / `blocked` / `done` / `cancelled`
 - `Enter`: toggle compact/detailed inspector

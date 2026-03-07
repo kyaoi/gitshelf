@@ -723,6 +723,48 @@ func TestTreeModeMoveSelectionUnderAnotherTask(t *testing.T) {
 	}
 }
 
+func TestTreeModeMoveSelectionToRoot(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, calendarTUIOptions{
+		Mode:   calendarModeTree,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(child.ID)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	treeModel := updatedModel.(calendarTUIModel)
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	if treeModel.treeRowIndex != -1 {
+		t.Fatalf("expected root move target, got treeRowIndex=%d", treeModel.treeRowIndex)
+	}
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	treeModel = updatedModel.(calendarTUIModel)
+	updated, err := shelf.EnsureTaskExists(root, child.ID)
+	if err != nil {
+		t.Fatalf("ensure task failed: %v", err)
+	}
+	if updated.Parent != "" {
+		t.Fatalf("expected child moved to root, got parent=%q", updated.Parent)
+	}
+	if treeModel.moveMode {
+		t.Fatal("expected move mode finished after move to root")
+	}
+}
+
 func TestTreeModeBulkStatusChangeUsesMarkedTasks(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
@@ -765,6 +807,47 @@ func TestTreeModeBulkStatusChangeUsesMarkedTasks(t *testing.T) {
 	}
 	if treeModel.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after bulk status change, got %d", treeModel.markedCount())
+	}
+}
+
+func TestTreeModeRangeSelectMarksContinuousTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add third failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "done"}, calendarTUIOptions{
+		Mode:   calendarModeTree,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open", "done"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	treeModel := updatedModel.(calendarTUIModel)
+	if !treeModel.rangeMarkMode {
+		t.Fatal("expected range mark mode enabled")
+	}
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	treeModel = updatedModel.(calendarTUIModel)
+	for _, taskID := range []string{first.ID, second.ID, third.ID} {
+		if !treeModel.isMarkedTask(taskID) {
+			t.Fatalf("expected task %s marked in range", taskID)
+		}
 	}
 }
 
@@ -816,6 +899,38 @@ func TestBoardModeBulkStatusChangeUsesMarkedTasks(t *testing.T) {
 	}
 	if boardModel.markedCount() != 0 {
 		t.Fatalf("expected board marks cleared after bulk status change, got %d", boardModel.markedCount())
+	}
+}
+
+func TestBoardModeRangeSelectMarksContinuousTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	openTask, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	blockedTask, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocked", Kind: "todo", Status: "blocked"})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "blocked", "done"}, calendarTUIOptions{
+		Mode:   calendarModeBoard,
+		Filter: shelf.TaskFilter{Statuses: []shelf.Status{"open", "blocked", "done"}},
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	boardModel := updatedModel.(calendarTUIModel)
+	if !boardModel.rangeMarkMode {
+		t.Fatal("expected board range mark mode enabled")
+	}
+	updatedModel, _ = boardModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	boardModel = updatedModel.(calendarTUIModel)
+	if !boardModel.isMarkedTask(openTask.ID) || !boardModel.isMarkedTask(blockedTask.ID) {
+		t.Fatalf("expected range select to mark both board tasks")
 	}
 }
 
