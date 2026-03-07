@@ -448,14 +448,14 @@ func (m calendarTUIModel) View() string {
 func (m calendarTUIModel) layoutWidths() (int, int) {
 	if m.width <= 0 {
 		if m.mode == calendarModeCalendar {
-			return 108, 36
+			return 102, 40
 		}
 		return 88, 54
 	}
 	usable := max(96, m.width-2)
 	inspectorRatio := 34
 	if m.mode == calendarModeCalendar {
-		inspectorRatio = 24
+		inspectorRatio = 27
 	}
 	inspector := max(36, usable*inspectorRatio/100)
 	main := usable - inspector
@@ -1956,7 +1956,7 @@ func renderCalendarMonth(month calendarMonthView, focusedDate string, width int,
 	dayHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("244"))
 	maxCellWidth := 12
 	if !compact {
-		maxCellWidth = 14
+		maxCellWidth = 13
 	}
 	cellWidth := max(8, min(maxCellWidth, (width-2)/7))
 	headers := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
@@ -1981,7 +1981,7 @@ func renderCalendarCell(cell calendarMonthCell, focusedDate string, cellWidth in
 	contentWidth := max(6, cellWidth)
 	height := 2
 	if !compact {
-		height = 3
+		height = 4
 	}
 	style := lipgloss.NewStyle().Width(contentWidth).Height(height)
 	switch {

@@ -222,6 +222,24 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 	}
 }
 
+func TestCalendarLayoutUsesNarrowerTallerMainGrid(t *testing.T) {
+	model := calendarTUIModel{mode: calendarModeCalendar, width: 140}
+	mainWidth, inspectorWidth := model.layoutWidths()
+	if mainWidth >= 104 {
+		t.Fatalf("calendar main pane should be slightly narrower now, got main=%d inspector=%d", mainWidth, inspectorWidth)
+	}
+	rendered := renderCalendarCell(calendarMonthCell{
+		Date:           time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local),
+		InCurrentMonth: true,
+		InRange:        true,
+		TaskCount:      2,
+		DominantStatus: "open",
+	}, "2026-03-09", 12, false)
+	if got := lipgloss.Height(rendered); got != 4 {
+		t.Fatalf("calendar mode cells should be taller, got height=%d", got)
+	}
+}
+
 func TestCalendarApplyStatusChange(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
