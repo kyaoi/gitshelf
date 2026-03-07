@@ -145,5 +145,6 @@ The type selection screen includes this warning:
 - `e`: open the selected task in the configured editor
 - `z`: open snooze presets for the selected task
 - `r`: reload task data
-- `q` / `Esc` / `Ctrl+C`: quit
+- `q`: close help first, otherwise quit
+- `Esc` / `Ctrl+C`: quit
 - moving beyond the current window shifts the calendar range automatically

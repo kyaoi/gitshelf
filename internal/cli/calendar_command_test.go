@@ -213,7 +213,7 @@ func TestRenderCalendarCellKeepsFixedWidth(t *testing.T) {
 		TaskCount:      2,
 		DominantStatus: "blocked",
 	}
-	rendered := renderCalendarCell(cell, "2026-03-09", 14, true)
+	rendered := renderCalendarCell(cell, "2026-03-09", 14, true, 2)
 	if got := lipgloss.Width(rendered); got != 14 {
 		t.Fatalf("unexpected rendered width: %d", got)
 	}
@@ -234,9 +234,18 @@ func TestCalendarLayoutUsesNarrowerTallerMainGrid(t *testing.T) {
 		InRange:        true,
 		TaskCount:      2,
 		DominantStatus: "open",
-	}, "2026-03-09", 12, false)
+	}, "2026-03-09", 12, false, 4)
 	if got := lipgloss.Height(rendered); got != 4 {
 		t.Fatalf("calendar mode cells should be taller, got height=%d", got)
+	}
+}
+
+func TestCalendarMainCellHeightScalesWithViewport(t *testing.T) {
+	if got := calendarMainCellHeight(18); got != 4 {
+		t.Fatalf("expected minimum cell height 4, got %d", got)
+	}
+	if got := calendarMainCellHeight(46); got <= 4 {
+		t.Fatalf("expected larger viewport to increase cell height, got %d", got)
 	}
 }
 
@@ -643,6 +652,18 @@ func TestCalendarHelpToggle(t *testing.T) {
 	}
 }
 
+func TestCalendarQClosesHelpBeforeQuit(t *testing.T) {
+	model := calendarTUIModel{showHelp: true}
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	toggled := updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected q to close help when help is visible")
+	}
+	if cmd != nil {
+		t.Fatal("expected q on help to close help without quitting")
+	}
+}
+
 func TestRenderCockpitHeaderIsSingleLine(t *testing.T) {
 	model := calendarTUIModel{
 		mode:     calendarModeCalendar,
@@ -678,7 +699,7 @@ func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 		sectionRows: map[calendarSectionID]int{},
 	}
 	month := calendarMonthView{Label: "March 2026"}
-	rendered := renderCalendarMainPane(model, month, 90, true)
+	rendered := renderCalendarMainPane(model, month, 90, 18, true)
 	if strings.Contains(rendered, "March 2026") {
 		t.Fatalf("review pane should not render month grid label: %q", rendered)
 	}
@@ -906,7 +927,7 @@ func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 		sectionIndex: 1,
 	}
 	month := calendarMonthView{Label: "March 2026"}
-	rendered := renderCalendarMainPane(model, month, 120, true)
+	rendered := renderCalendarMainPane(model, month, 120, 18, true)
 	for _, want := range []string{"Focused Day 1", "Overdue 1", "Today 1"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("now pane should render all three sections, missing %q in %q", want, rendered)

@@ -131,7 +131,8 @@ Due-date calendar view.
   - `e`: open selected task in the configured editor
   - `z`: open snooze presets for the selected task
   - `r`: reload
-  - `q` / `Esc` / `Ctrl+C`: quit
+  - `q`: close help first, otherwise quit
+  - `Esc` / `Ctrl+C`: quit
 
 Flags:
 

@@ -122,7 +122,8 @@ subcommand:
   - `e`: 選択 task を editor で開く
   - `z`: 選択 task の snooze プリセット
   - `r`: reload
-  - `q` / `Esc` / `Ctrl+C`: 終了
+  - `q`: help 表示中は help を閉じ、それ以外では終了
+  - `Esc` / `Ctrl+C`: 終了
 
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
