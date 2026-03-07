@@ -123,7 +123,7 @@ Due-date calendar view.
   - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
-  - `Enter`: expand/collapse selected task body preview
+  - `Enter`: toggle compact/detailed inspector
   - `e`: open selected task in the configured editor
   - `z`: open snooze presets for the selected task
   - `r`: reload

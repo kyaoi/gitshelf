@@ -191,6 +191,7 @@ due date カレンダービューです。
 - レイアウトは `main + inspector` で、mode tab を切り替えながら使います。
 - `C/T/B/R/Y` で `calendar` / `tree` / `board` / `review` / `today` を切り替えます。
 - `n/p` で tab や board 列を切り替え、`1..6` で section へ直接ジャンプできます。
+- `review` / `today` では focused date の文脈は残しますが、full month grid は常時出しません。
 - `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。

@@ -114,7 +114,7 @@ subcommand:
   - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
-  - `Enter`: 本文プレビュー展開/折りたたみ
+  - `Enter`: compact / detailed inspector の切り替え
   - `e`: 選択 task を editor で開く
   - `z`: 選択 task の snooze プリセット
   - `r`: reload

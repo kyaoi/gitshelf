@@ -203,6 +203,7 @@ Notes:
 - Layout is now `main + inspector`, with mode tabs instead of a fixed three-column layout.
 - `C/T/B/R/Y` switches between `calendar`, `tree`, `board`, `review`, and `today`.
 - `n/p` switches tabs in review/today and columns in board; `1..6` jumps directly when a section exists.
+- `review` / `today` keep the focused date context, but do not render the full month grid all the time.
 - You can add a task directly on the focused day with `a`; kind/status come from config defaults.
 - You can edit or snooze the selected task directly from the TUI.
 - You can also change the selected task status directly with `o/i/b/d/c`.

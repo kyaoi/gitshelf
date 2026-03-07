@@ -150,7 +150,7 @@ type 選択画面では、次の注意文を出します。
 - `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
-- `Enter`: 選択 task の本文プレビュー展開/折りたたみ
+- `Enter`: compact / detailed inspector の切り替え
 - `e`: 選択 task を editor で開く
 - `z`: 選択 task の snooze プリセットを開く
 - `r`: 再読み込み

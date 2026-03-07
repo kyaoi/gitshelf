@@ -133,7 +133,7 @@ The type selection screen includes this warning:
 - `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
-- `Enter`: expand/collapse selected task body preview
+- `Enter`: toggle compact/detailed inspector
 - `e`: open the selected task in the configured editor
 - `z`: open snooze presets for the selected task
 - `r`: reload task data
