@@ -110,9 +110,8 @@ Due-date calendar view.
 
 - default start: current week Monday
 - default statuses: `open`, `in_progress`, `blocked`
-- default mode: text view for `--days <= 7`
-- `--days > 7` switches to a TUI month grid
-- long-range TUI requires TTY unless `--json` is used
+- default mode: TUI month grid + focused-day detail
+- requires TTY unless `--json` is used
 
 Flags:
 

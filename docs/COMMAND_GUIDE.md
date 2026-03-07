@@ -185,9 +185,9 @@ Use when:
 You want a date-first perspective instead of a task-first list.
 
 Notes:
-- `--days <= 7` keeps the simple text view.
-- `--days > 7` switches to a TUI month grid with day-by-day navigation.
-- Use `--json` if you need long ranges in non-TTY contexts.
+- `calendar` opens a TUI by default.
+- Use `--json` in non-TTY contexts.
+- `--days` controls the range that the TUI can navigate inside.
 
 ### `shelf board`
 

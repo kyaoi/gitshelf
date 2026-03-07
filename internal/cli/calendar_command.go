@@ -27,7 +27,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "calendar",
-		Short: "Show due tasks in a weekly calendar view",
+		Short: "Show due tasks in a calendar TUI",
 		Example: "  shelf calendar\n" +
 			"  shelf calendar --start 2026-03-09\n" +
 			"  shelf calendar --status open --status blocked --json",
@@ -61,30 +61,10 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(string(data))
 				return nil
 			}
-			if days > 7 {
-				if !interactive.IsTTY() {
-					return errors.New("calendar の 8 日以上表示はTTYが必要です。--json を使うか --days を 7 以下にしてください")
-				}
-				return runCalendarTUI(calendar, ctx.showID)
+			if !interactive.IsTTY() {
+				return errors.New("calendar はTTYが必要です。非TTYでは --json を使ってください")
 			}
-
-			fmt.Printf("Week of %s\n", startDate.Format("2006-01-02"))
-			for _, day := range calendar {
-				parsed, _ := time.Parse("2006-01-02", day.Date)
-				fmt.Println(uiHeading(parsed.Format("Mon 2006-01-02")))
-				if len(day.Tasks) == 0 {
-					fmt.Println(uiMuted("  (none)"))
-					continue
-				}
-				for _, task := range day.Tasks {
-					label := uiPrimary(task.Title)
-					if ctx.showID {
-						label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), label)
-					}
-					fmt.Printf("  - %s (%s/%s)\n", label, uiKind(task.Kind), uiStatus(task.Status))
-				}
-			}
-			return nil
+			return runCalendarTUI(calendar, ctx.showID)
 		},
 	}
 

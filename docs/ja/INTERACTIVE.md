@@ -18,7 +18,7 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf links`（`<id>` 省略時）
 - `shelf triage`（`--auto` なし）
 - `shelf board`（TTY 専用 TUI）
-- `shelf calendar --days <n>`（`n > 7` のとき TTY 専用 TUI）
+- `shelf calendar`（`--json` なしでは TTY 専用 TUI）
 
 ## キーバインド
 
@@ -135,7 +135,7 @@ type 選択画面では、次の注意文を出します。
 
 ## `calendar` TUI
 
-- `shelf calendar --days <n>` で `n > 7` のときに使います
+- `shelf calendar` で `--json` を付けないときに使います
 - 選択中の日付を中心に月グリッドを表示します
 - `h` / `l`: 1日ずつ移動
 - `j` / `k`: 1週ずつ移動

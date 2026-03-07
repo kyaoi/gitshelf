@@ -373,7 +373,7 @@ func TestCLITemplateSaveAndApply(t *testing.T) {
 	}
 }
 
-func TestCLICalendarShowsWeekTasks(t *testing.T) {
+func TestCLICalendarRequiresTTYUnlessJSON(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -384,25 +384,7 @@ func TestCLICalendarShowsWeekTasks(t *testing.T) {
 	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "TueTask", Kind: "todo", Status: "blocked", DueOn: "2026-03-10"}); err != nil {
 		t.Fatalf("add task failed: %v", err)
 	}
-	out, err := executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09")
-	if err != nil {
-		t.Fatalf("calendar failed: %v", err)
-	}
-	if !strings.Contains(out, "Week of 2026-03-09") || !strings.Contains(out, "MonTask") || !strings.Contains(out, "TueTask") {
-		t.Fatalf("unexpected calendar output: %s", out)
-	}
-}
-
-func TestCLICalendarLongRangeRequiresTTYUnlessJSON(t *testing.T) {
-	root := t.TempDir()
-	if _, err := executeCLI(t, "init", "--root", root); err != nil {
-		t.Fatalf("init failed: %v", err)
-	}
-	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "LongRange", Kind: "todo", Status: "open", DueOn: "2026-03-12"}); err != nil {
-		t.Fatalf("add task failed: %v", err)
-	}
-
-	if _, err := executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09", "--days", "14"); err == nil || !strings.Contains(err.Error(), "TTY") {
+	if _, err := executeCLI(t, "calendar", "--root", root, "--start", "2026-03-09"); err == nil || !strings.Contains(err.Error(), "TTY") {
 		t.Fatalf("expected tty error, got: %v", err)
 	}
 
@@ -410,7 +392,7 @@ func TestCLICalendarLongRangeRequiresTTYUnlessJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("calendar --json failed: %v", err)
 	}
-	if !strings.Contains(out, "\"2026-03-12\"") {
+	if !strings.Contains(out, "\"2026-03-09\"") || !strings.Contains(out, "\"2026-03-10\"") {
 		t.Fatalf("unexpected calendar json output: %s", out)
 	}
 }

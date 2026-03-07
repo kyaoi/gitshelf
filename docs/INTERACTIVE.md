@@ -18,7 +18,7 @@ If not TTY, users must provide required flags.
 - `shelf links` (when `<id>` is omitted)
 - `shelf triage` (without `--auto`)
 - `shelf board` (TTY only, dedicated TUI)
-- `shelf calendar --days <n>` (TTY only when `n > 7`)
+- `shelf calendar` (TTY only, dedicated TUI unless `--json`)
 
 ## Key Bindings
 
@@ -119,7 +119,7 @@ The type selection screen includes this warning:
 
 ## calendar TUI
 
-- used when `shelf calendar --days <n>` is called with `n > 7`
+- used by `shelf calendar` unless `--json` is specified
 - renders a month grid focused on the currently selected day
 - `h` / `l`: move by one day
 - `j` / `k`: move by one week
