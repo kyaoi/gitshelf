@@ -78,6 +78,11 @@ type calendarSection struct {
 	Items []calendarSectionItem
 }
 
+type cockpitTreeRow struct {
+	Task  shelf.Task
+	Label string
+}
+
 type calendarTUIModel struct {
 	rootDir       string
 	mode          calendarMode
@@ -103,6 +108,8 @@ type calendarTUIModel struct {
 	sections       []calendarSection
 	sectionIndex   int
 	sectionRows    map[calendarSectionID]int
+	treeRows       []cockpitTreeRow
+	treeRowIndex   int
 	selectedTaskID string
 	pane           calendarPane
 	width          int
@@ -496,6 +503,7 @@ func (m *calendarTUIModel) reload() error {
 	if len(m.days) == 0 {
 		m.dayIndex = 0
 		m.sections = nil
+		m.treeRows = nil
 		m.selectedTaskID = ""
 		return nil
 	}
@@ -506,8 +514,16 @@ func (m *calendarTUIModel) reload() error {
 		m.dayIndex = 0
 	}
 	m.selectedTaskID = selectedTaskID
-	m.rebuildSections()
+	m.rebuildModeState()
 	return nil
+}
+
+func (m *calendarTUIModel) rebuildModeState() {
+	if m.mode == calendarModeTree {
+		m.rebuildTreeRows()
+		return
+	}
+	m.rebuildSections()
 }
 
 func buildCalendarLinkCounts(rootDir string, tasks []shelf.Task) (map[string]int, map[string]int, error) {
@@ -557,6 +573,75 @@ func (m *calendarTUIModel) rebuildSections() {
 		return
 	}
 	m.selectFirstAvailableTask()
+}
+
+func (m *calendarTUIModel) rebuildTreeRows() {
+	opts, err := treeOptionsFromFilter(shelf.TreeOptions{}, m.filter)
+	if err != nil {
+		m.treeRows = nil
+		m.message = err.Error()
+		m.selectedTaskID = ""
+		return
+	}
+	nodes, err := shelf.BuildTree(m.rootDir, opts)
+	if err != nil {
+		m.treeRows = nil
+		m.message = err.Error()
+		m.selectedTaskID = ""
+		return
+	}
+	m.treeRows = flattenCockpitTreeRows(nodes, "", true, m.showID)
+	if len(m.treeRows) == 0 {
+		m.treeRowIndex = 0
+		m.selectedTaskID = ""
+		return
+	}
+	if m.selectedTaskID != "" {
+		for i, row := range m.treeRows {
+			if row.Task.ID == m.selectedTaskID {
+				m.treeRowIndex = i
+				m.selectedTaskID = row.Task.ID
+				return
+			}
+		}
+	}
+	if m.treeRowIndex < 0 {
+		m.treeRowIndex = 0
+	}
+	if m.treeRowIndex >= len(m.treeRows) {
+		m.treeRowIndex = len(m.treeRows) - 1
+	}
+	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+}
+
+func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, showID bool) []cockpitTreeRow {
+	rows := make([]cockpitTreeRow, 0)
+	for i, node := range nodes {
+		isLast := i == len(nodes)-1
+		branch := "├─ "
+		nextPrefix := prefix + "│  "
+		if isLast {
+			branch = "└─ "
+			nextPrefix = prefix + "   "
+		}
+		if isRoot {
+			branch = ""
+		}
+		label := node.Task.Title
+		if showID {
+			label = fmt.Sprintf("[%s] %s", shelf.ShortID(node.Task.ID), label)
+		}
+		label = fmt.Sprintf("%s%s%s (%s/%s)", prefix, branch, label, node.Task.Kind, node.Task.Status)
+		if strings.TrimSpace(node.Task.DueOn) != "" {
+			label += " due=" + node.Task.DueOn
+		}
+		rows = append(rows, cockpitTreeRow{
+			Task:  node.Task,
+			Label: label,
+		})
+		rows = append(rows, flattenCockpitTreeRows(node.Children, nextPrefix, false, showID)...)
+	}
+	return rows
 }
 
 func buildCalendarSections(mode calendarMode, focusedDay *calendarDay, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string, sectionLimit int) []calendarSection {
@@ -773,6 +858,9 @@ func (m *calendarTUIModel) clampSectionSelection() {
 }
 
 func (m *calendarTUIModel) moveSectionSelection(delta int) {
+	if m.mode == calendarModeTree {
+		return
+	}
 	if len(m.sections) == 0 {
 		return
 	}
@@ -787,6 +875,10 @@ func (m *calendarTUIModel) moveSectionSelection(delta int) {
 }
 
 func (m *calendarTUIModel) moveSectionRow(delta int) {
+	if m.mode == calendarModeTree {
+		m.moveTreeRow(delta)
+		return
+	}
 	section := m.currentSection()
 	if section == nil || len(section.Items) == 0 {
 		return
@@ -803,6 +895,14 @@ func (m *calendarTUIModel) moveSectionRow(delta int) {
 }
 
 func (m *calendarTUIModel) jumpSectionRowStart() {
+	if m.mode == calendarModeTree {
+		if len(m.treeRows) == 0 {
+			return
+		}
+		m.treeRowIndex = 0
+		m.selectedTaskID = m.treeRows[0].Task.ID
+		return
+	}
 	section := m.currentSection()
 	if section == nil || len(section.Items) == 0 {
 		return
@@ -812,6 +912,14 @@ func (m *calendarTUIModel) jumpSectionRowStart() {
 }
 
 func (m *calendarTUIModel) jumpSectionRowEnd() {
+	if m.mode == calendarModeTree {
+		if len(m.treeRows) == 0 {
+			return
+		}
+		m.treeRowIndex = len(m.treeRows) - 1
+		m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+		return
+	}
 	section := m.currentSection()
 	if section == nil || len(section.Items) == 0 {
 		return
@@ -822,6 +930,9 @@ func (m *calendarTUIModel) jumpSectionRowEnd() {
 }
 
 func (m *calendarTUIModel) jumpToSection(index int) {
+	if m.mode == calendarModeTree {
+		return
+	}
 	if index < 0 || index >= len(m.sections) {
 		return
 	}
@@ -830,10 +941,27 @@ func (m *calendarTUIModel) jumpToSection(index int) {
 }
 
 func (m *calendarTUIModel) currentSection() *calendarSection {
+	if m.mode == calendarModeTree {
+		return nil
+	}
 	if len(m.sections) == 0 || m.sectionIndex < 0 || m.sectionIndex >= len(m.sections) {
 		return nil
 	}
 	return &m.sections[m.sectionIndex]
+}
+
+func (m *calendarTUIModel) moveTreeRow(delta int) {
+	if len(m.treeRows) == 0 {
+		return
+	}
+	m.treeRowIndex += delta
+	if m.treeRowIndex < 0 {
+		m.treeRowIndex = len(m.treeRows) - 1
+	}
+	if m.treeRowIndex >= len(m.treeRows) {
+		m.treeRowIndex = 0
+	}
+	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
 }
 
 func (m *calendarTUIModel) moveFocusByDays(delta int) {
@@ -864,7 +992,7 @@ func (m *calendarTUIModel) moveFocusToDate(target time.Time) {
 		}
 	}
 	m.dayIndex = newIndex
-	m.rebuildSections()
+	m.rebuildModeState()
 }
 
 func (m calendarTUIModel) focusedDay() *calendarDay {
@@ -891,6 +1019,12 @@ func (m calendarTUIModel) focusedDayLabel() string {
 }
 
 func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
+	if m.mode == calendarModeTree {
+		if len(m.treeRows) == 0 || m.treeRowIndex < 0 || m.treeRowIndex >= len(m.treeRows) {
+			return shelf.Task{}, false
+		}
+		return m.treeRows[m.treeRowIndex].Task, true
+	}
 	section := m.currentSection()
 	if section == nil || len(section.Items) == 0 {
 		return shelf.Task{}, false
@@ -1080,6 +1214,15 @@ func (m *calendarTUIModel) insertTaskOnFocusedDay(task shelf.Task) {
 
 func (m *calendarTUIModel) selectTaskByID(taskID string) {
 	m.selectedTaskID = taskID
+	if m.mode == calendarModeTree {
+		for i, row := range m.treeRows {
+			if row.Task.ID == taskID {
+				m.treeRowIndex = i
+				return
+			}
+		}
+		return
+	}
 	if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, taskID); ok {
 		m.sectionIndex = secIdx
 		m.sectionRows[m.sections[secIdx].ID] = rowIdx
@@ -1132,6 +1275,7 @@ func renderCalendarModeTabs(mode calendarMode) string {
 		label string
 	}{
 		{calendarModeCalendar, "Calendar"},
+		{calendarModeTree, "Tree"},
 		{calendarModeReview, "Review"},
 		{calendarModeToday, "Today"},
 	}
@@ -1191,12 +1335,40 @@ func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width i
 	parts := []string{
 		renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)),
 	}
+	if m.mode == calendarModeTree {
+		parts = []string{renderCockpitTreePane(m.treeRows, m.treeRowIndex, max(20, width-4))}
+		return boxStyle.Render(strings.Join(parts, "\n\n"))
+	}
 	if m.mode == calendarModeCalendar {
 		parts = append(parts, renderCalendarLegend())
 		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
 	}
 	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
 	return boxStyle.Render(strings.Join(parts, "\n\n"))
+}
+
+func renderCockpitTreePane(rows []cockpitTreeRow, selected int, width int) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
+	lines := []string{titleStyle.Render("Tree")}
+	if len(rows) == 0 {
+		lines = append(lines, mutedStyle.Render("(none)"))
+		return boxStyle.Render(strings.Join(lines, "\n"))
+	}
+	for i, row := range rows {
+		label := trimLine(row.Label, max(20, width-4))
+		if i == selected {
+			lines = append(lines, selectedStyle.Render("> "+label))
+		} else {
+			lines = append(lines, "  "+label)
+		}
+	}
+	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
 func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {

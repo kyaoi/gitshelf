@@ -447,3 +447,24 @@ func TestCalendarRebuildSectionsPreservesSelectedTask(t *testing.T) {
 		t.Fatal("expected distinct test tasks")
 	}
 }
+
+func TestFlattenCockpitTreeRows(t *testing.T) {
+	nodes := []shelf.TreeNode{
+		{
+			Task: shelf.Task{ID: "01A", Title: "Parent", Kind: "todo", Status: "open"},
+			Children: []shelf.TreeNode{
+				{Task: shelf.Task{ID: "01B", Title: "Child", Kind: "memo", Status: "blocked"}},
+			},
+		},
+	}
+	rows := flattenCockpitTreeRows(nodes, "", true, false)
+	if len(rows) != 2 {
+		t.Fatalf("unexpected row count: %d", len(rows))
+	}
+	if !strings.Contains(rows[0].Label, "Parent (todo/open)") {
+		t.Fatalf("unexpected parent row: %s", rows[0].Label)
+	}
+	if !strings.Contains(rows[1].Label, "Child (memo/blocked)") || !strings.Contains(rows[1].Label, "└─") {
+		t.Fatalf("unexpected child row: %s", rows[1].Label)
+	}
+}
