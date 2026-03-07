@@ -2,6 +2,7 @@ package shelf
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -21,7 +22,7 @@ func TestInitializeCreatesShelfLayout(t *testing.T) {
 			t.Fatalf("path does not exist: %s (%v)", p, err)
 		}
 	}
-	if _, err := os.Stat(TemplatesDir(root)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(ShelfDir(root), "templates")); !os.IsNotExist(err) {
 		t.Fatalf("templates dir should not exist anymore: %v", err)
 	}
 }

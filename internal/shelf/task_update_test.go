@@ -189,28 +189,3 @@ func TestSetTaskUpdatesTagsAndRegistersConfig(t *testing.T) {
 		t.Fatalf("config tags should keep catalog entries: %+v", cfg.Tags)
 	}
 }
-
-func TestSetTaskUpdatesWorklogFields(t *testing.T) {
-	root := t.TempDir()
-	if _, err := Initialize(root, false); err != nil {
-		t.Fatalf("initialize failed: %v", err)
-	}
-	task, err := AddTask(root, AddTaskInput{Title: "work"})
-	if err != nil {
-		t.Fatalf("add failed: %v", err)
-	}
-	estimate := 120
-	spent := 45
-	timerStart := "2026-03-07T10:00:00+09:00"
-	updated, err := SetTask(root, task.ID, SetTaskInput{
-		EstimateMin: &estimate,
-		SpentMin:    &spent,
-		TimerStart:  &timerStart,
-	})
-	if err != nil {
-		t.Fatalf("set worklog failed: %v", err)
-	}
-	if updated.EstimateMin != 120 || updated.SpentMin != 45 || updated.TimerStart != timerStart {
-		t.Fatalf("unexpected worklog fields: %+v", updated)
-	}
-}

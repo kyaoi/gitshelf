@@ -60,24 +60,6 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-func TestFormatConfigTOMLOmitsLegacyViewsAndOutputPresets(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Views["active"] = TaskView{
-		Tags:        []string{"backend"},
-		NotStatuses: []Status{"done", "cancelled"},
-	}
-	cfg.OutputPresets["focus"] = OutputPreset{
-		Command: "ls",
-		Format:  "detail",
-		View:    "active",
-		Limit:   10,
-	}
-	data := string(FormatConfigTOML(cfg))
-	if strings.Contains(data, "[views.") || strings.Contains(data, "[output_presets.") {
-		t.Fatalf("formatted config should omit legacy sections: %s", data)
-	}
-}
-
 func TestConfigValidationRejectsUnknownKindStatusLinkType(t *testing.T) {
 	cfg := DefaultConfig()
 
@@ -122,66 +104,6 @@ default_state = "open"
 	data := string(FormatConfigTOML(cfg))
 	if !strings.Contains(data, "statuses =") || !strings.Contains(data, "default_status =") || !strings.Contains(data, "[commands.calendar]") {
 		t.Fatalf("formatted config should use status keys: %s", data)
-	}
-}
-
-func TestParseConfigTOMLViewsValidation(t *testing.T) {
-	raw := `
-kinds = ["todo", "memo"]
-statuses = ["open", "done"]
-link_types = ["depends_on", "related"]
-default_kind = "todo"
-default_status = "open"
-
-[views."active"]
-not_statuses = ["done"]
-limit = 20
-`
-	cfg, err := ParseConfigTOML([]byte(raw))
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	view, ok := cfg.Views["active"]
-	if !ok {
-		t.Fatalf("expected active view: %+v", cfg.Views)
-	}
-	if len(view.NotStatuses) != 1 || view.NotStatuses[0] != "done" {
-		t.Fatalf("unexpected not statuses: %+v", view.NotStatuses)
-	}
-	if view.Limit != 20 {
-		t.Fatalf("unexpected view limit: %d", view.Limit)
-	}
-}
-
-func TestConfigValidationRejectsUnknownStatusInView(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Views["bad"] = TaskView{
-		Statuses: []Status{"unknown"},
-	}
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected validation error for unknown view status")
-	}
-}
-
-func TestConfigValidationRejectsUnknownTagInView(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Tags = []string{"backend"}
-	cfg.Views["bad"] = TaskView{
-		Tags: []string{"unknown"},
-	}
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected validation error for unknown view tag")
-	}
-}
-
-func TestConfigValidationOutputPreset(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.OutputPresets["bad"] = OutputPreset{
-		Command: "next",
-		Format:  "detail",
-	}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "next does not support format") {
-		t.Fatalf("expected invalid output preset format error, got: %v", err)
 	}
 }
 

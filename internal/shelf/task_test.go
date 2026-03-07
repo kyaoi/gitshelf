@@ -61,7 +61,7 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	}
 }
 
-func TestParseTaskMarkdownKeepsLegacyMetadataReadable(t *testing.T) {
+func TestParseTaskMarkdownIgnoresLegacyMetadataKeys(t *testing.T) {
 	raw := `+++
 id = "01JABCDEF0123456789XYZ"
 title = "legacy metadata"
@@ -81,11 +81,16 @@ body
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	if len(task.GitHubURLs) != 1 || task.GitHubURLs[0] != "https://github.com/acme/roadmap/issues/12" {
-		t.Fatalf("parsed github urls mismatch: %+v", task.GitHubURLs)
+	if task.Title != "legacy metadata" || task.Status != "open" {
+		t.Fatalf("unexpected parsed task: %+v", task)
 	}
-	if task.EstimateMin != 90 || task.SpentMin != 30 || task.TimerStart != "2026-03-05T13:00:00+09:00" {
-		t.Fatalf("parsed worklog mismatch: %+v", task)
+	formatted, err := FormatTaskMarkdown(task)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+	text := string(formatted)
+	if strings.Contains(text, "github_urls") || strings.Contains(text, "estimate_minutes") || strings.Contains(text, "spent_minutes") || strings.Contains(text, "timer_started_at") {
+		t.Fatalf("formatted task should strip legacy metadata: %s", text)
 	}
 }
 

@@ -18,8 +18,6 @@ type Config struct {
 	DefaultKind   Kind
 	DefaultStatus Status
 	Commands      CommandsConfig
-	Views         map[string]TaskView
-	OutputPresets map[string]OutputPreset
 }
 
 type CommandsConfig struct {
@@ -33,31 +31,6 @@ type CalendarCommandConfig struct {
 	DefaultYears     int
 }
 
-type TaskView struct {
-	Kinds       []Kind
-	Statuses    []Status
-	Tags        []string
-	NotKinds    []Kind
-	NotStatuses []Status
-	NotTags     []string
-	ReadyOnly   bool
-	DepsBlocked bool
-	DueBefore   string
-	DueAfter    string
-	Overdue     bool
-	NoDue       bool
-	Parent      string
-	Search      string
-	Limit       int
-}
-
-type OutputPreset struct {
-	Command string `toml:"command"`
-	Format  string `toml:"format"`
-	View    string `toml:"view"`
-	Limit   int    `toml:"limit"`
-}
-
 type configFile struct {
 	Kinds              []string       `toml:"kinds"`
 	Statuses           []string       `toml:"statuses"`
@@ -68,8 +41,6 @@ type configFile struct {
 	DefaultStatus      string         `toml:"default_status"`
 	LegacyDefaultState string         `toml:"default_state"`
 	Commands           configCommands `toml:"commands"`
-	Views              map[string]configView
-	OutputPresets      map[string]configOutputPreset `toml:"output_presets"`
 }
 
 type configCommands struct {
@@ -81,31 +52,6 @@ type configCalendarCommand struct {
 	DefaultDays      int    `toml:"default_days"`
 	DefaultMonths    int    `toml:"default_months"`
 	DefaultYears     int    `toml:"default_years"`
-}
-
-type configView struct {
-	Kinds       []string `toml:"kinds"`
-	Statuses    []string `toml:"statuses"`
-	Tags        []string `toml:"tags"`
-	NotKinds    []string `toml:"not_kinds"`
-	NotStatuses []string `toml:"not_statuses"`
-	NotTags     []string `toml:"not_tags"`
-	ReadyOnly   bool     `toml:"ready"`
-	DepsBlocked bool     `toml:"blocked_by_deps"`
-	DueBefore   string   `toml:"due_before"`
-	DueAfter    string   `toml:"due_after"`
-	Overdue     bool     `toml:"overdue"`
-	NoDue       bool     `toml:"no_due"`
-	Parent      string   `toml:"parent"`
-	Search      string   `toml:"search"`
-	Limit       int      `toml:"limit"`
-}
-
-type configOutputPreset struct {
-	Command string `toml:"command"`
-	Format  string `toml:"format"`
-	View    string `toml:"view"`
-	Limit   int    `toml:"limit"`
 }
 
 func DefaultConfig() Config {
@@ -124,8 +70,6 @@ func DefaultConfig() Config {
 				DefaultYears:     2,
 			},
 		},
-		Views:         map[string]TaskView{},
-		OutputPresets: map[string]OutputPreset{},
 	}
 }
 
@@ -182,8 +126,6 @@ func ParseConfigTOML(data []byte) (Config, error) {
 				DefaultYears:     f.Commands.Calendar.DefaultYears,
 			},
 		},
-		Views:         map[string]TaskView{},
-		OutputPresets: map[string]OutputPreset{},
 	}
 	defaults := DefaultConfig()
 	if cfg.Commands.Calendar.DefaultRangeUnit == "" {
@@ -209,52 +151,6 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	for i, linkType := range f.LinkTypes {
 		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
-	}
-	for name, rawView := range f.Views {
-		view := TaskView{
-			Kinds:       make([]Kind, len(rawView.Kinds)),
-			Statuses:    make([]Status, len(rawView.Statuses)),
-			Tags:        make([]string, len(rawView.Tags)),
-			NotKinds:    make([]Kind, len(rawView.NotKinds)),
-			NotStatuses: make([]Status, len(rawView.NotStatuses)),
-			NotTags:     make([]string, len(rawView.NotTags)),
-			ReadyOnly:   rawView.ReadyOnly,
-			DepsBlocked: rawView.DepsBlocked,
-			DueBefore:   strings.TrimSpace(rawView.DueBefore),
-			DueAfter:    strings.TrimSpace(rawView.DueAfter),
-			Overdue:     rawView.Overdue,
-			NoDue:       rawView.NoDue,
-			Parent:      strings.TrimSpace(rawView.Parent),
-			Search:      strings.TrimSpace(rawView.Search),
-			Limit:       rawView.Limit,
-		}
-		for i, kind := range rawView.Kinds {
-			view.Kinds[i] = Kind(strings.TrimSpace(kind))
-		}
-		for i, status := range rawView.Statuses {
-			view.Statuses[i] = Status(strings.TrimSpace(status))
-		}
-		for i, tag := range rawView.Tags {
-			view.Tags[i] = strings.TrimSpace(tag)
-		}
-		for i, kind := range rawView.NotKinds {
-			view.NotKinds[i] = Kind(strings.TrimSpace(kind))
-		}
-		for i, status := range rawView.NotStatuses {
-			view.NotStatuses[i] = Status(strings.TrimSpace(status))
-		}
-		for i, tag := range rawView.NotTags {
-			view.NotTags[i] = strings.TrimSpace(tag)
-		}
-		cfg.Views[strings.TrimSpace(name)] = view
-	}
-	for name, rawPreset := range f.OutputPresets {
-		cfg.OutputPresets[strings.TrimSpace(name)] = OutputPreset{
-			Command: strings.TrimSpace(rawPreset.Command),
-			Format:  strings.TrimSpace(rawPreset.Format),
-			View:    strings.TrimSpace(rawPreset.View),
-			Limit:   rawPreset.Limit,
-		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -352,99 +248,6 @@ func (c Config) Validate() error {
 	}
 	if c.Commands.Calendar.DefaultYears <= 0 {
 		return fmt.Errorf("commands.calendar.default_years must be > 0")
-	}
-	for name, view := range c.Views {
-		if strings.TrimSpace(name) == "" {
-			return fmt.Errorf("view name is required")
-		}
-		for _, kind := range view.Kinds {
-			if err := c.ValidateKind(kind); err != nil {
-				return fmt.Errorf("views.%s.kinds: %w", name, err)
-			}
-		}
-		for _, kind := range view.NotKinds {
-			if err := c.ValidateKind(kind); err != nil {
-				return fmt.Errorf("views.%s.not_kinds: %w", name, err)
-			}
-		}
-		for _, status := range view.Statuses {
-			if err := c.ValidateStatus(status); err != nil {
-				return fmt.Errorf("views.%s.statuses: %w", name, err)
-			}
-		}
-		for _, tag := range view.Tags {
-			if err := c.ValidateTag(tag); err != nil {
-				return fmt.Errorf("views.%s.tags: %w", name, err)
-			}
-		}
-		for _, status := range view.NotStatuses {
-			if err := c.ValidateStatus(status); err != nil {
-				return fmt.Errorf("views.%s.not_statuses: %w", name, err)
-			}
-		}
-		for _, tag := range view.NotTags {
-			if err := c.ValidateTag(tag); err != nil {
-				return fmt.Errorf("views.%s.not_tags: %w", name, err)
-			}
-		}
-		if view.ReadyOnly && view.DepsBlocked {
-			return fmt.Errorf("views.%s: ready and blocked_by_deps cannot be true together", name)
-		}
-		if view.NoDue && (view.DueBefore != "" || view.DueAfter != "" || view.Overdue) {
-			return fmt.Errorf("views.%s: no_due cannot be combined with due_before/due_after/overdue", name)
-		}
-		if view.DueBefore != "" {
-			if _, err := NormalizeDueOn(view.DueBefore); err != nil {
-				return fmt.Errorf("views.%s.due_before: %w", name, err)
-			}
-		}
-		if view.DueAfter != "" {
-			if _, err := NormalizeDueOn(view.DueAfter); err != nil {
-				return fmt.Errorf("views.%s.due_after: %w", name, err)
-			}
-		}
-		if view.Limit < 0 {
-			return fmt.Errorf("views.%s.limit must be >= 0", name)
-		}
-	}
-	for name, preset := range c.OutputPresets {
-		if strings.TrimSpace(name) == "" {
-			return fmt.Errorf("output preset name is required")
-		}
-		command := strings.TrimSpace(preset.Command)
-		switch command {
-		case "ls", "tree", "next", "agenda", "today":
-		default:
-			return fmt.Errorf("output_presets.%s.command: unsupported command %q", name, preset.Command)
-		}
-		if strings.TrimSpace(preset.Format) != "" {
-			switch command {
-			case "ls":
-				if preset.Format != "compact" && preset.Format != "detail" && preset.Format != "kanban" {
-					return fmt.Errorf("output_presets.%s.format: invalid format for ls", name)
-				}
-			case "tree":
-				if preset.Format != "compact" && preset.Format != "detail" {
-					return fmt.Errorf("output_presets.%s.format: invalid format for tree", name)
-				}
-			case "agenda", "today":
-				if preset.Format != "compact" && preset.Format != "detail" {
-					return fmt.Errorf("output_presets.%s.format: invalid format for %s", name, command)
-				}
-			case "next":
-				return fmt.Errorf("output_presets.%s.format: next does not support format", name)
-			}
-		}
-		if preset.View != "" {
-			if _, ok := c.Views[preset.View]; !ok {
-				if preset.View != "active" && preset.View != "ready" && preset.View != "blocked" && preset.View != "overdue" {
-					return fmt.Errorf("output_presets.%s.view: unknown view %q", name, preset.View)
-				}
-			}
-		}
-		if preset.Limit < 0 {
-			return fmt.Errorf("output_presets.%s.limit must be >= 0", name)
-		}
 	}
 	return nil
 }

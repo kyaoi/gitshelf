@@ -7,24 +7,18 @@ import (
 )
 
 type SetTaskInput struct {
-	Title            *string
-	Kind             *Kind
-	Status           *Status
-	Tags             *[]string
-	AddTags          []string
-	RemoveTags       []string
-	GitHubURLs       *[]string
-	AddGitHubURLs    []string
-	RemoveGitHubURLs []string
-	EstimateMin      *int
-	SpentMin         *int
-	TimerStart       *string
-	DueOn            *string
-	RepeatEvery      *string
-	ArchivedAt       *string
-	Parent           *string
-	Body             *string
-	AppendBody       *string
+	Title       *string
+	Kind        *Kind
+	Status      *Status
+	Tags        *[]string
+	AddTags     []string
+	RemoveTags  []string
+	DueOn       *string
+	RepeatEvery *string
+	ArchivedAt  *string
+	Parent      *string
+	Body        *string
+	AppendBody  *string
 }
 
 func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
@@ -86,49 +80,10 @@ func SetTask(rootDir, taskID string, input SetTaskInput) (Task, error) {
 		}
 		task.Tags = filtered
 	}
-	if input.GitHubURLs != nil {
-		task.GitHubURLs = normalizeStringList(*input.GitHubURLs)
-	}
-	if len(input.AddGitHubURLs) > 0 {
-		task.GitHubURLs = normalizeStringList(append(task.GitHubURLs, input.AddGitHubURLs...))
-	}
-	if len(input.RemoveGitHubURLs) > 0 {
-		removeSet := map[string]struct{}{}
-		for _, value := range normalizeStringList(input.RemoveGitHubURLs) {
-			removeSet[value] = struct{}{}
-		}
-		filtered := make([]string, 0, len(task.GitHubURLs))
-		for _, value := range task.GitHubURLs {
-			if _, drop := removeSet[value]; drop {
-				continue
-			}
-			filtered = append(filtered, value)
-		}
-		task.GitHubURLs = filtered
-	}
 	if cfg.AppendMissingTags(task.Tags) {
 		if err := SaveConfig(rootDir, cfg); err != nil {
 			return Task{}, err
 		}
-	}
-	if input.EstimateMin != nil {
-		if *input.EstimateMin < 0 {
-			return Task{}, fmt.Errorf("estimate_minutes must be >= 0")
-		}
-		task.EstimateMin = *input.EstimateMin
-	}
-	if input.SpentMin != nil {
-		if *input.SpentMin < 0 {
-			return Task{}, fmt.Errorf("spent_minutes must be >= 0")
-		}
-		task.SpentMin = *input.SpentMin
-	}
-	if input.TimerStart != nil {
-		timerStart, err := normalizeTimerStartedAt(*input.TimerStart)
-		if err != nil {
-			return Task{}, err
-		}
-		task.TimerStart = timerStart
 	}
 
 	if input.DueOn != nil {

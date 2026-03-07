@@ -24,7 +24,7 @@ func Initialize(rootDir string, force bool) (InitResult, error) {
 		}
 	}
 	for _, legacyDir := range []string{
-		TemplatesDir(rootDir),
+		filepath.Join(shelfDir, "templates"),
 		filepath.Join(shelfDir, "history"),
 	} {
 		if err := os.RemoveAll(legacyDir); err != nil {
