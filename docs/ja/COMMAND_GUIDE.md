@@ -184,6 +184,7 @@ due date カレンダービューです。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
 - 現在の filter から外れる status に変えても、context を失わないよう reload まではその場に残します。
+- 現在の表示レンジを超えて移動すると、calendar が自動で過去/未来側へスライドします。
 
 ### `shelf board`
 

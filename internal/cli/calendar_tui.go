@@ -115,20 +115,16 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
 		case "left", "h":
-			m.dayIndex = max(0, m.dayIndex-1)
-			m.clampTaskIndex()
+			m.moveFocusByDays(-1)
 			return m, nil
 		case "right", "l":
-			m.dayIndex = min(len(m.days)-1, m.dayIndex+1)
-			m.clampTaskIndex()
+			m.moveFocusByDays(1)
 			return m, nil
 		case "up", "k":
-			m.dayIndex = max(0, m.dayIndex-7)
-			m.clampTaskIndex()
+			m.moveFocusByDays(-7)
 			return m, nil
 		case "down", "j":
-			m.dayIndex = min(len(m.days)-1, m.dayIndex+7)
-			m.clampTaskIndex()
+			m.moveFocusByDays(7)
 			return m, nil
 		case "g":
 			m.dayIndex = 0
@@ -141,12 +137,10 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampTaskIndex()
 			return m, nil
 		case "[", "H":
-			m.dayIndex = moveCalendarIndexByMonth(m.days, m.dayIndex, -1)
-			m.clampTaskIndex()
+			m.moveFocusByMonths(-1)
 			return m, nil
 		case "]", "L":
-			m.dayIndex = moveCalendarIndexByMonth(m.days, m.dayIndex, 1)
-			m.clampTaskIndex()
+			m.moveFocusByMonths(1)
 			return m, nil
 		case "tab", "n":
 			m.moveTaskSelection(1)
@@ -365,11 +359,50 @@ func (m *calendarTUIModel) moveTaskSelection(delta int) {
 	m.taskIndex = next
 }
 
+func (m *calendarTUIModel) moveFocusByDays(delta int) {
+	target, err := m.focusedDate()
+	if err != nil {
+		m.message = err.Error()
+		return
+	}
+	m.moveFocusToDate(target.AddDate(0, 0, delta))
+}
+
+func (m *calendarTUIModel) moveFocusByMonths(delta int) {
+	target, err := m.focusedDate()
+	if err != nil {
+		m.message = err.Error()
+		return
+	}
+	m.moveFocusToDate(target.AddDate(0, delta, 0))
+}
+
+func (m *calendarTUIModel) moveFocusToDate(target time.Time) {
+	newStart, newIndex := planCalendarWindow(m.startDate, m.daysCount, target)
+	if !sameDate(newStart, m.startDate) {
+		m.startDate = newStart
+		if err := m.reload(); err != nil {
+			m.message = err.Error()
+			return
+		}
+	}
+	m.dayIndex = newIndex
+	m.clampTaskIndex()
+}
+
 func (m calendarTUIModel) focusedDay() *calendarDay {
 	if len(m.days) == 0 || m.dayIndex < 0 || m.dayIndex >= len(m.days) {
 		return nil
 	}
 	return &m.days[m.dayIndex]
+}
+
+func (m calendarTUIModel) focusedDate() (time.Time, error) {
+	day := m.focusedDay()
+	if day == nil {
+		return time.Time{}, fmt.Errorf("選択中の日付がありません")
+	}
+	return time.ParseInLocation("2006-01-02", day.Date, time.Now().Location())
 }
 
 func (m calendarTUIModel) focusedDayLabel() string {
@@ -914,6 +947,30 @@ func moveCalendarIndexByMonth(days []calendarDay, currentIndex int, delta int) i
 		return len(days) - 1
 	}
 	return diff
+}
+
+func planCalendarWindow(startDate time.Time, dayCount int, targetDate time.Time) (time.Time, int) {
+	if dayCount <= 0 {
+		return startDate, 0
+	}
+	start := normalizeDate(startDate)
+	target := normalizeDate(targetDate)
+	end := start.AddDate(0, 0, dayCount-1)
+	if !target.Before(start) && !target.After(end) {
+		return start, int(target.Sub(start).Hours() / 24)
+	}
+	if target.Before(start) {
+		return target, 0
+	}
+	return target.AddDate(0, 0, -(dayCount - 1)), dayCount - 1
+}
+
+func normalizeDate(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
+}
+
+func sameDate(a time.Time, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
 }
 
 func padOrTrim(value string, width int) string {

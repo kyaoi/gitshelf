@@ -133,3 +133,4 @@ The type selection screen includes this warning:
 - `z`: open snooze presets for the selected task
 - `r`: reload task data
 - `q` / `Esc` / `Ctrl+C`: quit
+- moving beyond the current window shifts the calendar range automatically

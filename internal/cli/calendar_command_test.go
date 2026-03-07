@@ -93,6 +93,33 @@ func TestMoveCalendarIndexByMonth(t *testing.T) {
 	}
 }
 
+func TestPlanCalendarWindowWithinRange(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	target := time.Date(2026, 3, 12, 12, 0, 0, 0, time.Local)
+	gotStart, gotIndex := planCalendarWindow(start, 7, target)
+	if gotStart.Format("2006-01-02") != "2026-03-09" || gotIndex != 3 {
+		t.Fatalf("unexpected window plan: %s %d", gotStart.Format("2006-01-02"), gotIndex)
+	}
+}
+
+func TestPlanCalendarWindowMovesBackward(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	target := time.Date(2026, 3, 7, 0, 0, 0, 0, time.Local)
+	gotStart, gotIndex := planCalendarWindow(start, 7, target)
+	if gotStart.Format("2006-01-02") != "2026-03-07" || gotIndex != 0 {
+		t.Fatalf("unexpected backward window plan: %s %d", gotStart.Format("2006-01-02"), gotIndex)
+	}
+}
+
+func TestPlanCalendarWindowMovesForward(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	target := time.Date(2026, 3, 20, 0, 0, 0, 0, time.Local)
+	gotStart, gotIndex := planCalendarWindow(start, 7, target)
+	if gotStart.Format("2006-01-02") != "2026-03-14" || gotIndex != 6 {
+		t.Fatalf("unexpected forward window plan: %s %d", gotStart.Format("2006-01-02"), gotIndex)
+	}
+}
+
 func TestDominantCalendarStatus(t *testing.T) {
 	tasks := []shelf.Task{
 		{Status: "open"},
