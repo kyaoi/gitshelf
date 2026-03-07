@@ -60,11 +60,14 @@ task 候補行の基本形:
 
 ## `add` の対話フロー
 
-1. `Title` 入力
-2. `Kind` 選択
-3. `Status` 選択
-4. Review 画面で `Title` / `Kind` / `Status` / `Tags` / `Due` / `Repeat` / `Parent` を確認・編集
-5. `Create task` または `Cancel`
+1. `Kind` 選択
+2. `Status` 選択
+3. Review 画面で `Title` / `Kind` / `Status` / `Tags` / `Due` / `Repeat` / `Parent` を確認・編集
+4. `Create task` / `Cancel` を選ぶ、または `Ctrl+S` / `Ctrl+Enter` でそのまま作成
+
+補足:
+- `Title` は最初の専用入力ではなく Review 画面で編集します。
+- `Title` は必須なので、空のまま作成しようとすると入力を促します。
 
 tags selector では以下ができます。
 

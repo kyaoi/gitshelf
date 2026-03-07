@@ -58,11 +58,14 @@ Task candidate line format:
 
 ## add Interactive Flow
 
-1. Input `Title` (required)
-2. Select `Kind`
-3. Select `Status`
-4. Review screen (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`)
-5. Select `Create task` or `Cancel`
+1. Select `Kind`
+2. Select `Status`
+3. Review screen (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`)
+4. Choose `Create task` / `Cancel`, or use `Ctrl+S` / `Ctrl+Enter` to create directly
+
+Notes:
+- `Title` is edited in the review screen instead of a separate first step.
+- `Title` is still required; trying to create without it prompts for a title.
 
 Tags selector supports:
 

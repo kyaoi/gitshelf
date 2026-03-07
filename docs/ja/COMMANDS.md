@@ -38,7 +38,7 @@
 
 モード:
 - 非対話: `--title` 必須
-- 対話: TTY で `--title` 省略時、`Title -> Kind -> Status -> Review` の順に進む
+- 対話: TTY で `--title` 省略時、`Kind -> Status -> Review` の順に進む
 
 主なフラグ:
 - `--title <str>`

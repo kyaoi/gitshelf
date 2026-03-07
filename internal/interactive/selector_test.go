@@ -44,3 +44,19 @@ func TestSelectorSearchLineShowsViewportRange(t *testing.T) {
 		t.Fatalf("unexpected search line: %q", line)
 	}
 }
+
+func TestMatchSubmitShortcut(t *testing.T) {
+	cfg := SelectConfig{
+		SubmitValue:     "save",
+		SubmitShortcuts: []string{"Ctrl+S", "Ctrl+Enter"},
+	}
+	if !matchSubmitShortcut(cfg, keyEvent{Kind: keyKindCtrlS}) {
+		t.Fatal("expected ctrl+s to match")
+	}
+	if !matchSubmitShortcut(cfg, keyEvent{Kind: keyKindCtrlEnter}) {
+		t.Fatal("expected ctrl+enter to match")
+	}
+	if matchSubmitShortcut(cfg, keyEvent{Kind: keyKindEnter}) {
+		t.Fatal("plain enter should not match submit shortcut")
+	}
+}

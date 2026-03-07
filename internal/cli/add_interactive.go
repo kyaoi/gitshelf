@@ -29,15 +29,6 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 		status = shelf.Status(initial)
 	}
 
-	initialTitle, err := interactive.PromptText("Title を入力してください")
-	if err != nil {
-		return shelf.AddTaskInput{}, err
-	}
-	title = strings.TrimSpace(initialTitle)
-	if title == "" {
-		return shelf.AddTaskInput{}, errors.New("title は必須です")
-	}
-
 	kindSelected, err := selectEnumOption("Kind を選択してください", enumOptionsFromKinds(cfg.Kinds))
 	if err != nil {
 		return shelf.AddTaskInput{}, err
@@ -76,7 +67,16 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			{Value: "save", Label: "Create task", Preview: buildAddSummary(title, kind, status, tags, dueLabel, repeatLabel, parentLabel)},
 			{Value: "cancel", Label: "Cancel"},
 		}
-		selected, err := selectEnumOption("内容を確認してください", options)
+		selected, err := interactive.SelectWithConfig(interactive.SelectConfig{
+			Prompt:            "内容を確認してください",
+			Options:           options,
+			ShowPreview:       false,
+			MaxRows:           15,
+			HelpText:          selectorHelpText + "  Ctrl+S/Ctrl+Enter: 作成",
+			SearchPlaceholder: "検索",
+			SubmitValue:       "save",
+			SubmitShortcuts:   []string{"Ctrl+S", "Ctrl+Enter"},
+		})
 		if err != nil {
 			return shelf.AddTaskInput{}, err
 		}
@@ -88,9 +88,6 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 				return shelf.AddTaskInput{}, err
 			}
 			title = strings.TrimSpace(next)
-			if title == "" {
-				return shelf.AddTaskInput{}, errors.New("title は必須です")
-			}
 		case "kind":
 			kindSelected, err := selectEnumOption("Kind を選択してください", enumOptionsFromKinds(cfg.Kinds))
 			if err != nil {
@@ -151,6 +148,19 @@ func resolveAddInputInteractive(ctx *commandContext, body string, initialStatus 
 			}
 			parent = parentSelected.Value
 		case "save":
+			if strings.TrimSpace(title) == "" {
+				next, err := interactive.PromptText("Title は必須です。Title を入力してください")
+				if err != nil {
+					if errors.Is(err, interactive.ErrCanceled) {
+						continue
+					}
+					return shelf.AddTaskInput{}, err
+				}
+				title = strings.TrimSpace(next)
+				if title == "" {
+					continue
+				}
+			}
 			return shelf.AddTaskInput{
 				Title:       title,
 				Kind:        kind,

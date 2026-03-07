@@ -44,6 +44,8 @@ type SelectConfig struct {
 	MaxRows           int
 	HelpText          string
 	SearchPlaceholder string
+	SubmitValue       string
+	SubmitShortcuts   []string
 }
 
 func SelectWithConfig(cfg SelectConfig) (Option, error) {
@@ -102,6 +104,13 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 		switch key.Kind {
 		case keyKindCtrlC:
 			return Option{}, ErrCanceled
+		case keyKindCtrlS, keyKindCtrlEnter:
+			if matched := matchSubmitShortcut(cfg, key); matched {
+				option, ok := findOptionByValue(cfg.Options, cfg.SubmitValue)
+				if ok {
+					return option, nil
+				}
+			}
 		case keyKindEnter:
 			if searchMode {
 				searchMode = false
@@ -169,6 +178,34 @@ func SelectWithConfig(cfg SelectConfig) (Option, error) {
 			}
 		}
 	}
+}
+
+func matchSubmitShortcut(cfg SelectConfig, key keyEvent) bool {
+	if strings.TrimSpace(cfg.SubmitValue) == "" || len(cfg.SubmitShortcuts) == 0 {
+		return false
+	}
+	for _, shortcut := range cfg.SubmitShortcuts {
+		switch strings.ToLower(strings.TrimSpace(shortcut)) {
+		case "ctrl+s":
+			if key.Kind == keyKindCtrlS {
+				return true
+			}
+		case "ctrl+enter":
+			if key.Kind == keyKindCtrlEnter {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func findOptionByValue(options []Option, value string) (Option, bool) {
+	for _, option := range options {
+		if option.Value == value {
+			return option, true
+		}
+	}
+	return Option{}, false
 }
 
 func render(cfg SelectConfig, options []Option, cursor int, offset int, visibleRows int, previewRows int, search string, searchMode bool, showHelp bool) {

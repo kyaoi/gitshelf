@@ -47,3 +47,25 @@ func TestReadKeyEventEsc(t *testing.T) {
 		t.Fatalf("expected esc, got %+v", got)
 	}
 }
+
+func TestReadKeyEventCtrlS(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader(string([]byte{19})))
+	got, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent failed: %v", err)
+	}
+	if got.Kind != keyKindCtrlS {
+		t.Fatalf("expected ctrl+s, got %+v", got)
+	}
+}
+
+func TestReadKeyEventCtrlEnterCSI(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\x1b[13;5u"))
+	got, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent failed: %v", err)
+	}
+	if got.Kind != keyKindCtrlEnter {
+		t.Fatalf("expected ctrl+enter, got %+v", got)
+	}
+}

@@ -39,7 +39,7 @@ Flags:
 Create a task.
 
 - Non-interactive mode: `--title` is required.
-- Interactive mode (TTY only): guided steps (Title -> Kind -> Status) then review/edit (`Tags`/`Due`/`Repeat`/`Parent`) before create.
+- Interactive mode (TTY only): guided steps (Kind -> Status -> Review) then review/edit (`Title`/`Tags`/`Due`/`Repeat`/`Parent`) before create.
 
 Flags:
 

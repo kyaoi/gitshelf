@@ -14,6 +14,8 @@ const (
 	keyKindEnter
 	keyKindEsc
 	keyKindCtrlC
+	keyKindCtrlS
+	keyKindCtrlEnter
 	keyKindBackspace
 	keyKindUp
 	keyKindDown
@@ -33,24 +35,15 @@ func readKeyEvent(reader *bufio.Reader) (keyEvent, error) {
 	switch b {
 	case 3:
 		return keyEvent{Kind: keyKindCtrlC}, nil
+	case 19:
+		return keyEvent{Kind: keyKindCtrlS}, nil
 	case 13, 10:
 		return keyEvent{Kind: keyKindEnter}, nil
 	case 8, 127:
 		return keyEvent{Kind: keyKindBackspace}, nil
 	case 27:
-		// Handle CSI arrows when already buffered to avoid blocking on plain Esc.
-		if reader.Buffered() >= 2 {
-			seq, err := reader.Peek(2)
-			if err == nil && seq[0] == '[' {
-				switch seq[1] {
-				case 'A':
-					_, _ = reader.Discard(2)
-					return keyEvent{Kind: keyKindUp}, nil
-				case 'B':
-					_, _ = reader.Discard(2)
-					return keyEvent{Kind: keyKindDown}, nil
-				}
-			}
+		if matched, event, err := readCSIKeyEvent(reader); matched {
+			return event, err
 		}
 		return keyEvent{Kind: keyKindEsc}, nil
 	default:
@@ -60,6 +53,32 @@ func readKeyEvent(reader *bufio.Reader) (keyEvent, error) {
 		}
 		return keyEvent{Kind: keyKindRune, Rune: r}, nil
 	}
+}
+
+func readCSIKeyEvent(reader *bufio.Reader) (bool, keyEvent, error) {
+	if reader.Buffered() < 2 {
+		return false, keyEvent{}, nil
+	}
+	seq, err := reader.Peek(reader.Buffered())
+	if err != nil || len(seq) < 2 || seq[0] != '[' {
+		return false, keyEvent{}, err
+	}
+	switch {
+	case len(seq) >= 2 && seq[1] == 'A':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindUp}, nil
+	case len(seq) >= 2 && seq[1] == 'B':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindDown}, nil
+	}
+
+	for _, pattern := range []string{"[13;5u", "[13;5~", "[27;5;13~"} {
+		if len(seq) >= len(pattern) && string(seq[:len(pattern)]) == pattern {
+			_, _ = reader.Discard(len(pattern))
+			return true, keyEvent{Kind: keyKindCtrlEnter}, nil
+		}
+	}
+	return false, keyEvent{}, nil
 }
 
 func decodeRuneFromFirstByte(reader *bufio.Reader, first byte) (rune, error) {
