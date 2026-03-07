@@ -18,32 +18,97 @@
 
 ## インストール
 
+### 方法1: リポジトリを clone して `./bin/shelf` を作る
+
 ```bash
-go build -o shelf ./cmd/shelf
+git clone https://github.com/kyaoi/gitshelf.git
+cd gitshelf
+mkdir -p bin
+go build -o ./bin/shelf ./cmd/shelf
+```
+
+リポジトリ内からそのまま実行できます。
+
+```bash
+./bin/shelf
+```
+
+どこからでも `shelf` として呼びたい場合:
+
+```bash
+export PATH="$PWD/bin:$PATH"
+shelf
+```
+
+### 方法2: `go install` で直接入れる
+
+```bash
+go install github.com/kyaoi/gitshelf/cmd/shelf@latest
+```
+
+インストール先は `$(go env GOPATH)/bin` または `$(go env GOBIN)` です。
+
+## completion
+
+shell ごとの completion を生成できます。
+
+```bash
+./bin/shelf completion zsh
+./bin/shelf completion bash
+./bin/shelf completion fish
+./bin/shelf completion powershell
+```
+
+例:
+
+### zsh
+
+```bash
+mkdir -p "${HOME}/.zsh/completions"
+./bin/shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
+echo 'fpath=("${HOME}/.zsh/completions" $fpath)' >> ~/.zshrc
+echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
+```
+
+### bash
+
+```bash
+mkdir -p "${HOME}/.local/share/bash-completion/completions"
+./bin/shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
+```
+
+### fish
+
+```bash
+mkdir -p "${HOME}/.config/fish/completions"
+./bin/shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
+```
+
+### PowerShell
+
+```powershell
+./bin/shelf completion powershell | Out-String | Invoke-Expression
 ```
 
 ## クイックスタート
 
 ```bash
-./shelf init
+./bin/shelf init
 
 # 主入口
-./shelf
-./shelf cockpit
+./bin/shelf
+./bin/shelf cockpit
 
 # launcher
-./shelf calendar
-./shelf tree
-./shelf board
-./shelf review
-./shelf now
+./bin/shelf calendar
+./bin/shelf tree
+./bin/shelf board
+./bin/shelf review
+./bin/shelf now
 
 # script / 確認
-./shelf ls --status open --json
-./shelf next
-
-# completion
-./shelf completion zsh
+./bin/shelf ls --status open --json
+./bin/shelf next
 ```
 
 ## 現在の公開コマンド面

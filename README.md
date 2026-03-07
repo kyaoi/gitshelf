@@ -19,33 +19,98 @@
 
 ## Install
 
+### Option 1: clone the repository and build `./bin/shelf`
+
 ```bash
-go build -o shelf ./cmd/shelf
+git clone https://github.com/kyaoi/gitshelf.git
+cd gitshelf
+mkdir -p bin
+go build -o ./bin/shelf ./cmd/shelf
+```
+
+Run it from the repository:
+
+```bash
+./bin/shelf
+```
+
+If you want to call it as `shelf` from anywhere:
+
+```bash
+export PATH="$PWD/bin:$PATH"
+shelf
+```
+
+### Option 2: install directly with `go install`
+
+```bash
+go install github.com/kyaoi/gitshelf/cmd/shelf@latest
+```
+
+This installs `shelf` into `$(go env GOPATH)/bin` or `$(go env GOBIN)`.
+
+## Shell Completion
+
+Generate completion for your shell:
+
+```bash
+./bin/shelf completion zsh
+./bin/shelf completion bash
+./bin/shelf completion fish
+./bin/shelf completion powershell
+```
+
+Examples:
+
+### zsh
+
+```bash
+mkdir -p "${HOME}/.zsh/completions"
+./bin/shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
+echo 'fpath=("${HOME}/.zsh/completions" $fpath)' >> ~/.zshrc
+echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
+```
+
+### bash
+
+```bash
+mkdir -p "${HOME}/.local/share/bash-completion/completions"
+./bin/shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
+```
+
+### fish
+
+```bash
+mkdir -p "${HOME}/.config/fish/completions"
+./bin/shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
+```
+
+### PowerShell
+
+```powershell
+./bin/shelf completion powershell | Out-String | Invoke-Expression
 ```
 
 ## Quick Start
 
 ```bash
 # initialize
-./shelf init
+./bin/shelf init
 
 # main workspace
-./shelf
-./shelf cockpit
+./bin/shelf
+./bin/shelf cockpit
 
 # cockpit launchers
-./shelf calendar
-./shelf tree
-./shelf board
-./shelf review
-./shelf now
+./bin/shelf calendar
+./bin/shelf tree
+./bin/shelf board
+./bin/shelf review
+./bin/shelf now
 
 # script-friendly queries
-./shelf ls --status open --json
-./shelf next
-
-# shell completion
-./shelf completion zsh
+./bin/shelf ls --status open --json
+./bin/shelf next
 ```
 
 ## Command Surface
