@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTodayCommand(ctx *commandContext) *cobra.Command {
+func newNowCommand(ctx *commandContext) *cobra.Command {
 	var flags cockpitLaunchFlags
 
 	cmd := &cobra.Command{

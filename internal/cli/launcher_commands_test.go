@@ -111,7 +111,7 @@ func TestNowCommandRoutesTTYToCockpitWithFilter(t *testing.T) {
 		}
 		return nil
 	}
-	cmd := newTodayCommand(&commandContext{rootDir: root})
+	cmd := newNowCommand(&commandContext{rootDir: root})
 	cmd.SetArgs([]string{"--kind", "todo", "--not-status", "blocked"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("now command failed: %v", err)
