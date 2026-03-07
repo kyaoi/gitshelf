@@ -34,14 +34,32 @@ func newReviewCommand(ctx *commandContext) *cobra.Command {
 	var (
 		limit  int
 		asJSON bool
+		plain  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "review",
 		Short: "Show a daily review of inbox, due, blocked, and ready tasks",
 		Example: "  shelf review\n" +
 			"  shelf review --limit 10\n" +
+			"  shelf review --plain\n" +
 			"  shelf review --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if resolveReviewOutputMode(dailyCockpitIsTTY(), asJSON, plain) == dailyCockpitOutputTUI {
+				startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
+				if err != nil {
+					return err
+				}
+				filter := shelf.TaskFilter{
+					Statuses: activeStatusFilter(),
+					Limit:    0,
+				}
+				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, filter.Statuses, calendarTUIOptions{
+					Mode:         calendarModeReview,
+					ShowID:       ctx.showID,
+					SectionLimit: limit,
+					Filter:       filter,
+				})
+			}
 			payload, err := buildReviewPayload(ctx.rootDir, limit)
 			if err != nil {
 				return err
@@ -73,6 +91,7 @@ func newReviewCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 5, "Maximum items per section (0 means unlimited)")
+	cmd.Flags().BoolVar(&plain, "plain", false, "Force plain text output even on TTY")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }

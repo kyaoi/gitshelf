@@ -17,6 +17,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 		includeArchived bool
 		onlyArchived    bool
 		format          string
+		plain           bool
 		kinds           []string
 		statuses        []string
 		notKinds        []string
@@ -31,6 +32,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 		Short: "Show overdue and today tasks",
 		Example: "  shelf today\n" +
 			"  shelf today --view active\n" +
+			"  shelf today --plain\n" +
 			"  shelf today --carry-over --yes\n" +
 			"  shelf today --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -64,6 +66,17 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 			filter = mergeTaskFilterWithView(filter, preset, map[string]bool{
 				"limit": true,
 			})
+			if resolveTodayOutputMode(dailyCockpitIsTTY(), asJSON, plain, carryOver) == dailyCockpitOutputTUI {
+				startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
+				if err != nil {
+					return err
+				}
+				return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, filter.Statuses, calendarTUIOptions{
+					Mode:   calendarModeToday,
+					ShowID: ctx.showID,
+					Filter: filter,
+				})
+			}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
 				return err
@@ -167,6 +180,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail")
+	cmd.Flags().BoolVar(&plain, "plain", false, "Force plain text output even on TTY")
 	cmd.Flags().StringArrayVar(&kinds, "kind", nil, "Include kind (repeatable)")
 	cmd.Flags().StringArrayVar(&statuses, "status", nil, "Include status (repeatable)")
 	cmd.Flags().StringArrayVar(&notKinds, "not-kind", nil, "Exclude kind (repeatable)")

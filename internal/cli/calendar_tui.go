@@ -62,6 +62,7 @@ type calendarTUIOptions struct {
 	Mode         calendarMode
 	ShowID       bool
 	SectionLimit int
+	Filter       shelf.TaskFilter
 }
 
 type calendarSectionItem struct {
@@ -83,6 +84,7 @@ type calendarTUIModel struct {
 	daysCount     int
 	statuses      []shelf.Status
 	sectionLimit  int
+	filter        shelf.TaskFilter
 	defaultKind   shelf.Kind
 	defaultStatus shelf.Status
 	showID        bool
@@ -149,7 +151,6 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		mode:          opts.Mode,
 		startDate:     startDate,
 		daysCount:     daysCount,
-		statuses:      append([]shelf.Status{}, statuses...),
 		sectionLimit:  opts.SectionLimit,
 		defaultKind:   cfg.DefaultKind,
 		defaultStatus: cfg.DefaultStatus,
@@ -162,6 +163,12 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		outboundCount: map[string]int{},
 		inboundCount:  map[string]int{},
 	}
+	model.filter = opts.Filter
+	model.filter.Limit = 0
+	if len(model.filter.Statuses) == 0 {
+		model.filter.Statuses = append([]shelf.Status{}, statuses...)
+	}
+	model.statuses = append([]shelf.Status{}, model.filter.Statuses...)
 	if err := model.reload(); err != nil {
 		return calendarTUIModel{}, err
 	}
@@ -437,7 +444,9 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *calendarTUIModel) reload() error {
 	selectedTaskID := m.selectedTaskID
-	visibleTasks, err := shelf.ListTasks(m.rootDir, shelf.TaskFilter{Statuses: m.statuses, Limit: 0})
+	filter := m.filter
+	filter.Limit = 0
+	visibleTasks, err := shelf.ListTasks(m.rootDir, filter)
 	if err != nil {
 		return err
 	}
