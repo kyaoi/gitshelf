@@ -8,16 +8,12 @@
   3. `kind`
   4. `status`
   5. `tags`
-  6. `github_urls`
-  7. `estimate_minutes`
-  8. `spent_minutes`
-  9. `timer_started_at`
-  10. `due_on`
-  11. `repeat_every`
-  12. `archived_at`
-  13. `parent`
-  14. `created_at`
-  15. `updated_at`
+  6. `due_on`
+  7. `repeat_every`
+  8. `archived_at`
+  9. `parent`
+  10. `created_at`
+  11. `updated_at`
 - 日時は RFC3339
 
 ## edges

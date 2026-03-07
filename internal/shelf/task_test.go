@@ -61,39 +61,6 @@ func TestTaskMarkdownRoundTrip(t *testing.T) {
 	}
 }
 
-func TestParseTaskMarkdownIgnoresLegacyMetadataKeys(t *testing.T) {
-	raw := `+++
-id = "01JABCDEF0123456789XYZ"
-title = "legacy metadata"
-kind = "todo"
-status = "open"
-github_urls = ["https://github.com/acme/roadmap/issues/12"]
-estimate_minutes = 90
-spent_minutes = 30
-timer_started_at = "2026-03-05T13:00:00+09:00"
-created_at = "2026-03-05T12:34:56+09:00"
-updated_at = "2026-03-05T12:34:56+09:00"
-+++
-
-body
-`
-	task, err := ParseTaskMarkdown([]byte(raw))
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if task.Title != "legacy metadata" || task.Status != "open" {
-		t.Fatalf("unexpected parsed task: %+v", task)
-	}
-	formatted, err := FormatTaskMarkdown(task)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	text := string(formatted)
-	if strings.Contains(text, "github_urls") || strings.Contains(text, "estimate_minutes") || strings.Contains(text, "spent_minutes") || strings.Contains(text, "timer_started_at") {
-		t.Fatalf("formatted task should strip legacy metadata: %s", text)
-	}
-}
-
 func TestParseTaskMarkdownInvalidDueOn(t *testing.T) {
 	raw := `+++
 id = "01JABCDEF0123456789XYZ"
@@ -225,35 +192,5 @@ func TestTaskStoreCRUD(t *testing.T) {
 	path := filepath.Join(TasksDir(root), task.ID+".md")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("task file missing: %v", err)
-	}
-}
-
-func TestParseTaskMarkdownLegacyStateField(t *testing.T) {
-	raw := `+++
-id = "01JABCDEF0123456789XYZ"
-title = "legacy"
-kind = "todo"
-state = "open"
-created_at = "2026-03-05T12:34:56+09:00"
-updated_at = "2026-03-05T12:34:56+09:00"
-+++
-
-body
-`
-	task, err := ParseTaskMarkdown([]byte(raw))
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if task.Status != "open" {
-		t.Fatalf("unexpected status: %s", task.Status)
-	}
-
-	data, err := FormatTaskMarkdown(task)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	formatted := string(data)
-	if !strings.Contains(formatted, "status = \"open\"") || strings.Contains(formatted, "state = ") {
-		t.Fatalf("formatted task should use status key: %s", formatted)
 	}
 }

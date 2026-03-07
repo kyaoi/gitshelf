@@ -83,30 +83,6 @@ func TestConfigValidationRejectsUnsupportedLinkTypeInConfig(t *testing.T) {
 	}
 }
 
-func TestParseConfigTOMLLegacyStateKeys(t *testing.T) {
-	raw := `
-kinds = ["todo"]
-states = ["open", "done"]
-link_types = ["depends_on", "related"]
-default_kind = "todo"
-default_state = "open"
-`
-	cfg, err := ParseConfigTOML([]byte(raw))
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if len(cfg.Statuses) != 2 {
-		t.Fatalf("unexpected statuses: %+v", cfg.Statuses)
-	}
-	if cfg.DefaultStatus != "open" {
-		t.Fatalf("unexpected default status: %s", cfg.DefaultStatus)
-	}
-	data := string(FormatConfigTOML(cfg))
-	if !strings.Contains(data, "statuses =") || !strings.Contains(data, "default_status =") || !strings.Contains(data, "[commands.calendar]") {
-		t.Fatalf("formatted config should use status keys: %s", data)
-	}
-}
-
 func TestConfigValidationRejectsInvalidCalendarDefaultDays(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Commands.Calendar.DefaultDays = 0

@@ -150,7 +150,7 @@ func parseCockpitMode(value string) (calendarMode, error) {
 		return calendarModeBoard, nil
 	case "review":
 		return calendarModeReview, nil
-	case "now", "today":
+	case "now":
 		return calendarModeNow, nil
 	default:
 		return "", fmt.Errorf("unknown cockpit mode: %s", value)

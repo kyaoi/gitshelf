@@ -14,7 +14,6 @@ func TestParseCockpitMode(t *testing.T) {
 		"tree":     calendarModeTree,
 		"board":    calendarModeBoard,
 		"review":   calendarModeReview,
-		"today":    calendarModeNow,
 		"now":      calendarModeNow,
 	}
 	for input, expected := range modes {

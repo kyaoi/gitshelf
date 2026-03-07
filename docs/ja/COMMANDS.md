@@ -25,11 +25,6 @@
 - `.shelf/tasks/`
 - `.shelf/edges/`
 
-存在すれば削除する legacy directory:
-
-- `.shelf/templates/`
-- `.shelf/history/`
-
 フラグ:
 
 - `--force`: `config.toml` をデフォルトで再生成
@@ -104,8 +99,6 @@ alias:
 alias:
 
 - `nw`
-- `today`
-- `td`
 
 launcher で使えるフラグは共通です。
 

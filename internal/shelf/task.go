@@ -34,7 +34,6 @@ type taskFrontMatter struct {
 	Title       string   `toml:"title"`
 	Kind        string   `toml:"kind"`
 	Status      string   `toml:"status"`
-	State       string   `toml:"state"`
 	Tags        []string `toml:"tags"`
 	DueOn       string   `toml:"due_on,omitempty"`
 	RepeatEvery string   `toml:"repeat_every,omitempty"`
@@ -78,10 +77,6 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 	if err != nil {
 		return Task{}, fmt.Errorf("invalid updated_at: %w", err)
 	}
-	status := strings.TrimSpace(fm.Status)
-	if status == "" {
-		status = strings.TrimSpace(fm.State)
-	}
 	dueOn, err := NormalizeDueOn(fm.DueOn)
 	if err != nil {
 		return Task{}, err
@@ -107,7 +102,7 @@ func ParseTaskMarkdown(data []byte) (Task, error) {
 		ID:          fm.ID,
 		Title:       fm.Title,
 		Kind:        Kind(fm.Kind),
-		Status:      Status(status),
+		Status:      Status(strings.TrimSpace(fm.Status)),
 		Tags:        NormalizeTags(fm.Tags),
 		DueOn:       dueOn,
 		RepeatEvery: repeatEvery,

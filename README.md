@@ -59,7 +59,7 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf tree`
 - `shelf board`
 - `shelf review`
-- `shelf now` (`today` remains an alias)
+- `shelf now`
 - `shelf ls`
 - `shelf next`
 

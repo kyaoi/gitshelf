@@ -34,8 +34,6 @@
 - `.shelf/config.toml`
 - `.shelf/tasks/`
 - `.shelf/edges/`
-- `.shelf/templates/`
-- `.shelf/history/`
 
 ## Kind と Status
 
@@ -69,25 +67,38 @@
 - 通常操作は CLI 前提
 - ただし status を横断して扱う `board` TUI は許可
 
-## 運用補助コマンド
+## 公開CLI
 
-- `agenda`: 期限ベースの確認
-- `now` (`today` alias): overdue + today の集中確認
-- `now --carry-over`: overdue active task を今日に繰り上げ
-- `snooze`: `due_on` を相対または絶対日付で調整
-- `archive` / `unarchive`: 一覧から退避 / 復帰
-- `done` / `reopen`: status ショートカット
-- `--view`: 保存済み filter の適用
-- `preset`: 出力プリセット管理
-- `view`: 保存済み filter 管理
-- `explain`: readiness / view 一致理由の説明
-- `deps`: depends_on の前提・逆依存確認
-- `deps --graph`: ASCII tree による可視化
-- `undo` / `redo`: ロールバック / 再適用
-- `history`: 更新履歴の確認
-- mutating command は `.shelf/.write.lock` を使って排他
-- `doctor --strict`: 期限未設定などの warning を追加検出
-- `export` / `import`: `.shelf` 全体の backup / restore
+現在の公開コマンドは次のみです。
+
+- `cockpit`
+- `calendar`
+- `tree`
+- `board`
+- `review`
+- `now`
+- `ls`
+- `next`
+- `init`
+- `completion`
+
+通常操作は `Cockpit` に集約します。
+
+- TTY で `shelf` を実行すると `Cockpit` が開く
+- `calendar/tree/board/review/now` は `Cockpit` の起動プリセット
+- `ls` と `next` は read-only query 用
+
+日付 token:
+
+- `today`
+- `tomorrow`
+- `+Nd`
+- `-Nd`
+- `next-week`
+- `this-week`
+- `mon..sun`
+- `next-mon..next-sun`
+- `in N days`
 
 ## 用語
 

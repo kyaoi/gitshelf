@@ -57,7 +57,7 @@ go build -o shelf ./cmd/shelf
 - `shelf tree`
 - `shelf board`
 - `shelf review`
-- `shelf now`（`today` は alias）
+- `shelf now`
 - `shelf ls`
 - `shelf next`
 

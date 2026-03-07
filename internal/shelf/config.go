@@ -32,15 +32,13 @@ type CalendarCommandConfig struct {
 }
 
 type configFile struct {
-	Kinds              []string       `toml:"kinds"`
-	Statuses           []string       `toml:"statuses"`
-	Tags               []string       `toml:"tags"`
-	LegacyStates       []string       `toml:"states"`
-	LinkTypes          []string       `toml:"link_types"`
-	DefaultKind        string         `toml:"default_kind"`
-	DefaultStatus      string         `toml:"default_status"`
-	LegacyDefaultState string         `toml:"default_state"`
-	Commands           configCommands `toml:"commands"`
+	Kinds         []string       `toml:"kinds"`
+	Statuses      []string       `toml:"statuses"`
+	Tags          []string       `toml:"tags"`
+	LinkTypes     []string       `toml:"link_types"`
+	DefaultKind   string         `toml:"default_kind"`
+	DefaultStatus string         `toml:"default_status"`
+	Commands      configCommands `toml:"commands"`
 }
 
 type configCommands struct {
@@ -102,22 +100,13 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		return Config{}, fmt.Errorf("failed to parse config TOML: %w", err)
 	}
 
-	statuses := f.Statuses
-	if len(statuses) == 0 {
-		statuses = f.LegacyStates
-	}
-	defaultStatus := strings.TrimSpace(f.DefaultStatus)
-	if defaultStatus == "" {
-		defaultStatus = strings.TrimSpace(f.LegacyDefaultState)
-	}
-
 	cfg := Config{
 		Kinds:         make([]Kind, len(f.Kinds)),
-		Statuses:      make([]Status, len(statuses)),
+		Statuses:      make([]Status, len(f.Statuses)),
 		Tags:          make([]string, len(f.Tags)),
 		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
-		DefaultStatus: Status(defaultStatus),
+		DefaultStatus: Status(strings.TrimSpace(f.DefaultStatus)),
 		Commands: CommandsConfig{
 			Calendar: CalendarCommandConfig{
 				DefaultRangeUnit: strings.TrimSpace(f.Commands.Calendar.DefaultRangeUnit),
@@ -143,7 +132,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
 	}
-	for i, status := range statuses {
+	for i, status := range f.Statuses {
 		cfg.Statuses[i] = Status(strings.TrimSpace(status))
 	}
 	for i, tag := range f.Tags {

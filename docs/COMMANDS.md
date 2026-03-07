@@ -25,11 +25,6 @@ Creates and keeps only:
 - `.shelf/tasks/`
 - `.shelf/edges/`
 
-Also removes legacy directories when present:
-
-- `.shelf/templates/`
-- `.shelf/history/`
-
 Flags:
 
 - `--force`: rewrite `config.toml` with defaults
@@ -112,8 +107,6 @@ Starts Cockpit in `review` mode.
 Aliases:
 
 - `nw`
-- `today`
-- `td`
 
 Starts Cockpit in `now` mode.
 

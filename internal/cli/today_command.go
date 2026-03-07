@@ -11,7 +11,7 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "now",
-		Aliases: []string{"today", "td", "nw"},
+		Aliases: []string{"nw"},
 		Short:   "Open Cockpit in the Now view",
 		Example: "  shelf now\n" +
 			"  shelf now --limit 10\n" +

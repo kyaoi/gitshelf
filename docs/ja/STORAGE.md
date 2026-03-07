@@ -13,8 +13,6 @@ Cockpit-first な現行ツールセットの保存形式です。
     <src_id>.toml
 ```
 
-`.shelf/templates/` や `.shelf/history/` は現在の active layout には含みません。存在する場合は `shelf init` で削除されます。
-
 ## Config
 
 現在の config に保存するもの:
@@ -37,8 +35,6 @@ default_months = 6
 default_years = 2
 ```
 
-`[views.*]` や `[output_presets.*]` のような legacy section は migration 用に読める場合がありますが、現在は書き戻しません。
-
 ## Task File
 
 各 task は `.shelf/tasks/<id>.md` に保存されます。
@@ -58,10 +54,6 @@ default_years = 2
 - `updated_at`
 
 本文は自由記述ノートです。
-
-補足:
-
-- `github_urls`, `estimate_minutes`, `spent_minutes`, `timer_started_at` のような legacy field は読めることがありますが、現在の書き込みでは出力しません
 
 ## Edge File
 
@@ -89,4 +81,3 @@ type = "depends_on"
 - edge file は outbound link のみ持つ
 - 親子構造は `parent` で表現する
 - link graph は edge file で表現する
-- 現在の書き込みは active schema に正規化し、legacy field/section は再出力しない

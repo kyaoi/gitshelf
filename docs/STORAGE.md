@@ -13,8 +13,6 @@ Current storage layout for the Cockpit-first toolset.
     <src_id>.toml
 ```
 
-Legacy directories such as `.shelf/templates/` and `.shelf/history/` are no longer part of the active layout and are removed by `shelf init`.
-
 ## Config
 
 Current config stores:
@@ -37,8 +35,6 @@ default_months = 6
 default_years = 2
 ```
 
-Legacy sections like `[views.*]` and `[output_presets.*]` may still be readable for migration, but they are no longer written back.
-
 ## Task File
 
 Each task is stored as `.shelf/tasks/<id>.md`.
@@ -58,10 +54,6 @@ Current front matter fields:
 - `updated_at`
 
 The task body is freeform notes.
-
-Current note:
-
-- legacy fields such as `github_urls`, `estimate_minutes`, `spent_minutes`, and `timer_started_at` may still be readable, but current writes omit them
 
 ## Edge File
 
@@ -89,4 +81,3 @@ Supported link types:
 - edge files store outbound links only
 - parent-child hierarchy is represented by `parent`
 - link graph is represented by edge files
-- current writes normalize to the active schema and omit legacy sections/fields
