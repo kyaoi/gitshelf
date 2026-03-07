@@ -37,13 +37,14 @@ const (
 	calendarModeCalendar calendarMode = "calendar"
 	calendarModeReview   calendarMode = "review"
 	calendarModeToday    calendarMode = "today"
+	calendarModeTree     calendarMode = "tree"
+	calendarModeBoard    calendarMode = "board"
 )
 
 type calendarPane int
 
 const (
-	calendarPaneGrid calendarPane = iota
-	calendarPaneSections
+	calendarPaneMain calendarPane = iota
 	calendarPaneInspector
 )
 
@@ -155,7 +156,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		defaultKind:   cfg.DefaultKind,
 		defaultStatus: cfg.DefaultStatus,
 		showID:        opts.ShowID,
-		pane:          calendarPaneGrid,
+		pane:          calendarPaneMain,
 		sectionRows:   map[calendarSectionID]int{},
 		readiness:     map[string]shelf.TaskReadiness{},
 		taskByID:      map[string]shelf.Task{},
@@ -213,39 +214,55 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.prevPane()
 			return m, nil
 		case "left", "h":
-			m.moveFocusByDays(-1)
-			return m, nil
-		case "right", "l":
-			m.moveFocusByDays(1)
-			return m, nil
-		case "up", "k":
-			if m.pane == calendarPaneSections {
-				m.moveSectionRow(-1)
+			if m.mode == calendarModeCalendar {
+				m.moveFocusByDays(-1)
 			} else {
-				m.moveFocusByDays(-7)
+				m.moveSectionSelection(-1)
 			}
 			return m, nil
-		case "down", "j":
-			if m.pane == calendarPaneSections {
-				m.moveSectionRow(1)
+		case "right", "l":
+			if m.mode == calendarModeCalendar {
+				m.moveFocusByDays(1)
 			} else {
+				m.moveSectionSelection(1)
+			}
+			return m, nil
+		case "up":
+			m.moveSectionRow(-1)
+			return m, nil
+		case "down":
+			m.moveSectionRow(1)
+			return m, nil
+		case "k":
+			if m.mode == calendarModeCalendar {
+				m.moveFocusByDays(-7)
+			} else {
+				m.moveSectionRow(-1)
+			}
+			return m, nil
+		case "j":
+			if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(7)
+			} else {
+				m.moveSectionRow(1)
 			}
 			return m, nil
 		case "g":
-			if m.pane == calendarPaneSections {
-				m.jumpSectionRowStart()
-			} else {
+			if m.mode == calendarModeCalendar {
 				m.dayIndex = 0
 				m.rebuildSections()
+			} else {
+				m.jumpSectionRowStart()
 			}
 			return m, nil
 		case "G":
-			if m.pane == calendarPaneSections {
+			if m.mode == calendarModeCalendar {
+				if len(m.days) > 0 {
+					m.dayIndex = len(m.days) - 1
+					m.rebuildSections()
+				}
+			} else {
 				m.jumpSectionRowEnd()
-			} else if len(m.days) > 0 {
-				m.dayIndex = len(m.days) - 1
-				m.rebuildSections()
 			}
 			return m, nil
 		case "[", "H":
@@ -313,25 +330,24 @@ func (m calendarTUIModel) View() string {
 
 	focused, _ := m.focusedDate()
 	month := buildCalendarMonthView(m.days, focused)
-	gridWidth, sectionWidth, inspectorWidth := m.layoutWidths()
+	mainWidth, inspectorWidth := m.layoutWidths()
 
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 
 	header := []string{
-		headerStyle.Render(fmt.Sprintf("Calendar [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
-		helpStyle.Render("Tab: pane  grid=h/l,j/k,[/]  sections=j/k,n/p,1..6  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
+		headerStyle.Render(fmt.Sprintf("Daily Cockpit [%s] %s .. %s", m.mode, m.days[0].Date, m.days[len(m.days)-1].Date)),
+		helpStyle.Render("Tab: pane  h/l: day or tab  j/k: week or row  ↑/↓: row  n/p,1..6: section  o/i/b/d/c: status  a: add  e: edit  z: snooze  Enter: body  r: reload  q: quit"),
 		metaStyle.Render(fmt.Sprintf("Pane: %s  Focused: %s  Filter: %s", m.paneLabel(), focused.Format("Mon 2006-01-02"), formatCalendarStatusFilter(m.statuses))),
 	}
 
-	left := renderCalendarGridPane(month, m.focusedDayLabel(), gridWidth, m.pane == calendarPaneGrid)
-	middle := renderCalendarSectionsPane(m.sections, m.sectionIndex, m.sectionRows, m.showID, sectionWidth, m.pane == calendarPaneSections)
+	main := renderCalendarMainPane(m, month, mainWidth, m.pane == calendarPaneMain)
 	selectedTask, selectedTaskOK := m.selectedTask()
 	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth)
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, left, middle, right)
-	parts := []string{strings.Join(header, "\n"), renderCalendarLegend(), body}
+	body := lipgloss.JoinHorizontal(lipgloss.Top, main, right)
+	parts := []string{strings.Join(header, "\n"), renderCalendarModeTabs(m.mode), body}
 	if m.snoozeMode {
 		parts = append(parts, renderCalendarSnoozePicker(m.snoozeIndex))
 	}
@@ -344,28 +360,22 @@ func (m calendarTUIModel) View() string {
 	return strings.Join(parts, "\n\n") + "\n"
 }
 
-func (m calendarTUIModel) layoutWidths() (int, int, int) {
+func (m calendarTUIModel) layoutWidths() (int, int) {
 	if m.width <= 0 {
-		return 54, 48, 52
+		return 88, 54
 	}
 	usable := max(96, m.width-2)
-	grid := max(44, usable*34/100)
-	sections := max(36, usable*28/100)
-	inspector := usable - grid - sections
-	if inspector < 36 {
-		deficit := 36 - inspector
-		shrinkGrid := min(deficit/2+deficit%2, max(0, grid-44))
-		grid -= shrinkGrid
-		deficit -= shrinkGrid
-		shrinkSections := min(deficit, max(0, sections-36))
-		sections -= shrinkSections
-		inspector = usable - grid - sections
+	inspector := max(40, usable*34/100)
+	main := usable - inspector
+	if main < 56 {
+		main = 56
+		inspector = usable - main
 	}
-	return grid, sections, inspector
+	return main, inspector
 }
 
 func (m *calendarTUIModel) nextPane() {
-	m.pane = (m.pane + 1) % 3
+	m.pane = (m.pane + 1) % 2
 }
 
 func (m *calendarTUIModel) prevPane() {
@@ -376,14 +386,10 @@ func (m *calendarTUIModel) prevPane() {
 }
 
 func (m calendarTUIModel) paneLabel() string {
-	switch m.pane {
-	case calendarPaneSections:
-		return "sections"
-	case calendarPaneInspector:
+	if m.pane == calendarPaneInspector {
 		return "inspector"
-	default:
-		return "grid"
 	}
+	return "main"
 }
 
 func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1120,6 +1126,79 @@ func renderCalendarLegend() string {
 	return strings.Join([]string{item(lipgloss.Color("203"), "blocked"), item(lipgloss.Color("220"), "in_progress"), item(lipgloss.Color("81"), "open"), item(lipgloss.Color("78"), "done"), item(lipgloss.Color("245"), "cancelled")}, "  ")
 }
 
+func renderCalendarModeTabs(mode calendarMode) string {
+	tabs := []struct {
+		mode  calendarMode
+		label string
+	}{
+		{calendarModeCalendar, "Calendar"},
+		{calendarModeReview, "Review"},
+		{calendarModeToday, "Today"},
+	}
+	activeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255")).
+		Background(lipgloss.Color("25")).
+		Bold(true).
+		Padding(0, 1)
+	idleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Background(lipgloss.Color("236")).
+		Padding(0, 1)
+	parts := make([]string, 0, len(tabs))
+	for _, tab := range tabs {
+		style := idleStyle
+		if tab.mode == mode {
+			style = activeStyle
+		}
+		parts = append(parts, style.Render(tab.label))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
+}
+
+func renderCalendarSectionTabs(sections []calendarSection, selected int, width int) string {
+	activeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255")).
+		Background(lipgloss.Color("63")).
+		Bold(true).
+		Padding(0, 1)
+	idleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Background(lipgloss.Color("238")).
+		Padding(0, 1)
+	parts := make([]string, 0, len(sections))
+	for i, section := range sections {
+		label := fmt.Sprintf("%d:%s(%d)", i+1, section.Title, len(section.Items))
+		style := idleStyle
+		if i == selected {
+			style = activeStyle
+		}
+		parts = append(parts, style.Render(label))
+	}
+	return trimLine(lipgloss.JoinHorizontal(lipgloss.Left, parts...), max(12, width))
+}
+
+func renderCalendarMainPane(m calendarTUIModel, month calendarMonthView, width int, active bool) string {
+	borderColor := lipgloss.Color("240")
+	if active {
+		borderColor = lipgloss.Color("45")
+	}
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(0, 1).
+		Width(width)
+
+	parts := []string{
+		renderCalendarSectionTabs(m.sections, m.sectionIndex, max(20, width-4)),
+	}
+	if m.mode == calendarModeCalendar {
+		parts = append(parts, renderCalendarLegend())
+		parts = append(parts, renderCalendarMonth(month, m.focusedDayLabel(), max(42, width-4)))
+	}
+	parts = append(parts, renderCalendarActiveSection(m.currentSection(), m.sectionRows, m.showID, max(20, width-4)))
+	return boxStyle.Render(strings.Join(parts, "\n\n"))
+}
+
 func renderCalendarGridPane(month calendarMonthView, focusedDate string, width int, active bool) string {
 	borderColor := lipgloss.Color("240")
 	if active {
@@ -1128,6 +1207,48 @@ func renderCalendarGridPane(month calendarMonthView, focusedDate string, width i
 	containerStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1).Width(width)
 	content := renderCalendarMonth(month, focusedDate, max(42, width-4))
 	return containerStyle.Render(content)
+}
+
+func renderCalendarActiveSection(section *calendarSection, sectionRows map[calendarSectionID]int, showID bool, width int) string {
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
+
+	if section == nil {
+		return boxStyle.Render(mutedStyle.Render("No section"))
+	}
+	lines := []string{titleStyle.Render(fmt.Sprintf("%s (%d)", section.Title, len(section.Items)))}
+	if len(section.Items) == 0 {
+		lines = append(lines, mutedStyle.Render("(none)"))
+		return boxStyle.Render(strings.Join(lines, "\n"))
+	}
+	row := sectionRows[section.ID]
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(section.Items) {
+		row = len(section.Items) - 1
+	}
+	for i, item := range section.Items {
+		label := item.Task.Title
+		if showID {
+			label = fmt.Sprintf("[%s] %s", shelf.ShortID(item.Task.ID), label)
+		}
+		rendered := "  " + trimLine(label, max(18, width-4))
+		if i == row {
+			rendered = selectedStyle.Render("> " + trimLine(label, max(18, width-4)))
+		}
+		lines = append(lines, rendered)
+		lines = append(lines, mutedStyle.Render("  "+trimLine(item.Subtitle, max(18, width-4))))
+		if strings.TrimSpace(item.Reason) != "" {
+			lines = append(lines, mutedStyle.Render("  "+trimLine(item.Reason, max(18, width-4))))
+		}
+	}
+	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
 func renderCalendarMonth(month calendarMonthView, focusedDate string, width int) string {
