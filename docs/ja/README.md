@@ -1,62 +1,47 @@
 # gitshelf 日本語ガイド
 
-`gitshelf` は、1つの TUI workspace `Cockpit` を中心にした Git-friendly task manager です。
+`gitshelf` は、1つの TUI ワークスペース `Cockpit` を中心とした、Git-friendly なタスクマネージャーです。
 
-- コマンド名: `shelf`
-- 主入口: `shelf` または `shelf cockpit`
-- 保存先: `.shelf/`
-- タスク: `.shelf/tasks/<id>.md`
-- リンク: `.shelf/edges/<src_id>.toml`
+* CLI コマンド: `shelf`
+* メイン入口: `shelf` または `shelf cockpit`
+* 保存ルート: `.shelf/`
+* タスク: `.shelf/tasks/<id>.md`
+* リンク: `.shelf/edges/<src_id>.toml`
 
-## 日本語ドキュメント
+## ドキュメント
 
-- CLI 仕様: [`COMMANDS.md`](COMMANDS.md)
-- コマンドガイド: [`COMMAND_GUIDE.md`](COMMAND_GUIDE.md)
-- ワークフロー: [`WORKFLOWS.md`](WORKFLOWS.md)
-- 対話 UI: [`INTERACTIVE.md`](INTERACTIVE.md)
-- 保存形式: [`STORAGE.md`](STORAGE.md)
+* CLI 仕様: [`docs/COMMANDS.md`](docs/COMMANDS.md)
+* コマンドガイド: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
+* ワークフローガイド: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
+* 対話動作: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
+* 保存形式: [`docs/STORAGE.md`](docs/STORAGE.md)
+* 日本語ユーザードキュメント: [`docs/ja/README.md`](docs/ja/README.md)
 
-## インストール
+## Install
 
-### 方法1: リポジトリを clone して `./bin/shelf` を作る
-
-```bash
-git clone https://github.com/kyaoi/gitshelf.git
-cd gitshelf
-mkdir -p bin
-go build -o ./bin/shelf ./cmd/shelf
-```
-
-リポジトリ内からそのまま実行できます。
-
-```bash
-./bin/shelf
-```
-
-どこからでも `shelf` として呼びたい場合:
-
-```bash
-export PATH="$PWD/bin:$PATH"
-shelf
-```
-
-### 方法2: `go install` で直接入れる
+### 推奨: `go install` で直接インストール
 
 ```bash
 go install github.com/kyaoi/gitshelf/cmd/shelf@latest
 ```
 
-インストール先は `$(go env GOPATH)/bin` または `$(go env GOBIN)` です。
-
-## completion
-
-shell ごとの completion を生成できます。
+### ローカル開発: clone してビルド
 
 ```bash
-./bin/shelf completion zsh
-./bin/shelf completion bash
-./bin/shelf completion fish
-./bin/shelf completion powershell
+git clone https://github.com/kyaoi/gitshelf.git
+cd gitshelf
+go install ./cmd/shelf
+```
+
+## Shell Completion
+
+利用しているシェル向けの completion を生成できます。
+
+```bash
+shelf completion zsh
+shelf completion bash
+shelf completion fish
+shelf completion powershell
 ```
 
 例:
@@ -65,7 +50,7 @@ shell ごとの completion を生成できます。
 
 ```bash
 mkdir -p "${HOME}/.zsh/completions"
-./bin/shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
+shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
 echo 'fpath=("${HOME}/.zsh/completions" $fpath)' >> ~/.zshrc
 echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
 ```
@@ -74,63 +59,101 @@ echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
 
 ```bash
 mkdir -p "${HOME}/.local/share/bash-completion/completions"
-./bin/shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
+shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
 ```
 
 ### fish
 
 ```bash
 mkdir -p "${HOME}/.config/fish/completions"
-./bin/shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
+shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
 ```
 
 ### PowerShell
 
 ```powershell
-./bin/shelf completion powershell | Out-String | Invoke-Expression
+shelf completion powershell | Out-String | Invoke-Expression
 ```
 
-## クイックスタート
+## Quick Start
 
 ```bash
-./bin/shelf init
+# 初期化
+shelf init
 
-# 主入口
-./bin/shelf
-./bin/shelf cockpit
+# メインワークスペース
+shelf
+shelf cockpit
 
-# launcher
-./bin/shelf calendar
-./bin/shelf tree
-./bin/shelf board
-./bin/shelf review
-./bin/shelf now
+# Cockpit ランチャー
+shelf calendar
+shelf tree
+shelf board
+shelf review
+shelf now
 
-# script / 確認
-./bin/shelf ls --status open --json
-./bin/shelf next
+# スクリプト向けクエリ
+shelf ls --status open --json
+shelf next
 ```
 
-## 現在の公開コマンド面
+## Command Surface
 
-現在の top-level command は次だけです。
+現在の公開 CLI に含まれる top-level command は次のものだけです。
 
-- `shelf init`
-- `shelf completion`
-- `shelf cockpit`
-- `shelf calendar`
-- `shelf tree`
-- `shelf board`
-- `shelf review`
-- `shelf now`
-- `shelf ls`
-- `shelf next`
+* `shelf init`
+* `shelf completion`
+* `shelf cockpit`
+* `shelf calendar`
+* `shelf tree`
+* `shelf board`
+* `shelf review`
+* `shelf now`
+* `shelf ls`
+* `shelf next`
 
-それ以外の操作は Cockpit 内で完結させる前提です。
+それ以外の操作はすべて Cockpit 内で行う想定です。
 
-## 基本方針
+## Cockpit-First Usage
 
-- 普段は `shelf`
-- 明示したいときは `shelf cockpit`
-- `calendar/tree/board/review/now` は Cockpit の起動プリセット
-- 作成・編集・移動・期限変更・リンク・archive・status 変更は Cockpit 内で行う
+`Cockpit` がメインワークスペースです。
+
+* TTY 上で `shelf` を実行すると `Cockpit` が開く
+* `shelf cockpit` で明示的に開ける
+* `calendar/tree/board/review/now` は同じワークスペースに対するランチャープリセット
+* 作成、編集、移動、スヌーズ、リンク、アーカイブ、ステータス変更は TUI 内で行う
+
+推奨される開始地点:
+
+```bash
+shelf
+```
+
+## Current Data Model
+
+タスクのメタデータ:
+
+* `title`
+* `kind`
+* `status`
+* `tags`
+* `due_on`
+* `repeat_every`
+* `archived_at`
+* `parent`
+* timestamps
+
+リンクで使うのは次の 2 種類のみです。
+
+* `depends_on`
+* `related`
+
+## Quality Checks
+
+```bash
+gofmt -w .
+go test ./...
+go test -race ./...
+go vet ./...
+```
+

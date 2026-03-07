@@ -19,45 +19,30 @@
 
 ## Install
 
-### Option 1: clone the repository and build `./bin/shelf`
-
-```bash
-git clone https://github.com/kyaoi/gitshelf.git
-cd gitshelf
-mkdir -p bin
-go build -o ./bin/shelf ./cmd/shelf
-```
-
-Run it from the repository:
-
-```bash
-./bin/shelf
-```
-
-If you want to call it as `shelf` from anywhere:
-
-```bash
-export PATH="$PWD/bin:$PATH"
-shelf
-```
-
-### Option 2: install directly with `go install`
+### Recommended: install directly with `go install`
 
 ```bash
 go install github.com/kyaoi/gitshelf/cmd/shelf@latest
 ```
 
-This installs `shelf` into `$(go env GOPATH)/bin` or `$(go env GOBIN)`.
+### Local development: clone and build
+
+```bash
+git clone https://github.com/kyaoi/gitshelf.git
+cd gitshelf
+go install ./cmd/shelf
+```
+
 
 ## Shell Completion
 
 Generate completion for your shell:
 
 ```bash
-./bin/shelf completion zsh
-./bin/shelf completion bash
-./bin/shelf completion fish
-./bin/shelf completion powershell
+shelf completion zsh
+shelf completion bash
+shelf completion fish
+shelf completion powershell
 ```
 
 Examples:
@@ -66,7 +51,7 @@ Examples:
 
 ```bash
 mkdir -p "${HOME}/.zsh/completions"
-./bin/shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
+shelf completion zsh > "${HOME}/.zsh/completions/_shelf"
 echo 'fpath=("${HOME}/.zsh/completions" $fpath)' >> ~/.zshrc
 echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
 ```
@@ -75,42 +60,42 @@ echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
 
 ```bash
 mkdir -p "${HOME}/.local/share/bash-completion/completions"
-./bin/shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
+shelf completion bash > "${HOME}/.local/share/bash-completion/completions/shelf"
 ```
 
 ### fish
 
 ```bash
 mkdir -p "${HOME}/.config/fish/completions"
-./bin/shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
+shelf completion fish > "${HOME}/.config/fish/completions/shelf.fish"
 ```
 
 ### PowerShell
 
 ```powershell
-./bin/shelf completion powershell | Out-String | Invoke-Expression
+shelf completion powershell | Out-String | Invoke-Expression
 ```
 
 ## Quick Start
 
 ```bash
 # initialize
-./bin/shelf init
+shelf init
 
 # main workspace
-./bin/shelf
-./bin/shelf cockpit
+shelf
+shelf cockpit
 
 # cockpit launchers
-./bin/shelf calendar
-./bin/shelf tree
-./bin/shelf board
-./bin/shelf review
-./bin/shelf now
+shelf calendar
+shelf tree
+shelf board
+shelf review
+shelf now
 
 # script-friendly queries
-./bin/shelf ls --status open --json
-./bin/shelf next
+shelf ls --status open --json
+shelf next
 ```
 
 ## Command Surface
