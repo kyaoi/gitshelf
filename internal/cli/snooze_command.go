@@ -103,6 +103,13 @@ const (
 	snoozeModeTo snoozeMode = "to"
 )
 
+type snoozePreset struct {
+	Label      string
+	Mode       snoozeMode
+	Value      string
+	NeedsInput bool
+}
+
 func resolveSnoozeMode(byChanged, toChanged bool, interactiveEnabled bool) (snoozeMode, error) {
 	switch {
 	case byChanged && toChanged:
@@ -119,22 +126,20 @@ func resolveSnoozeMode(byChanged, toChanged bool, interactiveEnabled bool) (snoo
 }
 
 func promptSnoozeInputInteractive() (snoozeMode, string, error) {
-	selected, err := selectEnumOption("期限変更方法を選択してください", []interactive.Option{
-		{
-			Value:      string(snoozeModeBy),
-			Label:      "By days (<N>d)",
-			SearchText: "by days relative",
-		},
-		{
-			Value:      string(snoozeModeTo),
-			Label:      "To date token",
-			SearchText: "to date absolute",
-		},
-	})
+	options := snoozeInteractiveOptions()
+	selected, err := selectEnumOption("期限変更方法を選択してください", options)
 	if err != nil {
 		return "", "", err
 	}
-	switch snoozeMode(selected.Value) {
+	preset, ok := snoozePresetByLabel(selected.Value)
+	if !ok {
+		return "", "", fmt.Errorf("unknown snooze preset: %s", selected.Value)
+	}
+	if !preset.NeedsInput {
+		return preset.Mode, preset.Value, nil
+	}
+
+	switch preset.Mode {
 	case snoozeModeBy:
 		value, err := interactive.PromptText("日数を入力してください (<N>d, 例: 2d / -1d)")
 		if err != nil {
@@ -158,6 +163,43 @@ func promptSnoozeInputInteractive() (snoozeMode, string, error) {
 	default:
 		return "", "", fmt.Errorf("unknown snooze mode: %s", selected.Value)
 	}
+}
+
+func snoozeInteractiveOptions() []interactive.Option {
+	presets := snoozeInteractivePresets()
+	options := make([]interactive.Option, 0, len(presets))
+	for _, preset := range presets {
+		search := fmt.Sprintf("%s %s %s", preset.Label, preset.Mode, preset.Value)
+		options = append(options, interactive.Option{
+			Value:      preset.Label,
+			Label:      preset.Label,
+			SearchText: search,
+		})
+	}
+	return options
+}
+
+func snoozeInteractivePresets() []snoozePreset {
+	return []snoozePreset{
+		{Label: "Today", Mode: snoozeModeTo, Value: "today"},
+		{Label: "Tomorrow", Mode: snoozeModeTo, Value: "tomorrow"},
+		{Label: "By +1 day", Mode: snoozeModeBy, Value: "1d"},
+		{Label: "By +3 days", Mode: snoozeModeBy, Value: "3d"},
+		{Label: "By +7 days", Mode: snoozeModeBy, Value: "7d"},
+		{Label: "Next week", Mode: snoozeModeTo, Value: "next-week"},
+		{Label: "Next Monday", Mode: snoozeModeTo, Value: "next-mon"},
+		{Label: "Custom by days", Mode: snoozeModeBy, NeedsInput: true},
+		{Label: "Custom date token", Mode: snoozeModeTo, NeedsInput: true},
+	}
+}
+
+func snoozePresetByLabel(label string) (snoozePreset, bool) {
+	for _, preset := range snoozeInteractivePresets() {
+		if preset.Label == label {
+			return preset, true
+		}
+	}
+	return snoozePreset{}, false
 }
 
 func applyByDays(currentDue string, by string) (string, error) {

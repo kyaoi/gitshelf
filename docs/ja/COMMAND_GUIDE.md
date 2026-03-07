@@ -176,6 +176,8 @@ due date カレンダービューです。
 - `calendar` は通常 TUI で開きます。
 - 非TTYで使うときは `--json` を使います。
 - `--days` は TUI 内で扱う表示レンジです。
+- フォーカス中の日付には task 一覧と本文プレビューが出ます。
+- TUI 内から editor 起動や snooze ができます。
 
 ### `shelf board`
 
@@ -290,7 +292,8 @@ task ファイル全体を editor で開きます。
 補足:
 - `--by` は現在の期限から相対日数でずらす
 - `--to` は新しい期限を直接指定する
-- TTY なら未指定時に `by` / `to` を対話選択できる
+- TTY なら未指定時に `Today` / `Tomorrow` / `+3日` / `Next week` などのプリセットを先に選べる
+- 同じ selector から custom `by` / `to` 入力にも進める
 
 ### `shelf archive` / `shelf unarchive`
 

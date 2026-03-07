@@ -112,6 +112,16 @@ Due-date calendar view.
 - default statuses: `open`, `in_progress`, `blocked`
 - default mode: TUI month grid + focused-day detail
 - requires TTY unless `--json` is used
+- keybindings:
+  - `h` / `l`: move by day
+  - `j` / `k`: move by week
+  - `[` / `]`: jump by month inside the current range
+  - `n` / `p`: cycle tasks on the focused day
+  - `Enter`: expand/collapse selected task body preview
+  - `e`: open selected task in editor
+  - `z`: open snooze presets for selected task
+  - `r`: reload
+  - `q`: quit
 
 Flags:
 
@@ -438,7 +448,7 @@ Behavior:
 - if only `--by` is provided, shift current `due_on` by relative days
 - if only `--to` is provided, normalize and set the new `due_on`
 - if neither is provided:
-  - TTY: select `by` / `to` interactively after task selection
+  - TTY: choose from presets such as `today`, `tomorrow`, `+3 days`, `next-week`, or switch to custom `by` / `to`
   - non-TTY: fail with an explicit error
 
 Flags:

@@ -94,7 +94,7 @@ The type selection screen includes this warning:
 1. Select target task by ID/title
    - Uses hierarchical tree-style labels without IDs by default
 2. (`set` only, when no update flags are passed) choose fields in a menu and edit interactively (`Title`/`Kind`/`Status`/`Tags`/`Due`/`Repeat`/`Parent`/`Body replace`/`Body append`)
-3. (`snooze` only, when `--by` and `--to` are both omitted) choose `By days` or `To date token`, then enter the value
+3. (`snooze` only, when `--by` and `--to` are both omitted) choose a preset like `Today` / `Tomorrow` / `By +3 days`, or choose `Custom by days` / `Custom date token`
 4. `set` shows change preview before apply
 
 ## mv Interactive Flow
@@ -123,5 +123,11 @@ The type selection screen includes this warning:
 - renders a month grid focused on the currently selected day
 - `h` / `l`: move by one day
 - `j` / `k`: move by one week
+- `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range
+- `n` / `p`: change selected task on the focused day
+- `Enter`: expand/collapse selected task body preview
+- `e`: open the selected task in the configured editor
+- `z`: open snooze presets for the selected task
+- `r`: reload task data
 - `q` / `Esc` / `Ctrl+C`: quit

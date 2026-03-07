@@ -48,3 +48,21 @@ func TestResolveSnoozeMode(t *testing.T) {
 		t.Fatalf("expected interactive fallback, got mode=%q err=%v", mode, err)
 	}
 }
+
+func TestSnoozeInteractivePresets(t *testing.T) {
+	preset, ok := snoozePresetByLabel("Tomorrow")
+	if !ok {
+		t.Fatal("expected Tomorrow preset")
+	}
+	if preset.Mode != snoozeModeTo || preset.Value != "tomorrow" || preset.NeedsInput {
+		t.Fatalf("unexpected preset: %+v", preset)
+	}
+
+	custom, ok := snoozePresetByLabel("Custom by days")
+	if !ok {
+		t.Fatal("expected Custom by days preset")
+	}
+	if custom.Mode != snoozeModeBy || !custom.NeedsInput {
+		t.Fatalf("unexpected custom preset: %+v", custom)
+	}
+}

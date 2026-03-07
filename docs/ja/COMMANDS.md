@@ -103,6 +103,16 @@ subcommand:
 - 既定の status: `open`, `in_progress`, `blocked`
 - 既定は月グリッド + 詳細の TUI 表示
 - 非TTYでは `--json` を使う
+- 主な操作:
+  - `h` / `l`: 日移動
+  - `j` / `k`: 週移動
+  - `[` / `]`: 月移動
+  - `n` / `p`: 当日の task 切り替え
+  - `Enter`: 本文プレビュー展開/折りたたみ
+  - `e`: editor を開く
+  - `z`: snooze プリセット
+  - `r`: reload
+  - `q`: 終了
 
 主なフラグ:
 - `--start <YYYY-MM-DD|today|tomorrow>`
@@ -376,7 +386,7 @@ editor の解決順:
 - `--by` のみ指定: 現在の `due_on` を相対日数でずらす
 - `--to` のみ指定: 新しい `due_on` を直接設定する
 - どちらも未指定:
-  - TTY: task 選択後に `by` / `to` を対話で選ぶ
+  - TTY: `Today` / `Tomorrow` / `By +3 days` / `Next week` などのプリセット、または custom `by` / `to` を対話で選ぶ
   - 非TTY: 明示的なエラー
 
 指定:

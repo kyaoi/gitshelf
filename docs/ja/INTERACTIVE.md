@@ -97,7 +97,7 @@ type 選択画面では、次の注意文を出します。
 
 1. 対象 task を tree 形式で選択
 2. `set` だけは、更新フラグ未指定時に menu で編集対象を選ぶ
-3. `snooze` は `--by` / `--to` 未指定時に `By days` / `To date token` を選び、値を入力する
+3. `snooze` は `--by` / `--to` 未指定時に `Today` / `Tomorrow` / `By +3 days` などのプリセット、または custom 入力を選ぶ
 4. `set` は適用前に change preview を表示
 
 `set` の interactive 編集対象:
@@ -139,5 +139,11 @@ type 選択画面では、次の注意文を出します。
 - 選択中の日付を中心に月グリッドを表示します
 - `h` / `l`: 1日ずつ移動
 - `j` / `k`: 1週ずつ移動
+- `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジの先頭 / 末尾へ移動
+- `n` / `p`: 当日の task を切り替え
+- `Enter`: 選択 task の本文プレビュー展開/折りたたみ
+- `e`: 選択 task を editor で開く
+- `z`: 選択 task の snooze プリセットを開く
+- `r`: 再読み込み
 - `q` / `Esc` / `Ctrl+C`: 終了

@@ -188,6 +188,8 @@ Notes:
 - `calendar` opens a TUI by default.
 - Use `--json` in non-TTY contexts.
 - `--days` controls the range that the TUI can navigate inside.
+- The focused day has a task list and a body preview panel.
+- You can edit or snooze the selected task directly from the TUI.
 
 ### `shelf board`
 
@@ -303,7 +305,8 @@ The task stays valid, but the date should move.
 Notes:
 - `--by` shifts from the current due date (or from today if due is empty)
 - `--to` sets the due date directly
-- In TTY, if neither is provided, the command asks which mode to use
+- In TTY, if neither is provided, the command first offers common presets like `today`, `tomorrow`, `+3 days`, and `next-week`
+- Custom `by` / `to` input is still available from the same selector
 
 ### `shelf archive` / `shelf unarchive`
 
