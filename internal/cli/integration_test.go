@@ -220,6 +220,9 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	if strings.Contains(rootHelp, "preview-body") {
 		t.Fatalf("root help should not include preview-body: %s", rootHelp)
 	}
+	if !strings.Contains(rootHelp, "cockpit") {
+		t.Fatalf("root help should mention cockpit: %s", rootHelp)
+	}
 
 	treeHelp, err := executeCLI(t, "tree", "--help")
 	if err != nil {
@@ -227,6 +230,9 @@ func TestCLIPreviewBodyFlagRemoved(t *testing.T) {
 	}
 	if strings.Contains(treeHelp, "preview-body") {
 		t.Fatalf("tree help should not include preview-body: %s", treeHelp)
+	}
+	if !strings.Contains(treeHelp, "--plain") {
+		t.Fatalf("tree help should mention --plain: %s", treeHelp)
 	}
 
 	addHelp, err := executeCLI(t, "add", "--help")
@@ -257,6 +263,30 @@ func TestCLIReviewAndTodayHelpMentionPlain(t *testing.T) {
 	}
 	if !strings.Contains(todayHelp, "--plain") {
 		t.Fatalf("today help should mention --plain: %s", todayHelp)
+	}
+
+	cockpitHelp, err := executeCLI(t, "cockpit", "--help")
+	if err != nil {
+		t.Fatalf("cockpit help failed: %v", err)
+	}
+	if !strings.Contains(cockpitHelp, "--mode") {
+		t.Fatalf("cockpit help should mention --mode: %s", cockpitHelp)
+	}
+}
+
+func TestCLIAliasesResolveToCommands(t *testing.T) {
+	aliases := [][]string{
+		{"cp", "--help"},
+		{"cal", "--help"},
+		{"kb", "--help"},
+		{"rv", "--help"},
+		{"td", "--help"},
+		{"tr", "--help"},
+	}
+	for _, args := range aliases {
+		if _, err := executeCLI(t, args...); err != nil {
+			t.Fatalf("alias %v failed: %v", args, err)
+		}
 	}
 }
 

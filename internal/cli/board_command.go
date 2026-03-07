@@ -14,8 +14,9 @@ type boardColumn struct {
 
 func newBoardCommand(ctx *commandContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "board",
-		Short: "Open the Daily Cockpit in board mode",
+		Use:     "board",
+		Aliases: []string{"kb"},
+		Short:   "Open the Daily Cockpit in board mode",
 		Example: "  shelf board\n" +
 			"  shelf board --show-id",
 		RunE: func(_ *cobra.Command, _ []string) error {

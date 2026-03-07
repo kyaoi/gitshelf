@@ -680,8 +680,9 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "tree",
-		Short: "Show task tree",
+		Use:     "tree",
+		Aliases: []string{"tr"},
+		Short:   "Show task tree",
 		Example: "  shelf tree\n" +
 			"  shelf tree --plain\n" +
 			"  shelf tree --kind todo --not-status done --tag backend\n" +

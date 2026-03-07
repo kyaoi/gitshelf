@@ -22,6 +22,7 @@ This file is the operator guide.
 | Change status quickly | `shelf done`, `start`, `block`, `cancel`, `reopen` |
 | See what to work on now | `shelf next`, `review`, `today`, `agenda` |
 | See due dates on a calendar | `shelf calendar` |
+| Open the unified TUI shell directly | `shelf cockpit` |
 | Manage status visually | `shelf board` |
 | Add links between tasks | `shelf link`, `unlink`, `links`, `deps` |
 | Link GitHub issues/PRs | `shelf github`, `shelf sync github` |
@@ -150,7 +151,7 @@ You want one screen that answers:
 - what is ready
 
 Notes:
-- On TTY, `review` opens the calendar-based daily cockpit by default.
+- On TTY, `review` opens the Daily Cockpit in `review` mode by default.
 - Use `--plain` to force the legacy text summary.
 - Use `--json` for scripts.
 
@@ -171,7 +172,7 @@ Use when:
 You are planning the current day.
 
 Notes:
-- On TTY, `today` opens the calendar-based daily cockpit by default.
+- On TTY, `today` opens the Daily Cockpit in `today` mode by default.
 - Use `--plain` to keep the legacy text summary.
 - `--carry-over` still uses the legacy batch flow and does not open the cockpit.
 
@@ -198,19 +199,36 @@ Notes:
 - `--days` controls an explicit day range.
 - `--months` opens whole-month ranges such as one month or three months.
 - `--years` opens whole-year ranges.
-- The TUI is a three-pane cockpit: month grid, daily sections, and task inspector.
-- `Tab`/`Shift+Tab` switches panes.
-- `n`/`p` switches sections, and `1..6` jumps directly when that section exists.
+- The TUI is the shared Daily Cockpit shell.
+- Layout is now `main + inspector`, with mode tabs instead of a fixed three-column layout.
+- `C/T/B/R/Y` switches between `calendar`, `tree`, `board`, `review`, and `today`.
+- `n/p` switches tabs in review/today and columns in board; `1..6` jumps directly when a section exists.
 - You can add a task directly on the focused day with `a`; kind/status come from config defaults.
 - You can edit or snooze the selected task directly from the TUI.
 - You can also change the selected task status directly with `o/i/b/d/c`.
 - If you change a task to a status outside the current filter, calendar keeps it visible until the next reload so context is not lost.
 - Moving past the current window automatically shifts the visible range, so you can keep going backward or forward in time.
 
+### `shelf cockpit`
+
+Meaning:
+Open the shared Daily Cockpit directly.
+
+Use when:
+You want one entry point and choose the starting mode yourself.
+
+Examples:
+
+```bash
+shelf cockpit
+shelf cockpit --mode tree
+shelf cockpit --mode board --months 3
+```
+
 ### `shelf board`
 
 Meaning:
-TUI board organized by status columns.
+Open the Daily Cockpit in `board` mode.
 
 Use when:
 You want to move through active work visually and change statuses in place.
@@ -218,7 +236,7 @@ You want to move through active work visually and change statuses in place.
 Notes:
 - TTY only.
 - Columns follow config `statuses`.
-- `i` and `s` both set `in_progress` so the status vocabulary matches the calendar cockpit.
+- This is now a launcher into the shared cockpit shell, not a separate TUI implementation.
 
 ## Listing and Inspection
 
@@ -245,6 +263,10 @@ Hierarchical view based on `parent`.
 
 Use when:
 The tree structure matters more than a flat filtered list.
+
+Notes:
+- On TTY, `tree` opens the Daily Cockpit in `tree` mode by default.
+- Use `--plain` to keep the legacy text tree output.
 
 ### `shelf show`
 

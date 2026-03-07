@@ -17,8 +17,10 @@ interactive mode は stdin/stdout が TTY のときだけ有効です。
 - `shelf done`（`<id>` 省略時、`status!=done` を優先表示）
 - `shelf links`（`<id>` 省略時）
 - `shelf triage`（`--auto` なし）
-- `shelf board`（TTY 専用 TUI）
-- `shelf calendar`（`--json` なしでは TTY 専用 TUI）
+- `shelf board`（TTY 専用、Daily Cockpit の `board` mode）
+- `shelf calendar`（`--json` なしでは Daily Cockpit の `calendar` mode）
+- `shelf tree`（`--plain` / `--json` なしでは Daily Cockpit の `tree` mode）
+- `shelf cockpit`（TTY 専用、統一 Daily Cockpit 入口）
 
 ## キーバインド
 
@@ -129,21 +131,22 @@ type 選択画面では、次の注意文を出します。
 
 ## `board` TUI
 
-- status 列は config の順序に従う
-- 下部に選択 task の body preview を表示
-- `o` / `i` / `s` / `b` / `d` / `c` で status をその場で更新（`i` と `s` はどちらも `in_progress`）
+- `shelf board` は shared Daily Cockpit を `board` mode で開きます
+- status 列は config の順序に従います
+- `C/T/B/R/Y` で他 mode へ切り替えられます
 
 ## `calendar` TUI
 
-- `shelf calendar` で `--json` を付けないときに使います
+- `shelf cockpit` / `shelf calendar` / `shelf tree` / `shelf board` で共通利用されます
 - `shelf review` / `shelf today` も TTY ではこの TUI を使います（`--plain` / `--json` 指定時を除く）
-- 固定3ペインです: month grid / daily sections / inspector
+- レイアウトは `main + inspector` です
+- `C/T/B/R/Y`: mode 切り替え
 - `Tab` / `Shift+Tab`: ペイン切り替え
-- `h` / `l`: 1日ずつ移動
-- `j` / `k`: grid では1週、sections では行移動
+- `h` / `l`: 1日移動、review/today tab 切り替え、または board 列移動
+- `j` / `k`: calendar mode では1週移動、tree/board/review/today では行移動
 - `[` / `]`: 1か月ずつ移動
 - `g` / `G`: レンジ先頭 / 末尾、または section 先頭行 / 末尾行へ移動
-- `n` / `p`: cockpit section を切り替え
+- `n` / `p`: cockpit tab を切り替え、または board 列移動
 - `1..6`: 見えている section へ直接ジャンプ
 - `a`: focused day 用の inline add composer を開く
 - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更

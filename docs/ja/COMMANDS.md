@@ -101,15 +101,16 @@ subcommand:
 仕様:
 - 既定の開始日: 今週の月曜日
 - 既定の status: `open`, `in_progress`, `blocked`
-- 既定は固定3ペインの cockpit TUI（`grid` / `sections` / `inspector`）
+- 既定は Daily Cockpit の `calendar` mode
 - 既定レンジは config `[commands.calendar]` に従う
 - 非TTYでは `--json` を使う
 - 主な操作:
-  - `Tab` / `Shift+Tab`: ペイン切り替え
-  - `h` / `l`: 日移動
-  - `j` / `k`: grid では週移動、sections では行移動
+  - `Tab` / `Shift+Tab`: `main` と `inspector` を切り替え
+  - `C` / `T` / `B` / `R` / `Y`: mode 切り替え
+  - `h` / `l`: 日移動、review/today tab 切り替え、または board 列移動
+  - `j` / `k`: calendar mode では週移動、tree/board/review/today では行移動
   - `[` / `]`: 月移動
-  - `n` / `p`: cockpit section 切り替え
+  - `n` / `p`: cockpit tab 切り替え、または board 列移動
   - `1..6`: section へ直接ジャンプ
   - `a`: focused day に config default で task 追加
   - `o` / `i` / `b` / `d` / `c`: 選択 task の status を `open` / `in_progress` / `blocked` / `done` / `cancelled` に変更
@@ -131,20 +132,38 @@ subcommand:
 - `--days` / `--months` / `--years` はどれか1つだけ指定可
 - 未指定時は config `[commands.calendar]` を使う
 
-## `shelf board`
+## `shelf cockpit`
 
 意味:
-status 列ベースの TUI board です。
+統一 Daily Cockpit を直接起動します。
 
 前提:
 - TTY 必須
+- `calendar` / `tree` / `board` / `review` / `today` が共通 shell 上で切り替わります
 
-操作:
-- `h` / `l`: 列移動
-- `j` / `k`: 行移動
-- `o` / `i` / `s` / `b` / `d` / `c`: status 更新（`i` と `s` はどちらも `in_progress`）
-- `r`: reload
-- `q`: quit
+主なフラグ:
+- `--mode <calendar|tree|board|review|today>`
+- `--start <YYYY-MM-DD|today|tomorrow>`
+- `--days <n>`
+- `--months <n>`
+- `--years <n>`
+- `--limit <n>`
+- `--kind <kind>`（複数可）
+- `--status <status>`（複数可）
+- `--tag <tag>`（複数可）
+- `--not-kind <kind>`（複数可）
+- `--not-status <status>`（複数可）
+- `--not-tag <tag>`（複数可）
+
+## `shelf board`
+
+意味:
+Daily Cockpit の `board` mode を開く launcher です。
+
+前提:
+- TTY 必須
+- 列は config の `statuses` に従います
+- 起動後は `C/T/B/R/Y` で他 mode に切り替えられます
 
 ## `shelf estimate`
 
@@ -228,7 +247,7 @@ section:
 - `Ready`
 
 TTY時の挙動:
-- TTY では calendar ベースの daily cockpit を `review` mode で開きます
+- TTY では Daily Cockpit を `review` mode で開きます
 - `--plain` で従来の text summary を強制できます
 - 非TTYでは `--json` を使わない限り従来の text path のままです
 
@@ -321,7 +340,7 @@ subcommand:
 overdue と today に集中した一覧です。
 
 TTY時の挙動:
-- TTY では calendar ベースの daily cockpit を `today` mode で開きます
+- TTY では Daily Cockpit を `today` mode で開きます
 - `--plain` で従来の text summary を維持できます
 - `--carry-over` は従来の batch path のままです
 
@@ -342,6 +361,10 @@ TTY時の挙動:
 意味:
 親子関係による階層表示です。
 
+TTY時の挙動:
+- TTY では `--plain` / `--json` 未指定時に Daily Cockpit の `tree` mode を開きます
+- `--plain` で従来の text tree 出力を強制できます
+
 主なフラグ:
 - `--preset <name>`
 - `--view <name>`
@@ -349,6 +372,7 @@ TTY時の挙動:
 - `--max-depth <n>`
 - `--kind`, `--status`, `--tag`
 - `--not-kind`, `--not-status`, `--not-tag`
+- `--plain`
 - `--json`
 
 ## `shelf show <id>`

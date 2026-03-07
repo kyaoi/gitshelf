@@ -110,15 +110,16 @@ Due-date calendar view.
 
 - default start: current week Monday
 - default statuses: `open`, `in_progress`, `blocked`
-- default mode: TUI three-pane cockpit (`grid` / `sections` / `inspector`)
+- default mode: Daily Cockpit `calendar` mode
 - default range follows config `[commands.calendar]`
 - requires TTY unless `--json` is used
 - keybindings:
-  - `Tab` / `Shift+Tab`: move between panes
-  - `h` / `l`: move by day
-  - `j` / `k`: move by week in the grid, or move rows in the sections pane
+  - `Tab` / `Shift+Tab`: move between `main` and `inspector`
+  - `C` / `T` / `B` / `R` / `Y`: switch cockpit mode
+  - `h` / `l`: move by day, switch review/today tabs, or move board columns
+  - `j` / `k`: move by week in calendar mode, or move rows in tree/board/review/today
   - `[` / `]`: jump by month inside the current range
-  - `n` / `p`: switch cockpit sections
+  - `n` / `p`: switch cockpit tabs, or board columns
   - `1..6`: jump directly to a section when available
   - `a`: add a new task on the focused day using config defaults
   - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`
@@ -142,18 +143,36 @@ Rules:
 - exactly one of `--days` / `--months` / `--years` may be specified
 - if none is specified, config `[commands.calendar]` is used
 
+## shelf cockpit
+
+Unified Daily Cockpit launcher.
+
+- TTY only
+- opens the shared shell used by `calendar`, `tree`, `board`, `review`, and `today`
+- starting mode is controlled by `--mode`
+
+Flags:
+
+- `--mode <calendar|tree|board|review|today>`
+- `--start <YYYY-MM-DD|today|tomorrow>`
+- `--days <n>`
+- `--months <n>`
+- `--years <n>`
+- `--limit <n>`: maximum items per non-focused section
+- `--kind <kind>` (repeatable)
+- `--status <status>` (repeatable)
+- `--tag <tag>` (repeatable)
+- `--not-kind <kind>` (repeatable)
+- `--not-status <status>` (repeatable)
+- `--not-tag <tag>` (repeatable)
+
 ## shelf board
 
-Kanban-style TUI for status columns.
+Daily Cockpit launcher for `board` mode.
 
 - TTY only
 - columns follow configured `statuses`
-- keybindings:
-  - `h` / `l`: move columns
-  - `j` / `k`: move rows
-  - `o` / `i` / `s` / `b` / `d` / `c`: set status (`i` and `s` both mean `in_progress`)
-  - `r`: reload
-  - `q`: quit
+- once opened, the same cockpit shell can switch to `calendar` / `tree` / `review` / `today` with `C/T/B/R/Y`
 
 ## shelf estimate
 
@@ -246,7 +265,7 @@ Sections:
 
 TTY behavior:
 
-- on TTY, opens the calendar-based daily cockpit in `review` mode
+- on TTY, opens the Daily Cockpit in `review` mode
 - use `--plain` to force the legacy text summary
 - non-TTY stays on the legacy text path unless `--json` is used
 
@@ -371,7 +390,7 @@ Default target statuses are `open`, `in_progress`, `blocked`.
 
 TTY behavior:
 
-- on TTY, opens the calendar-based daily cockpit in `today` mode
+- on TTY, opens the Daily Cockpit in `today` mode
 - use `--plain` to force the legacy text summary
 - `--carry-over` stays on the legacy batch flow
 - non-TTY stays on the legacy text path unless `--json` is used
@@ -394,6 +413,11 @@ Flags:
 Render tree based on `parent`.
 ID is omitted from tree output by default.
 
+TTY behavior:
+
+- on TTY, opens the Daily Cockpit in `tree` mode unless `--plain` or `--json` is specified
+- use `--plain` to force legacy text tree output
+
 Flags:
 
 - `--view <name>` (built-in or config view; due/readiness views are rejected)
@@ -404,6 +428,7 @@ Flags:
 - `--status <status>` (repeatable include filter)
 - `--not-kind <kind>` (repeatable exclude filter)
 - `--not-status <status>` (repeatable exclude filter)
+- `--plain`
 - `--json`
 
 ## shelf show <id>

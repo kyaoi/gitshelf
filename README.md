@@ -39,6 +39,7 @@ go build -o shelf ./cmd/shelf
 ./shelf triage --auto done
 ./shelf template save weekly-plan <task-id>
 ./shelf template apply weekly-plan --parent root
+./shelf cockpit
 ./shelf calendar
 ./shelf board
 ./shelf estimate <task-id> --set 2h --spent 30m
@@ -102,23 +103,25 @@ go build -o shelf ./cmd/shelf
 - `shelf capture [title...] [--root <dir>] [--title ... --tag ... --due ... --body ...]`
 - `shelf triage [--root <dir>] [--kind inbox --status open --limit N --auto done|start|block|cancel|reopen|archive]`
 - `shelf template list|save|show|apply|delete [--root <dir>] ...`
-- `shelf calendar [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
-  - calendar TUI by default
+- `shelf cockpit|cp [--root <dir>] [--mode calendar|tree|board|review|today --start <date> --days N | --months N | --years N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ...]`
+  - unified Daily Cockpit launcher
+- `shelf calendar|cal [--root <dir>] [--start <date> --days N | --months N | --years N --status ... --json]`
+  - opens Daily Cockpit in `calendar` mode by default
   - use `--json` for non-TTY contexts
-- `shelf board [--root <dir>] [--show-id]`
+- `shelf board|kb [--root <dir>] [--show-id]`
+- `shelf review|rv [--root <dir>] [--limit N --plain --json]`
+- `shelf today|td [--root <dir>] [--preset <name> --view <name> --carry-over --yes --kind ... --status ... --not-kind ... --not-status ... --plain --json]`
+- `shelf tree|tr [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --plain --json]`
 - `shelf estimate <id> [--root <dir>] [--set <duration> --spent <duration> --add-spent <duration> --clear-estimate --clear-spent --json]`
 - `shelf track start|stop|show [--root <dir>] ...`
 - `shelf notify [--root <dir>] [--command <shell> --dry-run]`
 - `shelf github link|unlink|show [--root <dir>] ...`
 - `shelf sync github [id] [--root <dir>] [--all]`
-- `shelf review [--root <dir>] [--limit N --json]`
 - `shelf ls [--root <dir>] [--preset <name> --view <name> --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --ready --blocked-by-deps --due-before ... --due-after ... --overdue --no-due --parent <id|root> --limit N --search ... --json]`
 - `shelf view list|show|set|copy|rename|merge|delete [--root <dir>] ...`
 - `shelf preset list|show|set|delete [--root <dir>] ...`
 - `shelf next [--root <dir>] [--view <name> --limit N --json]`
 - `shelf agenda [--root <dir>] [--preset <name> --view <name> --days N --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf today [--root <dir>] [--preset <name> --view <name> --carry-over --yes --kind ... --status ... --not-kind ... --not-status ... --json]`
-- `shelf tree [--root <dir>] [--preset <name> --view <name> --from <id|root> --max-depth N --kind ... --status ... --tag ... --not-kind ... --not-status ... --not-tag ... --json]`
 - `shelf show <id> [--root <dir>] [--no-body --only-body --json]`
 - `shelf explain <id> [--root <dir>] [--view <name> --json]`
 - `shelf edit [id] [--root <dir>]`
@@ -180,7 +183,25 @@ Color output:
 - GitHub API base can be overridden with `GITSHELF_GITHUB_API_URL`
 - `GITHUB_TOKEN` is used automatically when present
 
-## Daily Review
+## Daily Cockpit
+
+`shelf cockpit` is the shared TUI shell behind `calendar`, `tree`, `board`, `review`, and `today`.
+
+Main modes:
+
+- `calendar`: date-first view
+- `tree`: parent-child navigator
+- `board`: status columns
+- `review`: Inbox / Overdue / Today / Blocked / Ready
+- `today`: Focused Day / Overdue / Today
+
+Mode switching inside the TUI:
+
+- `C`: calendar
+- `T`: tree
+- `B`: board
+- `R`: review
+- `Y`: today
 
 `shelf review` is a compact dashboard for daily check-ins. It groups active tasks into:
 
@@ -190,7 +211,7 @@ Color output:
 - `Blocked`
 - `Ready`
 
-On TTY, `shelf review` now opens the calendar-based daily cockpit by default.
+On TTY, `shelf review`, `shelf today`, `shelf tree`, and `shelf board` open the Daily Cockpit with different starting modes.
 Use `--plain` to force the legacy text summary, or `--json` for scripting.
 `shelf today` follows the same rule, except `--carry-over` stays on the legacy batch flow.
 

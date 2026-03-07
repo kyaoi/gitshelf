@@ -17,8 +17,10 @@ If not TTY, users must provide required flags.
 - `shelf done` (when `<id>` is omitted; `status!=done` tasks are prioritized)
 - `shelf links` (when `<id>` is omitted)
 - `shelf triage` (without `--auto`)
-- `shelf board` (TTY only, dedicated TUI)
-- `shelf calendar` (TTY only, dedicated TUI unless `--json`)
+- `shelf board` (TTY only, Daily Cockpit `board` mode)
+- `shelf calendar` (TTY only, Daily Cockpit `calendar` mode unless `--json`)
+- `shelf tree` (TTY only, Daily Cockpit `tree` mode unless `--plain` / `--json`)
+- `shelf cockpit` (TTY only, explicit Daily Cockpit entry point)
 
 ## Key Bindings
 
@@ -113,20 +115,21 @@ The type selection screen includes this warning:
 
 ## board TUI
 
+- `shelf board` now opens the shared Daily Cockpit in `board` mode
 - status columns follow config order
-- selected task body is previewed below the board
-- `o` / `i` / `s` / `b` / `d` / `c` update task status in place (`i` and `s` both mean `in_progress`)
+- use `C/T/B/R/Y` to switch modes without leaving the shell
 
 ## calendar TUI
 
-- used by `shelf calendar`, and also by `shelf review` / `shelf today` on TTY unless `--plain` or `--json` is specified
-- renders a fixed three-pane cockpit: month grid, daily sections, and task inspector
+- used by `shelf cockpit`, `shelf calendar`, `shelf tree`, `shelf board`, and also by `shelf review` / `shelf today` on TTY unless `--plain` or `--json` is specified
+- layout is `main + inspector`
+- `C/T/B/R/Y`: switch modes
 - `Tab` / `Shift+Tab`: move between panes
-- `h` / `l`: move by one day
-- `j` / `k`: move by one week in the grid, or move rows in the sections pane
+- `h` / `l`: move by one day, switch review/today tabs, or move board columns
+- `j` / `k`: move by one week in calendar mode, or move rows in tree/board/review/today
 - `[` / `]`: move by one month inside the current range
 - `g` / `G`: jump to first / last day in range, or first / last row in the sections pane
-- `n` / `p`: switch cockpit sections
+- `n` / `p`: switch cockpit tabs, or board columns
 - `1..6`: jump directly to a visible section
 - `a`: open inline add composer for the focused day
 - `o` / `i` / `b` / `d` / `c`: set selected task status to `open` / `in_progress` / `blocked` / `done` / `cancelled`

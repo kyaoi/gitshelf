@@ -28,8 +28,9 @@ func newTodayCommand(ctx *commandContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "today",
-		Short: "Show overdue and today tasks",
+		Use:     "today",
+		Aliases: []string{"td"},
+		Short:   "Show overdue and today tasks",
 		Example: "  shelf today\n" +
 			"  shelf today --view active\n" +
 			"  shelf today --plain\n" +

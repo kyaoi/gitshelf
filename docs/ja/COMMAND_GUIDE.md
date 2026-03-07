@@ -22,6 +22,7 @@
 | 状態だけ素早く変えたい | `done`, `start`, `block`, `cancel`, `reopen` |
 | 今日やることを見たい | `review`, `next`, `today`, `agenda` |
 | 日付軸で見たい | `calendar` |
+| 統一 TUI を直接開きたい | `cockpit` |
 | ステータス列で見たい | `board` |
 | タスク同士をつなぎたい | `link`, `unlink`, `links`, `deps` |
 | GitHub issue / PR と同期したい | `github`, `sync github` |
@@ -138,7 +139,7 @@ inbox を処理します。
 - inbox、期限切れ、今日、blocked、ready を一度に見たい
 
 補足:
-- TTY では calendar ベースの daily cockpit を開きます。
+- TTY では Daily Cockpit を `review` mode で開きます。
 - `--plain` で従来の text summary を強制できます。
 - script 用には `--json` を使います。
 
@@ -159,7 +160,7 @@ overdue と today に集中した確認です。
 - 今日の作業計画を立てるとき
 
 補足:
-- TTY では calendar ベースの daily cockpit を開きます。
+- TTY では Daily Cockpit を `today` mode で開きます。
 - `--plain` で従来の text summary を維持できます。
 - `--carry-over` は従来の batch path のままです。
 
@@ -186,26 +187,44 @@ due date カレンダービューです。
 - `--days` は明示的な day range です。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - `--years` で年単位レンジも開けます。
-- 固定3ペインです: month grid / daily sections / inspector。
-- `Tab` / `Shift+Tab` でペインを切り替えます。
-- `n/p` で section を切り替え、`1..6` で直接ジャンプできます。
+- shared Daily Cockpit shell を開きます。
+- レイアウトは `main + inspector` で、mode tab を切り替えながら使います。
+- `C/T/B/R/Y` で `calendar` / `tree` / `board` / `review` / `today` を切り替えます。
+- `n/p` で tab や board 列を切り替え、`1..6` で section へ直接ジャンプできます。
 - `a` で focused day に task を追加できます。kind/status は config default を使います。
 - TUI 内から editor 起動や snooze ができます。
 - `o/i/b/d/c` で選択 task の status も直接更新できます。
 - 現在の filter から外れる status に変えても、context を失わないよう reload まではその場に残します。
 - 現在の表示レンジを超えて移動すると、calendar が自動で過去/未来側へスライドします。
 
+### `shelf cockpit`
+
+意味:
+統一 Daily Cockpit を直接開きます。
+
+使う場面:
+- 入口を 1 つにしたい
+- 最初の mode を自分で選びたい
+
+例:
+
+```bash
+shelf cockpit
+shelf cockpit --mode tree
+shelf cockpit --mode board --months 3
+```
+
 ### `shelf board`
 
 意味:
-status 列で横断的に見る TUI です。
+Daily Cockpit の `board` mode を開きます。
 
 使う場面:
 - いまの進捗を視覚的に整理したい
 - 列を見ながら status をその場で更新したい
 
 補足:
-- `i` と `s` はどちらも `in_progress` に対応します。
+- これは独立実装ではなく shared cockpit shell の launcher です。
 
 ## 一覧と詳細確認
 
@@ -235,6 +254,10 @@ shelf ls --tag backend --ready
 使う場面:
 - 構造そのものを見たい
 - 分解した作業の親子関係を確認したい
+
+補足:
+- TTY では `tree` が既定で Daily Cockpit の `tree` mode を開きます。
+- `--plain` を付けると従来の text tree 出力を維持できます。
 
 ### `shelf show`
 

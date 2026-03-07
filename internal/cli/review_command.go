@@ -37,8 +37,9 @@ func newReviewCommand(ctx *commandContext) *cobra.Command {
 		plain  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "review",
-		Short: "Show a daily review of inbox, due, blocked, and ready tasks",
+		Use:     "review",
+		Aliases: []string{"rv"},
+		Short:   "Show a daily review of inbox, due, blocked, and ready tasks",
 		Example: "  shelf review\n" +
 			"  shelf review --limit 10\n" +
 			"  shelf review --plain\n" +
