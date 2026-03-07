@@ -2110,7 +2110,31 @@ func renderCockpitHeader(m calendarTUIModel, focused time.Time) string {
 	if m.moveMode {
 		parts = append(parts, accentStyle.Render("Move Target"))
 	}
+	if labels := m.transientModeLabels(); len(labels) > 0 {
+		parts = append(parts, accentStyle.Render("Mode "+strings.Join(labels, "+")))
+		parts = append(parts, metaStyle.Render("Ctrl+[: normal"))
+	}
 	return trimLine(strings.Join(parts, "  "), max(48, m.width-2))
+}
+
+func (m calendarTUIModel) transientModeLabels() []string {
+	labels := make([]string, 0, 4)
+	if m.showHelp {
+		labels = append(labels, "help")
+	}
+	if m.rangeMarkMode {
+		labels = append(labels, "range")
+	}
+	if m.moveMode {
+		labels = append(labels, "move")
+	}
+	if m.addMode {
+		labels = append(labels, "add")
+	}
+	if m.snoozeMode {
+		labels = append(labels, "snooze")
+	}
+	return labels
 }
 
 func calendarPanelStyle(totalWidth int, totalHeight int, borderColor lipgloss.Color) lipgloss.Style {

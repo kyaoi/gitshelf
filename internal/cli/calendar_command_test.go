@@ -1077,6 +1077,24 @@ func TestRenderCockpitHeaderIsSingleLine(t *testing.T) {
 	}
 }
 
+func TestRenderCockpitHeaderShowsTransientModeHint(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeTree,
+		days:          []calendarDay{{Date: "2026-03-09"}, {Date: "2026-03-10"}},
+		statuses:      []shelf.Status{"open", "in_progress", "blocked"},
+		width:         200,
+		showHelp:      true,
+		rangeMarkMode: true,
+	}
+	header := renderCockpitHeader(model, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local))
+	if !strings.Contains(header, "Mode help+range") {
+		t.Fatalf("expected transient mode labels in header, got: %q", header)
+	}
+	if !strings.Contains(header, "Ctrl+[: normal") {
+		t.Fatalf("expected normal-mode hint in header, got: %q", header)
+	}
+}
+
 func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 	today := time.Now().Local().Format("2006-01-02")
 	model := calendarTUIModel{
