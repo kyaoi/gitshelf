@@ -187,6 +187,7 @@ You want a date-first perspective instead of a task-first list.
 Notes:
 - `calendar` opens a TUI by default.
 - Use `--json` in non-TTY contexts.
+- If `--days` is omitted, config `calendar_default_days` is used.
 - `--days` controls the range that the TUI can navigate inside.
 - `--months` lets you open whole-month ranges such as one month or three months.
 - The focused day has a task list and a body preview panel.

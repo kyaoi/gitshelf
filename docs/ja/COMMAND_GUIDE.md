@@ -175,6 +175,7 @@ due date カレンダービューです。
 補足:
 - `calendar` は通常 TUI で開きます。
 - 非TTYで使うときは `--json` を使います。
+- `--days` 未指定時は config `calendar_default_days` を使います。
 - `--days` は TUI 内で扱う表示レンジです。
 - `--months` で 1か月単位、3か月単位のレンジをまとめて開けます。
 - フォーカス中の日付には task 一覧と本文プレビューが出ます。

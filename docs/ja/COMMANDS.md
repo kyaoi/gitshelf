@@ -102,6 +102,7 @@ subcommand:
 - 既定の開始日: 今週の月曜日
 - 既定の status: `open`, `in_progress`, `blocked`
 - 既定は月グリッド + 詳細の TUI 表示
+- 既定の日数レンジは config `calendar_default_days`
 - 非TTYでは `--json` を使う
 - 主な操作:
   - `h` / `l`: 日移動

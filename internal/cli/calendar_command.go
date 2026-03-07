@@ -33,11 +33,15 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			"  shelf calendar --start 2026-03-09\n" +
 			"  shelf calendar --status open --status blocked --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := shelf.LoadConfig(ctx.rootDir)
+			if err != nil {
+				return err
+			}
 			startDate, err := resolveCalendarStart(start)
 			if err != nil {
 				return err
 			}
-			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"))
+			rangeStart, dayCount, err := resolveCalendarRange(startDate, days, months, cfg.CalendarDefaultDays, cmd.Flags().Changed("days"), cmd.Flags().Changed("months"))
 			if err != nil {
 				return err
 			}
@@ -120,7 +124,7 @@ func buildCalendarDays(tasks []shelf.Task, startDate time.Time, days int) []cale
 	return rows
 }
 
-func resolveCalendarRange(startDate time.Time, days int, months int, daysChanged bool, monthsChanged bool) (time.Time, int, error) {
+func resolveCalendarRange(startDate time.Time, days int, months int, defaultDays int, daysChanged bool, monthsChanged bool) (time.Time, int, error) {
 	if daysChanged && monthsChanged {
 		return time.Time{}, 0, fmt.Errorf("--days と --months は同時に指定できません")
 	}
@@ -132,6 +136,9 @@ func resolveCalendarRange(startDate time.Time, days int, months int, daysChanged
 		monthEndExclusive := monthStart.AddDate(0, months, 0)
 		dayCount := int(monthEndExclusive.Sub(monthStart).Hours() / 24)
 		return monthStart, dayCount, nil
+	}
+	if !daysChanged {
+		days = defaultDays
 	}
 	if days <= 0 {
 		return time.Time{}, 0, fmt.Errorf("--days must be > 0")

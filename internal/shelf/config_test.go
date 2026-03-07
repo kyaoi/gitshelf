@@ -25,6 +25,9 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.DefaultStatus != "open" {
 		t.Fatalf("unexpected default status: %s", cfg.DefaultStatus)
 	}
+	if cfg.CalendarDefaultDays != 7 {
+		t.Fatalf("unexpected calendar default days: %d", cfg.CalendarDefaultDays)
+	}
 }
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -55,6 +58,9 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 	if parsed.DefaultKind != cfg.DefaultKind || parsed.DefaultStatus != cfg.DefaultStatus {
 		t.Fatalf("parsed defaults mismatch: %+v", parsed)
+	}
+	if parsed.CalendarDefaultDays != cfg.CalendarDefaultDays {
+		t.Fatalf("parsed calendar default days mismatch: %+v", parsed)
 	}
 	if _, ok := parsed.Views["active"]; !ok {
 		t.Fatalf("parsed views mismatch: %+v", parsed.Views)
@@ -171,6 +177,14 @@ func TestConfigValidationOutputPreset(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "next does not support format") {
 		t.Fatalf("expected invalid output preset format error, got: %v", err)
+	}
+}
+
+func TestConfigValidationRejectsInvalidCalendarDefaultDays(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.CalendarDefaultDays = 0
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "calendar_default_days") {
+		t.Fatalf("expected invalid calendar default days error, got: %v", err)
 	}
 }
 

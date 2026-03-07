@@ -28,6 +28,7 @@ Core keys:
 - `link_types`
 - `default_kind`
 - `default_status`
+- `calendar_default_days`
 
 Optional saved views:
 
@@ -146,6 +147,7 @@ Reusable subtree snapshot.
 - `title` must be non-empty
 - `kind` must exist in config `kinds`
 - `status` must exist in config `statuses`
+- `calendar_default_days` must be > 0
 - each `tag` must exist in config `tags`
 - `due_on` must match `YYYY-MM-DD` when present
 - each `github_urls` entry must be a canonical GitHub issue / pull request URL when present

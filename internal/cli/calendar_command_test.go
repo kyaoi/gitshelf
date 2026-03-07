@@ -107,7 +107,7 @@ func TestDominantCalendarStatus(t *testing.T) {
 
 func TestResolveCalendarRangeDays(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	gotStart, gotDays, err := resolveCalendarRange(start, 14, 0, true, false)
+	gotStart, gotDays, err := resolveCalendarRange(start, 14, 0, 7, true, false)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestResolveCalendarRangeDays(t *testing.T) {
 
 func TestResolveCalendarRangeMonths(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	gotStart, gotDays, err := resolveCalendarRange(start, 7, 2, false, true)
+	gotStart, gotDays, err := resolveCalendarRange(start, 7, 2, 7, false, true)
 	if err != nil {
 		t.Fatalf("resolveCalendarRange failed: %v", err)
 	}
@@ -132,8 +132,19 @@ func TestResolveCalendarRangeMonths(t *testing.T) {
 
 func TestResolveCalendarRangeRejectsMixedFlags(t *testing.T) {
 	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
-	if _, _, err := resolveCalendarRange(start, 7, 1, true, true); err == nil {
+	if _, _, err := resolveCalendarRange(start, 7, 1, 7, true, true); err == nil {
 		t.Fatal("expected mixed flag error")
+	}
+}
+
+func TestResolveCalendarRangeUsesConfigDefaultDays(t *testing.T) {
+	start := time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local)
+	gotStart, gotDays, err := resolveCalendarRange(start, 7, 0, 21, false, false)
+	if err != nil {
+		t.Fatalf("resolveCalendarRange failed: %v", err)
+	}
+	if gotStart.Format("2006-01-02") != "2026-03-09" || gotDays != 21 {
+		t.Fatalf("unexpected range: %s %d", gotStart.Format("2006-01-02"), gotDays)
 	}
 }
 
