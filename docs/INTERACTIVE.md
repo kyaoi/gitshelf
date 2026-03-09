@@ -34,6 +34,8 @@ All of those open the same TUI workspace with different starting modes.
 
 ## Calendar Mode
 
+Weeks are rendered Sunday through Saturday.
+
 Main keys:
 
 - `t`: jump to today

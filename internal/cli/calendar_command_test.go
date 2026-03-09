@@ -13,7 +13,7 @@ import (
 func TestStartOfWeek(t *testing.T) {
 	value := time.Date(2026, 3, 11, 10, 0, 0, 0, time.Local)
 	got := startOfWeek(value)
-	if got.Format("2006-01-02") != "2026-03-09" {
+	if got.Format("2006-01-02") != "2026-03-08" {
 		t.Fatalf("unexpected start of week: %s", got.Format("2006-01-02"))
 	}
 }
@@ -52,7 +52,7 @@ func TestBuildCalendarMonthView(t *testing.T) {
 	}
 
 	first := month.Weeks[0][0]
-	if first.Date.Format("2006-01-02") != "2026-02-23" {
+	if first.Date.Format("2006-01-02") != "2026-03-01" {
 		t.Fatalf("unexpected grid start: %s", first.Date.Format("2006-01-02"))
 	}
 

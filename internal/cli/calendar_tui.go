@@ -2906,7 +2906,7 @@ func renderCalendarMonth(month calendarMonthView, focusedDate string, width int,
 	if compact {
 		cellWidth = min(12, cellWidth)
 	}
-	headers := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	headers := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 	headerCells := make([]string, 0, len(headers))
 	for _, header := range headers {
 		headerCells = append(headerCells, dayHeaderStyle.Width(cellWidth).Align(lipgloss.Center).Render(header))

@@ -55,7 +55,7 @@ func newCockpitCommand(ctx *commandContext) *cobra.Command {
 }
 
 func addCockpitLaunchFlags(cmd *cobra.Command, flags *cockpitLaunchFlags) {
-	cmd.Flags().StringVar(&flags.start, "start", "", "Anchor date (YYYY-MM-DD|today|tomorrow). Defaults to current week Monday")
+	cmd.Flags().StringVar(&flags.start, "start", "", "Anchor date (YYYY-MM-DD|today|tomorrow). Defaults to current week Sunday")
 	cmd.Flags().IntVar(&flags.days, "days", 0, "Render an explicit day range")
 	cmd.Flags().IntVar(&flags.months, "months", 0, "Render an explicit month range from the month containing --start")
 	cmd.Flags().IntVar(&flags.years, "years", 0, "Render an explicit year range from the year containing --start")
