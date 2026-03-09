@@ -34,3 +34,22 @@ func TestLoadGlobalConfigNotFound(t *testing.T) {
 		t.Fatalf("expected ErrGlobalConfigNotFound, got %v", err)
 	}
 }
+
+func TestLoadGlobalConfigExpandsTilde(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "config"))
+	t.Setenv("HOME", filepath.Join(tmp, "home"))
+
+	if err := SaveGlobalConfig(GlobalConfig{DefaultRoot: "~/DailyTodo"}); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	cfg, err := LoadGlobalConfig()
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	want := filepath.Join(tmp, "home", "DailyTodo")
+	if cfg.DefaultRoot != want {
+		t.Fatalf("expected %q, got %q", want, cfg.DefaultRoot)
+	}
+}

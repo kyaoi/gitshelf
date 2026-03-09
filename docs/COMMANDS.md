@@ -5,6 +5,9 @@ Current public CLI surface for `shelf`.
 ## Common
 
 - `--root <dir>` selects the project root that contains `.shelf/`
+- `--root` and global `default_root` accept `~` shorthand such as `~/DailyTodo`
+- if the supplied path points to `<root>/.shelf`, `shelf` normalizes it back to `<root>`
+- paths inside `.shelf/` such as `.shelf/tasks` are rejected as invalid roots
 - if `--root` is omitted, `shelf` searches upward from the current directory
 - if no local `.shelf/` is found, `shelf` falls back to the global `default_root`
 - `init` and `completion` do not require an existing `.shelf/`

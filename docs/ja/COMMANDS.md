@@ -5,6 +5,9 @@
 ## 共通
 
 - `--root <dir>` で `.shelf/` を含む root を明示できます
+- `--root` と global `default_root` では `~/DailyTodo` のような `~` 略記を使えます
+- 指定パスが `<root>/.shelf` を指す場合は自動で `<root>` に正規化します
+- `.shelf/tasks` のような `.shelf/` 配下のパスは root として拒否します
 - `--root` 省略時は上方向探索します
 - ローカル `.shelf/` が無ければ global `default_root` に fallback します
 - `init` と `completion` は既存 `.shelf/` 不要です

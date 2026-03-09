@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/paths"
@@ -140,11 +139,11 @@ func runGlobalInit(rootOverride string, force bool) error {
 		hasExistingConfig bool
 	)
 	if strings.TrimSpace(rootOverride) != "" {
-		abs, err := filepath.Abs(rootOverride)
+		normalized, err := shelf.NormalizeRootDir(rootOverride)
 		if err != nil {
-			return fmt.Errorf("--root の絶対パス解決に失敗しました: %w", err)
+			return err
 		}
-		defaultRoot = abs
+		defaultRoot = normalized
 	} else {
 		cfg, err := paths.LoadGlobalConfig()
 		switch {
