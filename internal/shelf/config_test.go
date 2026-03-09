@@ -31,6 +31,12 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.Commands.Calendar.DefaultDays != 7 || cfg.Commands.Calendar.DefaultMonths != 6 || cfg.Commands.Calendar.DefaultYears != 2 {
 		t.Fatalf("unexpected calendar defaults: %+v", cfg)
 	}
+	if cfg.Commands.Cockpit.CopySeparator != "\n" {
+		t.Fatalf("unexpected cockpit copy separator: %q", cfg.Commands.Cockpit.CopySeparator)
+	}
+	if cfg.Commands.Cockpit.PostExitGitAction != "none" || cfg.Commands.Cockpit.CommitMessage == "" {
+		t.Fatalf("unexpected cockpit git defaults: %+v", cfg.Commands.Cockpit)
+	}
 }
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -57,6 +63,12 @@ func TestConfigRoundTrip(t *testing.T) {
 		parsed.Commands.Calendar.DefaultMonths != cfg.Commands.Calendar.DefaultMonths ||
 		parsed.Commands.Calendar.DefaultYears != cfg.Commands.Calendar.DefaultYears {
 		t.Fatalf("parsed calendar defaults mismatch: %+v", parsed)
+	}
+	if parsed.Commands.Cockpit.CopySeparator != cfg.Commands.Cockpit.CopySeparator {
+		t.Fatalf("parsed cockpit defaults mismatch: %+v", parsed)
+	}
+	if parsed.Commands.Cockpit.PostExitGitAction != cfg.Commands.Cockpit.PostExitGitAction || parsed.Commands.Cockpit.CommitMessage != cfg.Commands.Cockpit.CommitMessage {
+		t.Fatalf("parsed cockpit git settings mismatch: %+v", parsed.Commands.Cockpit)
 	}
 }
 
@@ -96,6 +108,14 @@ func TestConfigValidationRejectsInvalidCalendarDefaultUse(t *testing.T) {
 	cfg.Commands.Calendar.DefaultRangeUnit = "weeks"
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.calendar.default_range_unit") {
 		t.Fatalf("expected invalid calendar default use error, got: %v", err)
+	}
+}
+
+func TestConfigValidationRejectsInvalidCockpitGitAction(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.PostExitGitAction = "push_only"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.cockpit.post_exit_git_action") {
+		t.Fatalf("expected invalid cockpit git action error, got: %v", err)
 	}
 }
 

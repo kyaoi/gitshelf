@@ -34,6 +34,8 @@
 
 週表示は日曜始まり、土曜終わりです。
 
+親 task に due がある場合、子孫 task が自前の `due_on` を持たなくても、その日付に継承表示されます。
+
 - `t`: 今日へ移動
 - `h` / `l`: 日移動
 - `j` / `k`: 週移動
@@ -68,6 +70,9 @@
 
 選択 task、または multi-select 中の mark 済み task に適用されます。
 
+- `K`: kind を編集、または add composer 中の kind を選択
+- `#`: 選択 task の tag を編集
+- `y`: 選択 title、または mark 済み title 群を config の区切り文字でコピー
 - `o`: `open`
 - `i`: `in_progress`
 - `b`: `blocked`
@@ -76,7 +81,8 @@
 - `x`: archive toggle
 - `z`: snooze presets
 - `e`: task file を editor で開く
-- `L`: 選択 task の edge file を開く
+- `L`: 選択 task から link を追加
+- `U`: 選択 task の outbound link を1つ削除
 - `Enter`: compact / detailed inspector 切り替え
 - `r`: reload
 
@@ -86,6 +92,7 @@
   - calendar / review / now: focused day を due default にする
   - tree: selected task を parent default にする
   - board: selected column の status を default にする
+  - composer 中の `K` で kind picker を開けます
 - `A`: quick capture（`kind=inbox`, `status=open`）
 
 ## スクロール

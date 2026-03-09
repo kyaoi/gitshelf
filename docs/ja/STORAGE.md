@@ -24,6 +24,7 @@ Cockpit-first な現行ツールセットの保存形式です。
 - `default_kind`
 - `default_status`
 - `[commands.calendar]`
+- `[commands.cockpit]`
 
 calendar 設定:
 
@@ -33,6 +34,15 @@ default_range_unit = "days"
 default_days = 7
 default_months = 6
 default_years = 2
+```
+
+cockpit 設定:
+
+```toml
+[commands.cockpit]
+copy_separator = "\n"
+post_exit_git_action = "none"
+commit_message = "chore: update shelf data"
 ```
 
 ## Task File

@@ -95,6 +95,8 @@ shelf now
 
 # script-friendly queries
 shelf ls --status open --json
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 shelf next
 ```
 
@@ -110,10 +112,13 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf board`
 - `shelf review`
 - `shelf now`
+- `shelf link`
+- `shelf unlink`
+- `shelf links`
 - `shelf ls`
 - `shelf next`
 
-Everything else is expected to happen inside Cockpit.
+Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
 
 ## Cockpit-First Usage
 

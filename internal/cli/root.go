@@ -15,6 +15,8 @@ type commandContext struct {
 	rootOverride string
 	rootDir      string
 	showID       bool
+	gitOnExit    string
+	gitMessage   string
 }
 
 func NewRootCommand(version string) *cobra.Command {
@@ -58,6 +60,8 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.SetVersionTemplate("{{.Version}}\n")
 	cmd.PersistentFlags().StringVar(&ctx.rootOverride, "root", "", "Directory that contains .shelf")
 	cmd.PersistentFlags().BoolVarP(&ctx.showID, "show-id", "i", false, "Show task IDs in list/tree/interactive labels")
+	cmd.PersistentFlags().StringVar(&ctx.gitOnExit, "git-on-exit", "", "Run git action after Cockpit exits: none|commit|commit_push")
+	cmd.PersistentFlags().StringVar(&ctx.gitMessage, "git-message", "", "Commit message used when --git-on-exit creates a commit")
 
 	cmd.AddCommand(newInitCommand(ctx))
 	cmd.AddCommand(newCompletionCommand())
@@ -66,9 +70,12 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newBoardCommand(ctx))
 	cmd.AddCommand(newReviewCommand(ctx))
 	cmd.AddCommand(newLsCommand(ctx))
+	cmd.AddCommand(newLinkCommand(ctx))
+	cmd.AddCommand(newLinksCommand(ctx))
 	cmd.AddCommand(newNextCommand(ctx))
 	cmd.AddCommand(newNowCommand(ctx))
 	cmd.AddCommand(newTreeCommand(ctx))
+	cmd.AddCommand(newUnlinkCommand(ctx))
 
 	return cmd
 }

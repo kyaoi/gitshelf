@@ -24,6 +24,7 @@ Current config stores:
 - `default_kind`
 - `default_status`
 - `[commands.calendar]`
+- `[commands.cockpit]`
 
 Current calendar config:
 
@@ -33,6 +34,15 @@ default_range_unit = "days"
 default_days = 7
 default_months = 6
 default_years = 2
+```
+
+Current cockpit config:
+
+```toml
+[commands.cockpit]
+copy_separator = "\n"
+post_exit_git_action = "none"
+commit_message = "chore: update shelf data"
 ```
 
 ## Task File

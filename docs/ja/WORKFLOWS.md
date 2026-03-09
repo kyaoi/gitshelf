@@ -101,7 +101,6 @@ shelf next --json
 
 - add/edit/show/set
 - move/snooze/archive
-- link/dependency 編集
 - history/undo/redo
 - import/export
 - GitHub sync

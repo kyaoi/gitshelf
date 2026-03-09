@@ -22,6 +22,7 @@ type Config struct {
 
 type CommandsConfig struct {
 	Calendar CalendarCommandConfig
+	Cockpit  CockpitCommandConfig
 }
 
 type CalendarCommandConfig struct {
@@ -29,6 +30,12 @@ type CalendarCommandConfig struct {
 	DefaultDays      int
 	DefaultMonths    int
 	DefaultYears     int
+}
+
+type CockpitCommandConfig struct {
+	CopySeparator     string
+	PostExitGitAction string
+	CommitMessage     string
 }
 
 type configFile struct {
@@ -43,6 +50,7 @@ type configFile struct {
 
 type configCommands struct {
 	Calendar configCalendarCommand `toml:"calendar"`
+	Cockpit  configCockpitCommand  `toml:"cockpit"`
 }
 
 type configCalendarCommand struct {
@@ -50,6 +58,12 @@ type configCalendarCommand struct {
 	DefaultDays      int    `toml:"default_days"`
 	DefaultMonths    int    `toml:"default_months"`
 	DefaultYears     int    `toml:"default_years"`
+}
+
+type configCockpitCommand struct {
+	CopySeparator     string `toml:"copy_separator"`
+	PostExitGitAction string `toml:"post_exit_git_action"`
+	CommitMessage     string `toml:"commit_message"`
 }
 
 func DefaultConfig() Config {
@@ -66,6 +80,11 @@ func DefaultConfig() Config {
 				DefaultDays:      7,
 				DefaultMonths:    6,
 				DefaultYears:     2,
+			},
+			Cockpit: CockpitCommandConfig{
+				CopySeparator:     "\n",
+				PostExitGitAction: "none",
+				CommitMessage:     "chore: update shelf data",
 			},
 		},
 	}
@@ -114,6 +133,11 @@ func ParseConfigTOML(data []byte) (Config, error) {
 				DefaultMonths:    f.Commands.Calendar.DefaultMonths,
 				DefaultYears:     f.Commands.Calendar.DefaultYears,
 			},
+			Cockpit: CockpitCommandConfig{
+				CopySeparator:     f.Commands.Cockpit.CopySeparator,
+				PostExitGitAction: strings.TrimSpace(f.Commands.Cockpit.PostExitGitAction),
+				CommitMessage:     strings.TrimSpace(f.Commands.Cockpit.CommitMessage),
+			},
 		},
 	}
 	defaults := DefaultConfig()
@@ -128,6 +152,15 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	if cfg.Commands.Calendar.DefaultYears == 0 {
 		cfg.Commands.Calendar.DefaultYears = defaults.Commands.Calendar.DefaultYears
+	}
+	if cfg.Commands.Cockpit.CopySeparator == "" {
+		cfg.Commands.Cockpit.CopySeparator = defaults.Commands.Cockpit.CopySeparator
+	}
+	if cfg.Commands.Cockpit.PostExitGitAction == "" {
+		cfg.Commands.Cockpit.PostExitGitAction = defaults.Commands.Cockpit.PostExitGitAction
+	}
+	if cfg.Commands.Cockpit.CommitMessage == "" {
+		cfg.Commands.Cockpit.CommitMessage = defaults.Commands.Cockpit.CommitMessage
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -192,6 +225,10 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString(fmt.Sprintf("default_days = %d\n", cfg.Commands.Calendar.DefaultDays))
 	buf.WriteString(fmt.Sprintf("default_months = %d\n", cfg.Commands.Calendar.DefaultMonths))
 	buf.WriteString(fmt.Sprintf("default_years = %d\n", cfg.Commands.Calendar.DefaultYears))
+	buf.WriteString("\n[commands.cockpit]\n")
+	buf.WriteString(fmt.Sprintf("copy_separator = %q\n", cfg.Commands.Cockpit.CopySeparator))
+	buf.WriteString(fmt.Sprintf("post_exit_git_action = %q\n", cfg.Commands.Cockpit.PostExitGitAction))
+	buf.WriteString(fmt.Sprintf("commit_message = %q\n", cfg.Commands.Cockpit.CommitMessage))
 
 	return buf.Bytes()
 }
@@ -237,6 +274,14 @@ func (c Config) Validate() error {
 	}
 	if c.Commands.Calendar.DefaultYears <= 0 {
 		return fmt.Errorf("commands.calendar.default_years must be > 0")
+	}
+	switch c.Commands.Cockpit.PostExitGitAction {
+	case "none", "commit", "commit_push":
+	default:
+		return fmt.Errorf("commands.cockpit.post_exit_git_action must be one of none/commit/commit_push")
+	}
+	if strings.TrimSpace(c.Commands.Cockpit.CommitMessage) == "" {
+		return fmt.Errorf("commands.cockpit.commit_message must not be empty")
 	}
 	return nil
 }

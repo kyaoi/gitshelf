@@ -12,6 +12,8 @@
 - ローカル `.shelf/` が無ければ global `default_root` に fallback します
 - `init` と `completion` は既存 `.shelf/` 不要です
 - `--show-id`, `-i` で text 出力や selector に ID を表示します
+- `--git-on-exit <none|commit|commit_push>` で Cockpit 終了後の git 動作を上書きできます
+- `--git-message <text>` で `--git-on-exit` が使う commit message を上書きできます
 
 ## `shelf`
 
@@ -156,8 +158,40 @@ script と単発確認向けの read-only 一覧です。
 - `--limit <n>`
 - `--json`
 
+## `shelf link`
+
+outbound link を作成します。
+
+フラグ:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <depends_on|related>`
+
+## `shelf unlink`
+
+outbound link を削除します。
+
+フラグ:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <depends_on|related>`
+
+## `shelf links`
+
+1つの task の outbound / inbound link を表示します。
+
+使い方:
+
+- `shelf links <task-id>`
+
+フラグ:
+
+- `--json`
+
 ## 補足
 
-現在の公開 CLI では、add/edit/show/set/mv/snooze/link/archive/history/import/export/github/view/doctor などの standalone command は公開していません。
+現在の公開 CLI では、add/edit/show/set/mv/snooze/archive/history/import/export/github/view/doctor などの standalone command は公開していません。
 
-それらの操作は Cockpit 内で行う想定です。
+日常編集の中心は Cockpit のままですが、link 管理は standalone command でも行えます。

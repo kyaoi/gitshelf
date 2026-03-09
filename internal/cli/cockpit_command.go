@@ -132,12 +132,19 @@ func runCockpitLaunch(ctx *commandContext, cmd *cobra.Command, mode calendarMode
 		Limit:       0,
 	}
 	defaultStatuses := defaultCockpitStatuses(mode, cfg)
-	return runCalendarModeTUIFn(ctx.rootDir, rangeStart, dayCount, defaultStatuses, calendarTUIOptions{
+	if err := runCalendarModeTUIFn(ctx.rootDir, rangeStart, dayCount, defaultStatuses, calendarTUIOptions{
 		Mode:         mode,
 		ShowID:       ctx.showID,
 		SectionLimit: flags.limit,
 		Filter:       filter,
-	})
+	}); err != nil {
+		return err
+	}
+	settings, err := resolvePostExitGitSettings(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	return runPostExitGitAction(ctx.rootDir, settings)
 }
 
 func parseCockpitMode(value string) (calendarMode, error) {

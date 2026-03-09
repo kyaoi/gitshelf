@@ -5,3 +5,14 @@ link_types = ["depends_on", "related"]
 
 default_kind = "todo"
 default_status = "open"
+
+[commands.calendar]
+default_range_unit = "days"
+default_days = 7
+default_months = 6
+default_years = 2
+
+[commands.cockpit]
+copy_separator = "\n"
+post_exit_git_action = "none"
+commit_message = "chore: update shelf data"

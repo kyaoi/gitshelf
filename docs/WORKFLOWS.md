@@ -105,7 +105,6 @@ The current tool intentionally does not rely on separate top-level commands for:
 
 - add/edit/show/set
 - move/snooze/archive
-- link/dependency editing
 - history/undo/redo
 - import/export
 - GitHub sync

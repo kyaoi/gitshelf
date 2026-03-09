@@ -94,6 +94,8 @@ shelf now
 
 # スクリプト向けクエリ
 shelf ls --status open --json
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 shelf next
 ```
 
@@ -109,10 +111,13 @@ shelf next
 * `shelf board`
 * `shelf review`
 * `shelf now`
+* `shelf link`
+* `shelf unlink`
+* `shelf links`
 * `shelf ls`
 * `shelf next`
 
-それ以外の操作はすべて Cockpit 内で行う想定です。
+日常編集の中心は Cockpit のままですが、link 管理は standalone command でも行えます。
 
 ## Cockpit-First Usage
 
@@ -156,4 +161,3 @@ go test ./...
 go test -race ./...
 go vet ./...
 ```
-

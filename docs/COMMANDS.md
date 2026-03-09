@@ -12,6 +12,8 @@ Current public CLI surface for `shelf`.
 - if no local `.shelf/` is found, `shelf` falls back to the global `default_root`
 - `init` and `completion` do not require an existing `.shelf/`
 - `--show-id`, `-i` enables task IDs in text output and task selectors
+- `--git-on-exit <none|commit|commit_push>` overrides the post-Cockpit git action
+- `--git-message <text>` overrides the commit message used by `--git-on-exit`
 
 ## shelf
 
@@ -166,8 +168,40 @@ Flags:
 - `--limit <n>`
 - `--json`
 
+## shelf link
+
+Create an outbound link.
+
+Flags:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <depends_on|related>`
+
+## shelf unlink
+
+Remove an outbound link.
+
+Flags:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <depends_on|related>`
+
+## shelf links
+
+Show outbound and inbound links for one task.
+
+Usage:
+
+- `shelf links <task-id>`
+
+Flags:
+
+- `--json`
+
 ## Notes
 
-The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/link/archive/history/import/export/github/view/doctor.
+The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/archive/history/import/export/github/view/doctor.
 
-Those operations are expected to happen inside Cockpit.
+Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
