@@ -2,6 +2,8 @@
 
 現在の公開 CLI surface の仕様です。
 
+machine-readable schema は [`OUTPUTS.md`](OUTPUTS.md) を参照してください。
+
 ## 共通
 
 - `--root <dir>` で `.shelf/` を含む root を明示できます

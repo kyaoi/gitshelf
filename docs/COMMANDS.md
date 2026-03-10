@@ -2,6 +2,8 @@
 
 Current public CLI surface for `shelf`.
 
+For machine-readable schemas, see [`OUTPUTS.md`](OUTPUTS.md).
+
 ## Common
 
 - `--root <dir>` selects the project root that contains `.shelf/`

@@ -12,6 +12,7 @@
 
 * CLI 仕様: [`../COMMANDS.md`](../COMMANDS.md)
 * ワークフローガイド: [`../WORKFLOWS.md`](../WORKFLOWS.md)
+* Output contract: [`OUTPUTS.md`](OUTPUTS.md)
 * 対話動作: [`../INTERACTIVE.md`](../INTERACTIVE.md)
 * 保存形式: [`../STORAGE.md`](../STORAGE.md)
 * default config 例: [`../default_config.toml`](../default_config.toml)
@@ -134,6 +135,8 @@ shelf next
 * `shelf next`
 
 日常編集の中心は Cockpit のままですが、inspection、query、link、config は standalone command でも扱えます。
+
+machine-readable な shape は [`OUTPUTS.md`](OUTPUTS.md) を参照してください。
 
 ## Shell ツール連携
 

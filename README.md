@@ -12,6 +12,7 @@
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
 - Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
+- Output contract: [`docs/OUTPUTS.md`](docs/OUTPUTS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 - Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
 - Default config example: [`docs/default_config.toml`](docs/default_config.toml)
@@ -135,6 +136,8 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf next`
 
 Most daily editing still happens inside Cockpit, but inspection, query, link, and config flows are also available from standalone commands.
+
+For machine-readable shapes, see [`docs/OUTPUTS.md`](docs/OUTPUTS.md).
 
 ## Shell Tooling
 
