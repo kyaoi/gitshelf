@@ -326,6 +326,7 @@ Flags:
 - `--fields <name,...>` for `--format tsv|csv`
 - `--header`
 - `--no-header`
+- `--summary`
 - `--json`
 
 JSON output includes `task`, `outbound`, and `inbound` path/file metadata for shell pipelines.
@@ -337,6 +338,7 @@ Available fields:
 - `other_id`, `other_title`, `other_path`, `other_file`
 
 `--format jsonl` prints one edge object per line.
+`--summary` switches the output to aggregated `direction/type/count` rows.
 
 Text output uses tree/path labels so duplicate titles are distinguishable.
 IDs stay hidden unless `--show-id` is enabled.

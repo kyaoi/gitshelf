@@ -157,6 +157,9 @@ shelf ls --format tsv --fields title,path --sort title --reverse
 # 1 task の依存先 path を確認
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 
+# link type ごとの件数を確認
+shelf links 01AAA --summary --format tsv --fields direction,type,count
+
 # 1 task を shell 向けの1行で確認
 shelf show 01AAA --format tsv --fields id,title,file,body
 

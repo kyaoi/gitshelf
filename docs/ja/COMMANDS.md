@@ -316,6 +316,7 @@ outbound link を削除します。
 - `--fields <name,...>` (`--format tsv|csv` 専用)
 - `--header`
 - `--no-header`
+- `--summary`
 - `--json`
 
 JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれます。
@@ -327,6 +328,7 @@ JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれ
 - `other_id`, `other_title`, `other_path`, `other_file`
 
 `--format jsonl` は edge object を1行1件で出力します。
+`--summary` を付けると `direction/type/count` の集計行に切り替わります。
 
 text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
 ID は `--show-id` を付けたときだけ表示します。

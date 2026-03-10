@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -92,6 +93,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		fields   string
 		header   bool
 		noHeader bool
+		summary  bool
 	)
 	cmd := &cobra.Command{
 		Use:     "links <task-id>",
@@ -118,8 +120,24 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			for _, task := range tasks {
 				byID[task.ID] = task
 			}
+			summaries := buildLinkSummaryRecords(outbound, inbound)
 
 			if asJSON {
+				if summary {
+					payload := struct {
+						Task    linkTaskRef         `json:"task"`
+						Summary []linkSummaryRecord `json:"summary"`
+					}{
+						Task:    buildLinkTaskRef(ctx.rootDir, taskID, byID),
+						Summary: summaries,
+					}
+					data, err := json.MarshalIndent(payload, "", "  ")
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(data))
+					return nil
+				}
 				type edgeItem struct {
 					ID    string `json:"id"`
 					File  string `json:"file,omitempty"`
@@ -155,6 +173,14 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "jsonl" {
+				if summary {
+					text, err := renderJSONL(summaries)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
+					return nil
+				}
 				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
 				for _, edge := range outbound {
 					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
@@ -171,7 +197,13 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLinksTSVFields(), allowedLinksTSVFields())
+				defaults := defaultLinksTSVFields()
+				allowed := allowedLinksTSVFields()
+				if summary {
+					defaults = defaultLinkSummaryTSVFields()
+					allowed = allowedLinkSummaryTSVFields()
+				}
+				selectedFields, err := resolveTSVFields(fields, defaults, allowed)
 				if err != nil {
 					return err
 				}
@@ -181,6 +213,12 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				}
 				if includeHeader {
 					fmt.Println(strings.Join(selectedFields, "\t"))
+				}
+				if summary {
+					for _, record := range summaries {
+						fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+					}
+					return nil
 				}
 				for _, edge := range outbound {
 					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID).TSVFields()))
@@ -192,13 +230,27 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLinksTSVFields(), allowedLinksTSVFields())
+				defaults := defaultLinksTSVFields()
+				allowed := allowedLinksTSVFields()
+				if summary {
+					defaults = defaultLinkSummaryTSVFields()
+					allowed = allowedLinkSummaryTSVFields()
+				}
+				selectedFields, err := resolveTSVFields(fields, defaults, allowed)
 				if err != nil {
 					return err
 				}
 				includeHeader, err := resolveTabularHeader(format, header, noHeader)
 				if err != nil {
 					return err
+				}
+				if summary {
+					text, err := renderCSV(summaries, selectedFields, includeHeader)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
+					return nil
 				}
 				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
 				for _, edge := range outbound {
@@ -215,6 +267,10 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if summary {
+				printLinkSummary(summaries)
+				return nil
+			}
 			printLinkSection("Outbound", taskID, outbound, byID, ctx.showID)
 			printInboundLinkSection("Inbound", taskID, inbound, byID, ctx.showID)
 			return nil
@@ -225,6 +281,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().BoolVar(&summary, "summary", false, "Show summary counts by direction and link type")
 	return cmd
 }
 
@@ -275,6 +332,53 @@ func formatLinkEndpoint(taskID string, byID map[string]shelf.Task, showID bool) 
 
 func defaultLinksTSVFields() []string {
 	return []string{"direction", "type", "task_id", "task_path", "other_id", "other_path", "other_file"}
+}
+
+func defaultLinkSummaryTSVFields() []string {
+	return []string{"direction", "type", "count"}
+}
+
+func allowedLinkSummaryTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"direction": {}, "type": {}, "count": {},
+	}
+}
+
+func buildLinkSummaryRecords(outbound []shelf.Edge, inbound []shelf.InboundEdge) []linkSummaryRecord {
+	counts := map[string]int{}
+	for _, edge := range outbound {
+		counts["outbound\x00"+string(edge.Type)]++
+	}
+	for _, edge := range inbound {
+		counts["inbound\x00"+string(edge.Type)]++
+	}
+	records := make([]linkSummaryRecord, 0, len(counts))
+	for key, count := range counts {
+		parts := strings.SplitN(key, "\x00", 2)
+		records = append(records, linkSummaryRecord{
+			Direction: parts[0],
+			Type:      parts[1],
+			Count:     count,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Direction != records[j].Direction {
+			return records[i].Direction < records[j].Direction
+		}
+		return records[i].Type < records[j].Type
+	})
+	return records
+}
+
+func printLinkSummary(records []linkSummaryRecord) {
+	fmt.Println(uiHeading("Summary:"))
+	if len(records) == 0 {
+		fmt.Println(uiMuted("  (none)"))
+		return
+	}
+	for _, record := range records {
+		fmt.Printf("  %s %s count=%d\n", record.Direction, record.Type, record.Count)
+	}
 }
 
 func allowedLinksTSVFields() map[string]struct{} {

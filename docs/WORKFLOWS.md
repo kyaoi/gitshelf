@@ -89,6 +89,9 @@ shelf ls --format tsv --fields title,path --sort title --reverse
 # inspect dependency targets with jq
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 
+# summarize link counts by type
+shelf links 01AAA --summary --format tsv --fields direction,type,count
+
 # read one task as a single tsv row
 shelf show 01AAA --format tsv --fields id,title,file,body
 

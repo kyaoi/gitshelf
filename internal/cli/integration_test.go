@@ -469,6 +469,63 @@ func TestCLILinksCSVFieldsAndHeader(t *testing.T) {
 	}
 }
 
+func TestCLILinksSummaryJSONAndTSV(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to1, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To1"})
+	if err != nil {
+		t.Fatalf("add to1 failed: %v", err)
+	}
+	to2, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To2"})
+	if err != nil {
+		t.Fatalf("add to2 failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to1.ID, "depends_on"); err != nil {
+		t.Fatalf("link to1 failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to2.ID, "depends_on"); err != nil {
+		t.Fatalf("link to2 failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, from.ID, "related"); err != nil {
+		t.Fatalf("inbound link failed: %v", err)
+	}
+
+	jsonOut, err := executeCLI(t, "links", "--root", root, from.ID, "--json", "--summary")
+	if err != nil {
+		t.Fatalf("links --json --summary failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("parse summary json failed: %v\n%s", err, jsonOut)
+	}
+	summary, ok := payload["summary"].([]any)
+	if !ok || len(summary) != 2 {
+		t.Fatalf("unexpected summary payload: %#v", payload["summary"])
+	}
+
+	tsvOut, err := executeCLI(t, "links", "--root", root, from.ID, "--summary", "--format", "tsv", "--fields", "direction,type,count")
+	if err != nil {
+		t.Fatalf("links --summary --format tsv failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(tsvOut), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 summary rows, got %d: %q", len(lines), tsvOut)
+	}
+	if lines[0] != "inbound\trelated\t1" || lines[1] != "outbound\tdepends_on\t2" {
+		t.Fatalf("unexpected summary rows: %#v", lines)
+	}
+}
+
 func TestCLILsUnknownFilterValues(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

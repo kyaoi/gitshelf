@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -38,6 +39,12 @@ type edgeQueryRecord struct {
 	Type      string      `json:"type"`
 	Task      linkTaskRef `json:"task"`
 	Other     linkTaskRef `json:"other"`
+}
+
+type linkSummaryRecord struct {
+	Direction string `json:"direction"`
+	Type      string `json:"type"`
+	Count     int    `json:"count"`
 }
 
 type copyPresetRecord struct {
@@ -133,6 +140,14 @@ func (record edgeQueryRecord) TSVFields() map[string]string {
 		"other_title": record.Other.Title,
 		"other_path":  record.Other.Path,
 		"other_file":  record.Other.File,
+	}
+}
+
+func (record linkSummaryRecord) TSVFields() map[string]string {
+	return map[string]string{
+		"direction": record.Direction,
+		"type":      record.Type,
+		"count":     fmt.Sprintf("%d", record.Count),
 	}
 }
 
