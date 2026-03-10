@@ -206,6 +206,7 @@ script と単発確認向けの read-only 一覧です。
 - `--only-archived`
 - `--format compact|detail|kanban|tree|tsv`
 - `--preset <now|review|board>`
+- `--fields <name,...>` (`--format tsv` 専用)
 - `--json`
 
 未知の kind/status/tag は即エラーです。
@@ -218,6 +219,8 @@ script と単発確認向けの read-only 一覧です。
 - `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
 - `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
 
+`--fields` で列の順序変更や絞り込みができます。
+
 ## `shelf next`
 
 着手可能 task の shortlist を返す read-only command です。
@@ -226,6 +229,7 @@ script と単発確認向けの read-only 一覧です。
 
 - `--limit <n>`
 - `--format compact|tsv`
+- `--fields <name,...>` (`--format tsv` 専用)
 - `--json`
 
 ## `shelf show`
@@ -276,6 +280,7 @@ outbound link を削除します。
 
 - `--json`
 
+JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれます。
 text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
 ID は `--show-id` を付けたときだけ表示します。
 

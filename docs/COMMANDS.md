@@ -216,6 +216,7 @@ Flags:
 - `--only-archived`
 - `--format compact|detail|kanban|tree|tsv`
 - `--preset <now|review|board>`
+- `--fields <name,...>` for `--format tsv`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
@@ -228,6 +229,8 @@ Explicit flags still win.
 - `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
 - `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
 
+`--fields` can reorder or reduce those columns.
+
 ## shelf next
 
 Read-only shortlist of actionable tasks.
@@ -236,6 +239,7 @@ Flags:
 
 - `--limit <n>`
 - `--format compact|tsv`
+- `--fields <name,...>` for `--format tsv`
 - `--json`
 
 ## shelf show
@@ -286,6 +290,7 @@ Flags:
 
 - `--json`
 
+JSON output includes `task`, `outbound`, and `inbound` path/file metadata for shell pipelines.
 Text output uses tree/path labels so duplicate titles are distinguishable.
 IDs stay hidden unless `--show-id` is enabled.
 

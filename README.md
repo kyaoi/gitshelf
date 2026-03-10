@@ -138,10 +138,13 @@ Examples:
 shelf next --json | jq '.[].path'
 
 # pick one task with fzf, then inspect it
-shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
 # open task files from ls output
-shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
+shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# inspect dependency paths from one task
+shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 ```
 
 ## Cockpit-First Usage

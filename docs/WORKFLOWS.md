@@ -71,10 +71,13 @@ shelf links 01AAA
 shelf next --json | jq '.[].path'
 
 # choose a task interactively with fzf
-shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
 # jump from search results to task files
-shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
+shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# inspect dependency targets with jq
+shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 ```
 
 ## When to Use Which Mode

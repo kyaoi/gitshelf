@@ -137,10 +137,13 @@ shelf next
 shelf next --json | jq '.[].path'
 
 # fzf で task を選んで詳細表示
-shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
 # ls の出力から task file を開く
-shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
+shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# 1 task の依存先 path を確認
+shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 ```
 
 ## Cockpit-First Usage
