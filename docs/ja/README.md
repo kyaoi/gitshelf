@@ -94,6 +94,9 @@ shelf now
 
 # スクリプト向けクエリ
 shelf ls --status open --json
+shelf ls --preset board
+shelf show 01AAA
+shelf config show --json
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
 shelf next
@@ -106,18 +109,20 @@ shelf next
 * `shelf init`
 * `shelf completion`
 * `shelf cockpit`
+* `shelf config`
 * `shelf calendar`
 * `shelf tree`
 * `shelf board`
 * `shelf review`
 * `shelf now`
+* `shelf show`
 * `shelf link`
 * `shelf unlink`
 * `shelf links`
 * `shelf ls`
 * `shelf next`
 
-日常編集の中心は Cockpit のままですが、link 管理は standalone command でも行えます。
+日常編集の中心は Cockpit のままですが、inspection、query、link、config は standalone command でも扱えます。
 
 ## Cockpit-First Usage
 
@@ -130,7 +135,7 @@ shelf next
 * transient editor / selector は中央 popup で表示する
 * non-calendar mode の右ペインは `Calendar / Selected Day / Inspector`
 * main pane と sidebar は双方向に選択同期する
-* script から直接使うのは主に `ls`, `next`, `link`, `unlink`, `links`
+* script から直接使うのは主に `ls`, `next`, `show`, `links`, `config`
 
 詳細な keybind は [`../INTERACTIVE.md`](../INTERACTIVE.md) に集約しています。
 

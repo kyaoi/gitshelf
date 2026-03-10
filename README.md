@@ -95,6 +95,9 @@ shelf now
 
 # script-friendly queries
 shelf ls --status open --json
+shelf ls --preset board
+shelf show 01AAA
+shelf config show --json
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
 shelf next
@@ -107,18 +110,20 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf init`
 - `shelf completion`
 - `shelf cockpit`
+- `shelf config`
 - `shelf calendar`
 - `shelf tree`
 - `shelf board`
 - `shelf review`
 - `shelf now`
+- `shelf show`
 - `shelf link`
 - `shelf unlink`
 - `shelf links`
 - `shelf ls`
 - `shelf next`
 
-Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
+Most daily editing still happens inside Cockpit, but inspection, query, link, and config flows are also available from standalone commands.
 
 ## Cockpit-First Usage
 
@@ -131,7 +136,7 @@ Most daily editing still happens inside Cockpit, but link management is also ava
 - transient editors and selectors are shown as centered popups
 - non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
 - the sidebar and main pane synchronize selection in both directions
-- direct scripting is mainly `ls`, `next`, `link`, `unlink`, and `links`
+- direct scripting is mainly `ls`, `next`, `show`, `links`, and `config`
 
 Detailed keybindings live in [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md).
 

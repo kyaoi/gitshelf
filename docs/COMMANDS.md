@@ -76,6 +76,42 @@ Flags:
 
 Persist user-facing config values.
 
+### shelf config show
+
+Show the effective config for the current root.
+
+Flags:
+
+- `--json`
+
+### shelf config copy-preset list
+
+List saved advanced copy presets.
+
+Flags:
+
+- `--json`
+
+### shelf config copy-preset get
+
+Show one saved advanced copy preset.
+
+Usage:
+
+- `shelf config copy-preset get <name>`
+
+Flags:
+
+- `--json`
+
+### shelf config copy-preset rm
+
+Remove one saved advanced copy preset.
+
+Usage:
+
+- `shelf config copy-preset rm <name>`
+
 ### shelf config copy-preset set
 
 Create or update one saved advanced copy preset used by Cockpit `M`.
@@ -178,10 +214,14 @@ Flags:
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban`
+- `--format compact|detail|kanban|tree`
+- `--preset <now|review|board>`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
+
+`--preset` applies read-only defaults similar to the matching Cockpit view.
+Explicit flags still win.
 
 ## shelf next
 
@@ -190,6 +230,18 @@ Read-only shortlist of actionable tasks.
 Flags:
 
 - `--limit <n>`
+- `--json`
+
+## shelf show
+
+Show one task with inspector-style details.
+
+Usage:
+
+- `shelf show <task-id>`
+
+Flags:
+
 - `--json`
 
 ## shelf link

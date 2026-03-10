@@ -331,6 +331,78 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 	}
 }
 
+func TestCLILsPresetNowUsesReadyDefaultsButAllowsOverride(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	ready, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add ready failed: %v", err)
+	}
+	blocker, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocker", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocker failed: %v", err)
+	}
+	blocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocked", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, blocked.ID, blocker.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--preset", "now")
+	if err != nil {
+		t.Fatalf("ls --preset now failed: %v", err)
+	}
+	if !strings.Contains(out, ready.Title) || strings.Contains(out, blocked.Title) || strings.Contains(out, "Done") {
+		t.Fatalf("unexpected now preset output: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--preset", "now", "--status", "open")
+	if err != nil {
+		t.Fatalf("ls --preset now --status open failed: %v", err)
+	}
+	if !strings.Contains(out, blocked.Title) || !strings.Contains(out, ready.Title) || strings.Contains(out, "Done") {
+		t.Fatalf("expected explicit status to override preset defaults: %s", out)
+	}
+}
+
+func TestCLILsPresetReviewAndBoardApplyReadSideDefaults(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open", Status: "open"}); err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	reviewOut, err := executeCLI(t, "ls", "--root", root, "--preset", "review")
+	if err != nil {
+		t.Fatalf("ls --preset review failed: %v", err)
+	}
+	if !strings.Contains(reviewOut, "kind=") || strings.Contains(reviewOut, "Done") {
+		t.Fatalf("unexpected review preset output: %s", reviewOut)
+	}
+
+	boardOut, err := executeCLI(t, "ls", "--root", root, "--preset", "board")
+	if err != nil {
+		t.Fatalf("ls --preset board failed: %v", err)
+	}
+	for _, want := range []string{"open:", "done:", "Open", "Done"} {
+		if !strings.Contains(boardOut, want) {
+			t.Fatalf("expected board preset output to contain %q, got:\n%s", want, boardOut)
+		}
+	}
+}
+
 func TestCLICompletionBash(t *testing.T) {
 	out, err := executeCLI(t, "completion", "bash")
 	if err != nil {

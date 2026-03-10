@@ -28,6 +28,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		noDue           bool
 		asJSON          bool
 		parent          string
+		preset          string
 		limit           int
 		search          string
 	)
@@ -40,8 +41,15 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --tag backend --not-tag wip\n" +
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree"}); err != nil {
+				return err
+			}
+			cfg, err := shelf.LoadConfig(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			if err := applyLsPreset(cmd, preset, cfg, &format, &ready, &statuses, &notStatuses); err != nil {
 				return err
 			}
 
@@ -250,6 +258,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&noDue, "no-due", false, "Include only tasks without due date")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
+	cmd.Flags().StringVar(&preset, "preset", "", "Apply read-only defaults similar to a Cockpit view: now|review|board")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -474,4 +483,38 @@ func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID boo
 		return fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
 	}
 	return label
+}
+
+func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {
+	switch strings.TrimSpace(preset) {
+	case "":
+		return nil
+	case "now":
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeNow, cfg))
+		}
+		if !cmd.Flags().Changed("ready") && !cmd.Flags().Changed("blocked-by-deps") && !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*ready = true
+		}
+		return nil
+	case "review":
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeReview, cfg))
+		}
+		if !cmd.Flags().Changed("format") {
+			*format = "detail"
+		}
+		return nil
+	case "board":
+		if !cmd.Flags().Changed("format") {
+			*format = "kanban"
+		}
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeBoard, cfg))
+			*notStatuses = nil
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown --preset: %s (allowed: now|review|board)", preset)
+	}
 }

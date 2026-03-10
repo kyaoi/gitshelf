@@ -76,6 +76,42 @@ TTY 必須。
 
 user-facing config を永続化します。
 
+### `shelf config show`
+
+現在の root で有効な config を表示します。
+
+フラグ:
+
+- `--json`
+
+### `shelf config copy-preset list`
+
+保存済み advanced copy preset の一覧を表示します。
+
+フラグ:
+
+- `--json`
+
+### `shelf config copy-preset get`
+
+保存済み advanced copy preset を1件表示します。
+
+使い方:
+
+- `shelf config copy-preset get <name>`
+
+フラグ:
+
+- `--json`
+
+### `shelf config copy-preset rm`
+
+保存済み advanced copy preset を1件削除します。
+
+使い方:
+
+- `shelf config copy-preset rm <name>`
+
 ### `shelf config copy-preset set`
 
 Cockpit の `M` で使う advanced copy preset を追加または更新します。
@@ -168,10 +204,14 @@ script と単発確認向けの read-only 一覧です。
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban`
+- `--format compact|detail|kanban|tree`
+- `--preset <now|review|board>`
 - `--json`
 
 未知の kind/status/tag は即エラーです。
+
+`--preset` は対応する Cockpit view に近い read-only default を適用します。
+明示した flag がある場合はそちらが優先されます。
 
 ## `shelf next`
 
@@ -180,6 +220,18 @@ script と単発確認向けの read-only 一覧です。
 フラグ:
 
 - `--limit <n>`
+- `--json`
+
+## `shelf show`
+
+1つの task を inspector 風の詳細表示で返します。
+
+使い方:
+
+- `shelf show <task-id>`
+
+フラグ:
+
 - `--json`
 
 ## `shelf link`
