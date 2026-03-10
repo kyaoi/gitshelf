@@ -799,6 +799,68 @@ func TestCalendarLinkQueryModeTreatsKeysAsInput(t *testing.T) {
 	}
 }
 
+func TestCalendarLinkModeUsesTabForTypeAndSupportsCollapse(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	source, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Source", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add source failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(source.ID)
+	model.beginLinkMode(calendarLinkActionAdd)
+
+	initialType := model.linkTypeIndex
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if len(model.linkTypes()) > 1 && model.linkTypeIndex == initialType {
+		t.Fatal("expected tab to advance link type")
+	}
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = updated.(calendarTUIModel)
+	if model.linkTypeIndex != initialType {
+		t.Fatalf("expected shift+tab to cycle back, got %d want %d", model.linkTypeIndex, initialType)
+	}
+
+	candidates := model.currentLinkCandidates()
+	parentIndex := -1
+	for i, candidate := range candidates {
+		if candidate.TaskID == parent.ID {
+			parentIndex = i
+			break
+		}
+	}
+	if parentIndex < 0 {
+		t.Fatal("expected parent candidate in link picker")
+	}
+	model.linkIndex = parentIndex
+	before := len(model.currentLinkCandidates())
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	model = updated.(calendarTUIModel)
+	after := len(model.currentLinkCandidates())
+	if after >= before {
+		t.Fatalf("expected h to collapse candidate subtree, before=%d after=%d", before, after)
+	}
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	model = updated.(calendarTUIModel)
+	if len(model.currentLinkCandidates()) != before {
+		t.Fatalf("expected l to expand candidate subtree, got %d want %d", len(model.currentLinkCandidates()), before)
+	}
+}
+
 func TestBuildCalendarSectionsReviewMode(t *testing.T) {
 	today := time.Now().Local().Format("2006-01-02")
 	overdue := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
@@ -1075,6 +1137,48 @@ func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
 	}
 	if !model.tagMode {
 		t.Fatal("expected tag picker to stay open while typing")
+	}
+}
+
+func TestUpdateTagModeUsesSpaceForToggleAndCtrlSForSave(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(task.ID)
+	model.beginTagMode()
+	model.tagChoices = []string{"alpha"}
+	model.tagIndex = 2
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if len(model.tagSelection) != 0 {
+		t.Fatalf("expected enter on a tag row to not toggle, got %+v", model.tagSelection)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if len(model.tagSelection) != 1 || model.tagSelection[0] != "alpha" {
+		t.Fatalf("expected space to toggle tag selection, got %+v", model.tagSelection)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyCtrlS})
+	model = updated.(calendarTUIModel)
+	if model.tagMode {
+		t.Fatal("expected ctrl+s to save and close tag mode")
+	}
+	reloadedTask := model.taskByID[task.ID]
+	if len(reloadedTask.Tags) != 1 || reloadedTask.Tags[0] != "alpha" {
+		t.Fatalf("expected saved tag on task, got %+v", reloadedTask.Tags)
 	}
 }
 
@@ -1879,6 +1983,47 @@ func TestSidebarCalendarNavigationMovesFocusedDate(t *testing.T) {
 	reviewModel = updatedModel.(calendarTUIModel)
 	if reviewModel.focusedDayLabel() == original {
 		t.Fatalf("expected sidebar calendar navigation to move focused day, still %s", reviewModel.focusedDayLabel())
+	}
+}
+
+func TestSidebarCalendarNavigationSyncsMainSelection(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "First day",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Second day",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-10",
+	})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode:   calendarModeReview,
+		ShowID: false,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.pane = calendarPaneInspector
+	model.moveSidebarFocusByDays(1)
+	if model.focusedDayLabel() != "2026-03-10" {
+		t.Fatalf("expected focused day to move to 2026-03-10, got %s", model.focusedDayLabel())
+	}
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected main selection to follow sidebar date change, got %s", model.selectedTaskID)
 	}
 }
 

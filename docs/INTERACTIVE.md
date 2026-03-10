@@ -99,6 +99,8 @@ These actions operate on the selected task, or on marked tasks when multi-select
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.
 Transient pickers and composers are shown as centered popups.
+- In link pickers, `h` / `l` collapse and expand the hierarchy like Tree mode.
+- Link type cycling uses `Tab` / `Shift+Tab`.
 
 ## Add
 
@@ -119,6 +121,19 @@ Transient pickers and composers are shown as centered popups.
 - `f`: open a popup filter editor
 - include / exclude filters are available for both `status` and `kind`
 - the applied filters affect every Cockpit mode
+
+## Tags
+
+- `Space`: toggle the highlighted tag
+- `Enter` on `Done`: save and close
+- `Enter` on `+ Add new tag`: enter text input mode
+- `Ctrl+S`: save and close from anywhere in tag editing
+
+## Non-Calendar Sidebar
+
+- the right pane is split into `Calendar / Selected Day / Inspector`
+- main selection syncs the sidebar date and `Selected Day`
+- moving the sidebar calendar also updates the main selection when that day has visible tasks
 
 ## Scrolling
 

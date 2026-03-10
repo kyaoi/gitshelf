@@ -72,11 +72,14 @@ const (
 )
 
 type calendarLinkCandidate struct {
-	TaskID string
-	Title  string
-	Label  string
-	Path   string
-	Type   shelf.LinkType
+	TaskID      string
+	Title       string
+	Label       string
+	Path        string
+	Type        shelf.LinkType
+	Parent      string
+	HasChildren bool
+	Collapsed   bool
 }
 
 type calendarMode string
@@ -197,6 +200,7 @@ type calendarTUIModel struct {
 	linkQuery         string
 	linkQueryMode     bool
 	linkTypeIndex     int
+	linkCollapsedTree map[string]struct{}
 	filterMode        bool
 	filterSection     calendarFilterSection
 	filterIndex       int
@@ -253,33 +257,34 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		opts.Mode = calendarModeCalendar
 	}
 	model := calendarTUIModel{
-		rootDir:       rootDir,
-		mode:          opts.Mode,
-		startDate:     startDate,
-		daysCount:     daysCount,
-		sectionLimit:  opts.SectionLimit,
-		defaultKind:   cfg.DefaultKind,
-		defaultStatus: cfg.DefaultStatus,
-		kindChoices:   append([]shelf.Kind{}, cfg.Kinds...),
-		statusChoices: append([]shelf.Status{}, cfg.Statuses...),
-		tagChoices:    append([]string{}, cfg.Tags...),
-		linkChoices:   append([]shelf.LinkType{}, cfg.LinkTypes.Names...),
-		blockingLink:  cfg.BlockingLinkType(),
-		copySeparator: cfg.Commands.Cockpit.CopySeparator,
-		showID:        opts.ShowID,
-		pane:          calendarPaneMain,
-		sectionRows:   map[calendarSectionID]int{},
-		boardRowIndex: map[int]int{},
-		markedTaskIDs: map[string]struct{}{},
-		rangeBaseIDs:  map[string]struct{}{},
-		collapsedTree: map[string]struct{}{},
-		readiness:     map[string]shelf.TaskReadiness{},
-		taskByID:      map[string]shelf.Task{},
-		titleByID:     map[string]string{},
-		effectiveDue:  map[string]string{},
-		outboundCount: map[string]int{},
-		inboundCount:  map[string]int{},
-		addKind:       cfg.DefaultKind,
+		rootDir:           rootDir,
+		mode:              opts.Mode,
+		startDate:         startDate,
+		daysCount:         daysCount,
+		sectionLimit:      opts.SectionLimit,
+		defaultKind:       cfg.DefaultKind,
+		defaultStatus:     cfg.DefaultStatus,
+		kindChoices:       append([]shelf.Kind{}, cfg.Kinds...),
+		statusChoices:     append([]shelf.Status{}, cfg.Statuses...),
+		tagChoices:        append([]string{}, cfg.Tags...),
+		linkChoices:       append([]shelf.LinkType{}, cfg.LinkTypes.Names...),
+		blockingLink:      cfg.BlockingLinkType(),
+		copySeparator:     cfg.Commands.Cockpit.CopySeparator,
+		showID:            opts.ShowID,
+		pane:              calendarPaneMain,
+		sectionRows:       map[calendarSectionID]int{},
+		boardRowIndex:     map[int]int{},
+		markedTaskIDs:     map[string]struct{}{},
+		rangeBaseIDs:      map[string]struct{}{},
+		collapsedTree:     map[string]struct{}{},
+		linkCollapsedTree: map[string]struct{}{},
+		readiness:         map[string]shelf.TaskReadiness{},
+		taskByID:          map[string]shelf.Task{},
+		titleByID:         map[string]string{},
+		effectiveDue:      map[string]string{},
+		outboundCount:     map[string]int{},
+		inboundCount:      map[string]int{},
+		addKind:           cfg.DefaultKind,
 	}
 	model.filter = opts.Filter
 	model.filter.Limit = 0
@@ -391,7 +396,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "left", "h":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(-1)
+				m.moveSidebarFocusByDays(-1)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-1)
 			} else if m.mode == calendarModeTree {
@@ -404,7 +409,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "right", "l":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(1)
+				m.moveSidebarFocusByDays(1)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(1)
 			} else if m.mode == calendarModeTree {
@@ -417,7 +422,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "up":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(-7)
+				m.moveSidebarFocusByDays(-7)
 				return m, nil
 			}
 			if m.mode == calendarModeBoard {
@@ -428,7 +433,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "down":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(7)
+				m.moveSidebarFocusByDays(7)
 				return m, nil
 			}
 			if m.mode == calendarModeBoard {
@@ -439,7 +444,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "k":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(-7)
+				m.moveSidebarFocusByDays(-7)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(-7)
 			} else if m.mode == calendarModeBoard {
@@ -450,7 +455,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "j":
 			if m.usesSidebarCalendarNav() {
-				m.moveFocusByDays(7)
+				m.moveSidebarFocusByDays(7)
 			} else if m.mode == calendarModeCalendar {
 				m.moveFocusByDays(7)
 			} else if m.mode == calendarModeBoard {
@@ -483,12 +488,20 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "[":
 			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
-				m.moveFocusByMonths(-1)
+				if m.usesSidebarCalendarNav() {
+					m.moveSidebarFocusByMonths(-1)
+				} else {
+					m.moveFocusByMonths(-1)
+				}
 			}
 			return m, nil
 		case "]":
 			if m.mode == calendarModeCalendar || m.usesSidebarCalendarNav() {
-				m.moveFocusByMonths(1)
+				if m.usesSidebarCalendarNav() {
+					m.moveSidebarFocusByMonths(1)
+				} else {
+					m.moveFocusByMonths(1)
+				}
 			}
 			return m, nil
 		case "n":
@@ -1276,6 +1289,15 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	optionCount := len(m.tagChoices) + 2
 	switch msg.String() {
+	case "ctrl+s":
+		if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
+			m.tagMode = false
+			m.message = err.Error()
+			return m, nil
+		}
+		m.tagMode = false
+		m.tagSelection = nil
+		return m, nil
 	case "esc", "q":
 		m.tagMode = false
 		m.tagSelection = nil
@@ -1293,9 +1315,21 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tagIndex++
 		}
 		return m, nil
-	case " ", "enter":
+	case " ":
+		if m.tagIndex < 2 {
+			return m, nil
+		}
+		tag := m.tagChoices[m.tagIndex-2]
+		if containsTag(m.tagSelection, tag) {
+			m.tagSelection = removeTag(m.tagSelection, tag)
+		} else {
+			m.tagSelection = append(m.tagSelection, tag)
+			m.tagSelection = shelf.NormalizeTags(m.tagSelection)
+		}
+		return m, nil
+	case "enter":
 		switch {
-		case m.tagIndex == 0 && msg.String() == "enter":
+		case m.tagIndex == 0:
 			if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
 				m.tagMode = false
 				m.message = err.Error()
@@ -1308,15 +1342,6 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tagInputMode = true
 			m.tagInputValue = ""
 			m.message = "新しい tag を入力"
-			return m, nil
-		default:
-			tag := m.tagChoices[m.tagIndex-2]
-			if containsTag(m.tagSelection, tag) {
-				m.tagSelection = removeTag(m.tagSelection, tag)
-			} else {
-				m.tagSelection = append(m.tagSelection, tag)
-				m.tagSelection = shelf.NormalizeTags(m.tagSelection)
-			}
 			return m, nil
 		}
 	}
@@ -2461,6 +2486,16 @@ func (m *calendarTUIModel) moveFocusByMonths(delta int) {
 	m.moveFocusToDate(target.AddDate(0, delta, 0))
 }
 
+func (m *calendarTUIModel) moveSidebarFocusByDays(delta int) {
+	m.moveFocusByDays(delta)
+	m.syncMainSelectionToFocusedDay()
+}
+
+func (m *calendarTUIModel) moveSidebarFocusByMonths(delta int) {
+	m.moveFocusByMonths(delta)
+	m.syncMainSelectionToFocusedDay()
+}
+
 func (m *calendarTUIModel) moveFocusToDate(target time.Time) {
 	newStart, newIndex := planCalendarWindow(m.startDate, m.daysCount, target)
 	if !sameDate(newStart, m.startDate) {
@@ -2473,6 +2508,24 @@ func (m *calendarTUIModel) moveFocusToDate(target time.Time) {
 	m.dayIndex = newIndex
 	m.rebuildModeState()
 	m.syncFocusedDayRow()
+}
+
+func (m *calendarTUIModel) syncMainSelectionToFocusedDay() {
+	if m.mode == calendarModeCalendar {
+		return
+	}
+	section := m.focusedDaySection()
+	if section == nil || len(section.Items) == 0 {
+		return
+	}
+	row := m.sectionRows[section.ID]
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(section.Items) {
+		row = len(section.Items) - 1
+	}
+	m.selectTaskByID(section.Items[row].Task.ID)
 }
 
 func (m calendarTUIModel) focusedDay() *calendarDay {
@@ -2789,6 +2842,7 @@ func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
 	m.linkQuery = ""
 	m.linkQueryMode = false
 	m.linkTypeIndex = 0
+	m.linkCollapsedTree = map[string]struct{}{}
 	if action == calendarLinkActionAdd {
 		m.message = "link 先を選択"
 		return
@@ -2850,15 +2904,24 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.linkIndex++
 		}
 		return m, nil
-	case "left", "h":
-		if m.linkAction == calendarLinkActionAdd && m.linkTypeIndex > 0 {
-			m.linkTypeIndex--
+	case "tab":
+		if m.linkAction == calendarLinkActionAdd && len(m.linkTypes()) > 0 {
+			m.linkTypeIndex = (m.linkTypeIndex + 1) % len(m.linkTypes())
 		}
 		return m, nil
-	case "right", "l":
-		if m.linkAction == calendarLinkActionAdd && m.linkTypeIndex < len(m.linkTypes())-1 {
-			m.linkTypeIndex++
+	case "shift+tab":
+		if m.linkAction == calendarLinkActionAdd && len(m.linkTypes()) > 0 {
+			m.linkTypeIndex--
+			if m.linkTypeIndex < 0 {
+				m.linkTypeIndex = len(m.linkTypes()) - 1
+			}
 		}
+		return m, nil
+	case "left", "h":
+		m.collapseCurrentLinkCandidate()
+		return m, nil
+	case "right", "l":
+		m.expandCurrentLinkCandidate()
 		return m, nil
 	case "enter":
 		candidates := m.currentLinkCandidates()
@@ -2882,6 +2945,51 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
+}
+
+func (m *calendarTUIModel) collapseCurrentLinkCandidate() {
+	candidates := m.currentLinkCandidates()
+	if len(candidates) == 0 || m.linkIndex < 0 || m.linkIndex >= len(candidates) {
+		return
+	}
+	candidate := candidates[m.linkIndex]
+	if candidate.HasChildren && !candidate.Collapsed {
+		m.linkCollapsedTree[candidate.TaskID] = struct{}{}
+		m.selectLinkCandidate(candidate.TaskID)
+		return
+	}
+	if strings.TrimSpace(candidate.Parent) != "" {
+		m.selectLinkCandidate(candidate.Parent)
+	}
+}
+
+func (m *calendarTUIModel) expandCurrentLinkCandidate() {
+	candidates := m.currentLinkCandidates()
+	if len(candidates) == 0 || m.linkIndex < 0 || m.linkIndex >= len(candidates) {
+		return
+	}
+	candidate := candidates[m.linkIndex]
+	if candidate.HasChildren && candidate.Collapsed {
+		delete(m.linkCollapsedTree, candidate.TaskID)
+		m.selectLinkCandidate(candidate.TaskID)
+	}
+}
+
+func (m *calendarTUIModel) selectLinkCandidate(taskID string) {
+	candidates := m.currentLinkCandidates()
+	for i, candidate := range candidates {
+		if candidate.TaskID == taskID {
+			m.linkIndex = i
+			return
+		}
+	}
+	if len(candidates) == 0 {
+		m.linkIndex = 0
+		return
+	}
+	if m.linkIndex >= len(candidates) {
+		m.linkIndex = len(candidates) - 1
+	}
 }
 
 func (m calendarTUIModel) linkTypes() []shelf.LinkType {
@@ -2968,10 +3076,10 @@ func (m calendarTUIModel) linkCandidatesInTreeOrder(excludeTaskID string) []cale
 			return byParent[parent][i].ID < byParent[parent][j].ID
 		})
 	}
-	return flattenLinkCandidates(byParent[""], byParent, "", true, m.showID, m.taskByID)
+	return flattenLinkCandidates(byParent[""], byParent, "", true, m.showID, m.taskByID, m.linkCollapsedTree, "")
 }
 
-func flattenLinkCandidates(tasks []shelf.Task, byParent map[string][]shelf.Task, prefix string, isRoot bool, showID bool, byID map[string]shelf.Task) []calendarLinkCandidate {
+func flattenLinkCandidates(tasks []shelf.Task, byParent map[string][]shelf.Task, prefix string, isRoot bool, showID bool, byID map[string]shelf.Task, collapsed map[string]struct{}, parentID string) []calendarLinkCandidate {
 	candidates := make([]calendarLinkCandidate, 0)
 	for i, task := range tasks {
 		isLast := i == len(tasks)-1
@@ -2988,14 +3096,32 @@ func flattenLinkCandidates(tasks []shelf.Task, byParent map[string][]shelf.Task,
 		if showID {
 			label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
 		}
-		label = prefix + branch + label
+		hasChildren := len(byParent[task.ID]) > 0
+		collapsedNode := false
+		if hasChildren {
+			_, collapsedNode = collapsed[task.ID]
+		}
+		marker := ""
+		if hasChildren {
+			if collapsedNode {
+				marker = "[+] "
+			} else {
+				marker = "[-] "
+			}
+		}
+		label = prefix + branch + marker + label
 		candidates = append(candidates, calendarLinkCandidate{
-			TaskID: task.ID,
-			Title:  task.Title,
-			Label:  label,
-			Path:   buildTaskPath(task, byID),
+			TaskID:      task.ID,
+			Title:       task.Title,
+			Label:       label,
+			Path:        buildTaskPath(task, byID),
+			Parent:      parentID,
+			HasChildren: hasChildren,
+			Collapsed:   collapsedNode,
 		})
-		candidates = append(candidates, flattenLinkCandidates(byParent[task.ID], byParent, nextPrefix, false, showID, byID)...)
+		if !collapsedNode {
+			candidates = append(candidates, flattenLinkCandidates(byParent[task.ID], byParent, nextPrefix, false, showID, byID, collapsed, task.ID)...)
+		}
 	}
 	return candidates
 }
@@ -3661,24 +3787,15 @@ func splitSidebarHeights(totalHeight int) (int, int) {
 	return top, bottom
 }
 
-func splitSecondarySidebarHeights(totalHeight int) (int, int) {
+func splitSecondarySidebarHeights(totalHeight int) (int, int, int) {
 	if totalHeight <= 0 {
-		return 0, 0
+		return 0, 0, 0
 	}
-	usable := max(0, totalHeight-1)
-	top := usable * 60 / 98
-	bottom := usable - top
-	return top, bottom
-}
-
-func splitCalendarBoxHeights(totalHeight int) (int, int) {
-	if totalHeight <= 0 {
-		return 0, 0
-	}
-	usable := max(0, totalHeight-1)
-	top := usable * 58 / 100
-	bottom := usable - top
-	return top, bottom
+	usable := max(0, totalHeight-2)
+	calendar := usable * 40 / 98
+	selectedDay := usable * 28 / 98
+	inspector := usable - calendar - selectedDay
+	return calendar, selectedDay, inspector
 }
 
 func calendarMainCellHeight(totalHeight int) int {
@@ -3887,10 +4004,11 @@ func renderCalendarSidebarPane(m calendarTUIModel, task shelf.Task, ok bool, wid
 }
 
 func renderCalendarSecondarySidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int, height int, active bool) string {
-	topHeight, bottomHeight := splitSecondarySidebarHeights(height)
-	calendarPane := renderCalendarDaySyncPane(m, width, topHeight, active)
-	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, m.blockingLink, width, bottomHeight)
-	return lipgloss.JoinVertical(lipgloss.Left, calendarPane, "", inspector)
+	calendarHeight, selectedDayHeight, inspectorHeight := splitSecondarySidebarHeights(height)
+	calendarPane := renderCalendarMiniSidebar(m, width, calendarHeight, active)
+	selectedDayPane := renderSelectedDayPane(m, width, selectedDayHeight)
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, m.blockingLink, width, inspectorHeight)
+	return lipgloss.JoinVertical(lipgloss.Left, calendarPane, "", selectedDayPane, "", inspector)
 }
 
 func renderCalendarMiniSidebar(m calendarTUIModel, width int, height int, active bool) string {
@@ -3912,12 +4030,6 @@ func renderCalendarMiniSidebar(m calendarTUIModel, width int, height int, active
 		renderCalendarMonth(month, m.focusedDayLabel(), max(28, contentWidth), true, 2),
 	}
 	return boxStyle.Render(renderFixedBlock(lines, contentWidth, contentHeight, -1))
-}
-
-func renderCalendarDaySyncPane(m calendarTUIModel, width int, height int, active bool) string {
-	topHeight, bottomHeight := splitCalendarBoxHeights(height)
-	calendar := renderCalendarMiniSidebar(m, width, topHeight, active)
-	return lipgloss.JoinVertical(lipgloss.Left, calendar, "", renderSelectedDayPane(m, width, bottomHeight))
 }
 
 func renderSelectedDayPane(m calendarTUIModel, width int, height int) string {
@@ -4432,10 +4544,10 @@ func renderCalendarLinkPicker(action calendarLinkAction, linkType string, query 
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	title := "Add Link"
-	help := "/: query  j/k: 移動  h/l: type  Enter: apply  Esc/q: 戻る"
+	help := "/: query  j/k: move  h/l: collapse-expand  Tab/Shift+Tab: type  Enter: apply  Esc/q: close"
 	if action == calendarLinkActionRemove {
 		title = "Remove Link"
-		help = "/: query  j/k: 移動  Enter: remove  Esc/q: 戻る"
+		help = "/: query  j/k: move  h/l: collapse-expand  Enter: remove  Esc/q: close"
 	}
 	header := []string{titleStyle.Render(title), helpStyle.Render(help), helpStyle.Render("Selected: " + selectedTask)}
 	if action == calendarLinkActionAdd {
@@ -4589,7 +4701,7 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	header := []string{
 		titleStyle.Render("Tags"),
 		helpStyle.Render("Selected: " + selectedTask),
-		helpStyle.Render("j/k: move  Space/Enter: toggle  Enter on Done: save  Esc/q: close"),
+		helpStyle.Render("j/k: move  Space: toggle  Enter: Done/Add  Ctrl+S: save  Esc/q: close"),
 	}
 	if inputMode {
 		header = append(header, helpStyle.Render("Add new tag: "+inputValue+"_"))

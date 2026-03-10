@@ -89,6 +89,8 @@
 link selector は tree 風ラベルを使い、件数が多いときはスクロールします。
 ID は `--show-id` を有効にしたときだけ表示します。
 transient picker / composer は中央 popup で表示します。
+- link picker では `h` / `l` で Tree mode と同様に開閉できます
+- link type の切り替えは `Tab` / `Shift+Tab` です
 
 ## 作成
 
@@ -109,6 +111,19 @@ transient picker / composer は中央 popup で表示します。
 - `f`: popup の filter editor を開く
 - `status` / `kind` の include / exclude を編集できる
 - 適用した filter は Cockpit の各 mode に共通で効く
+
+## Tag
+
+- `Space`: 現在の tag を toggle
+- `Enter` on `Done`: 保存して閉じる
+- `Enter` on `+ Add new tag`: 入力 mode に入る
+- `Ctrl+S`: tag 編集中のどこからでも保存して閉じる
+
+## Non-Calendar Sidebar
+
+- 右ペインは `Calendar / Selected Day / Inspector` の3段です
+- main selection は sidebar の日付と `Selected Day` に同期します
+- sidebar の calendar を動かすと、その日に visible task があれば main selection も追従します
 
 ## スクロール
 
