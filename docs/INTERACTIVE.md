@@ -117,6 +117,7 @@ IDs are hidden there unless `--show-id` is enabled.
 - board keeps using the selected column status as the status default
 - the add composer now includes a title field and kind field
 - `Tab` / `Shift+Tab` cycle between title and kind
+- `Left` / `Right` move the cursor inside the title field
 - `j` / `k` cycle kinds while the kind field is active
 - `Enter` confirms creation
 - `Esc` / `Ctrl+[` cancel add mode
@@ -134,7 +135,7 @@ IDs are hidden there unless `--show-id` is enabled.
 - `Enter` on `Done`: save and close
 - `Enter` on `+ Add new tag`: enter text input mode
 - `Ctrl+S`: save and close from anywhere in tag editing
-- while typing a new tag, movement keys are treated as text input
+- while typing a new tag, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
 
 ## Non-Calendar Sidebar
 
@@ -160,6 +161,6 @@ Long task selectors scroll automatically.
 - tree-style labels are used where hierarchy matters
 - `(root)` appears as an explicit move target where relevant
 - `q` and `Esc` cancel plain selectors
-- Link uses `/` to enter query input mode; while typing, movement keys are treated as text
+- Link uses `/` to enter query input mode; while typing, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
 - `Selected Day` replaces the old focused-day panel name and stays synced with the main selection
 - `Selected Day` also syncs when the sidebar calendar changes the selected date

@@ -107,6 +107,7 @@ ID は `--show-id` を有効にしたときだけ表示します。
 - board では selected column の status を default にする
 - add composer は title と kind を同じ box 内で編集する
 - `Tab` / `Shift+Tab` で title / kind を循環する
+- title フィールド中は `Left` / `Right` でカーソル移動できる
 - kind フィールド中は `j` / `k` だけで kind を切り替える
 - `Enter` で作成を確定する
 - `Esc` / `Ctrl+[` で add をキャンセルする
@@ -124,7 +125,7 @@ ID は `--show-id` を有効にしたときだけ表示します。
 - `Enter` on `Done`: 保存して閉じる
 - `Enter` on `+ Add new tag`: 入力 mode に入る
 - `Ctrl+S`: tag 編集中のどこからでも保存して閉じる
-- 新規 tag 入力中は移動系 keybind ではなく通常の文字入力になります
+- 新規 tag 入力中は `Left` / `Right` でカーソル移動でき、文字はその位置に挿入されます
 
 ## Non-Calendar Sidebar
 
@@ -152,6 +153,6 @@ body の scroll:
 - hierarchy が重要な場面では tree 形式ラベルを使います
 - 必要な場面では `(root)` を明示的に選べます
 - 通常の selector では `q`, `Esc` でキャンセルできます
-- Link は `/` で query 入力 mode に入り、入力中は移動系 keybind を発火させません
+- Link は `/` で query 入力 mode に入り、入力中は `Left` / `Right` でカーソル移動でき、文字はその位置に挿入されます
 - 旧 focused day panel 名は `Selected Day` に統一され、main selection と同期します
 - `Selected Day` は sidebar の calendar で日付を変えたときも追従します

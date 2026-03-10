@@ -799,6 +799,27 @@ func TestCalendarLinkQueryModeTreatsKeysAsInput(t *testing.T) {
 	}
 }
 
+func TestCalendarLinkQueryModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		linkMode:        true,
+		linkQueryMode:   true,
+		linkQuery:       "ab",
+		linkQueryCursor: 2,
+	}
+
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.linkQueryCursor)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != "aXb" || model.linkQueryCursor != 2 {
+		t.Fatalf("unexpected query edit: value=%q cursor=%d", model.linkQuery, model.linkQueryCursor)
+	}
+}
+
 func TestCalendarLinkModeUsesTabForTypeAndSupportsCollapse(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
@@ -1093,10 +1114,11 @@ func TestUpdateAddModeUsesTabForFieldSwitchAndEnterForCreate(t *testing.T) {
 
 func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
 	model := calendarTUIModel{
-		addMode:     true,
-		addField:    calendarAddFieldTitle,
-		defaultKind: "todo",
-		addKind:     "todo",
+		addMode:        true,
+		addField:       calendarAddFieldTitle,
+		defaultKind:    "todo",
+		addKind:        "todo",
+		addTitleCursor: 0,
 	}
 	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	model = updated.(calendarTUIModel)
@@ -1114,6 +1136,29 @@ func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
 	model = updated.(calendarTUIModel)
 	if model.addField != calendarAddFieldTitle {
 		t.Fatalf("expected shift+tab to move back to title, got %v", model.addField)
+	}
+}
+
+func TestUpdateAddModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		addMode:        true,
+		addField:       calendarAddFieldTitle,
+		addTitle:       "ab",
+		addTitleCursor: 2,
+		defaultKind:    "todo",
+		addKind:        "todo",
+	}
+
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.addTitleCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.addTitleCursor)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != "aXb" || model.addTitleCursor != 2 {
+		t.Fatalf("unexpected title edit: value=%q cursor=%d", model.addTitle, model.addTitleCursor)
 	}
 }
 
@@ -1137,6 +1182,27 @@ func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
 	}
 	if !model.tagMode {
 		t.Fatal("expected tag picker to stay open while typing")
+	}
+}
+
+func TestUpdateTagModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:        true,
+		tagInputMode:   true,
+		tagInputValue:  "ab",
+		tagInputCursor: 2,
+	}
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.tagInputCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.tagInputCursor)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.tagInputValue != "aXb" || model.tagInputCursor != 2 {
+		t.Fatalf("unexpected tag input edit: value=%q cursor=%d", model.tagInputValue, model.tagInputCursor)
 	}
 }
 
