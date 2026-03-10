@@ -1841,7 +1841,11 @@ func (m *calendarTUIModel) rebuildSections() {
 		return
 	}
 	if m.selectedTaskID != "" {
-		if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, m.selectedTaskID); ok {
+		findSectionTask := findCalendarSectionTask
+		if m.mode == calendarModeReview || m.mode == calendarModeNow {
+			findSectionTask = findPreferredCalendarSectionTask
+		}
+		if secIdx, rowIdx, ok := findSectionTask(m.sections, m.selectedTaskID); ok {
 			m.sectionIndex = secIdx
 			m.sectionRows[m.sections[secIdx].ID] = rowIdx
 			return
@@ -2124,6 +2128,20 @@ func findCalendarSectionTask(sections []calendarSection, taskID string) (int, in
 	return 0, 0, false
 }
 
+func findPreferredCalendarSectionTask(sections []calendarSection, taskID string) (int, int, bool) {
+	for secIdx, section := range sections {
+		if section.ID == calendarSectionFocusedDay {
+			continue
+		}
+		for rowIdx, item := range section.Items {
+			if item.Task.ID == taskID {
+				return secIdx, rowIdx, true
+			}
+		}
+	}
+	return findCalendarSectionTask(sections, taskID)
+}
+
 func (m *calendarTUIModel) selectFirstAvailableTask() {
 	for secIdx, section := range m.sections {
 		if len(section.Items) == 0 {
@@ -2200,7 +2218,7 @@ func (m *calendarTUIModel) moveSectionRow(delta int) {
 		row = 0
 	}
 	m.sectionRows[section.ID] = row
-	m.selectedTaskID = section.Items[row].Task.ID
+	m.syncSelectionFromMain(section.Items[row].Task.ID)
 }
 
 func (m *calendarTUIModel) jumpSectionRowStart() {
@@ -2214,7 +2232,7 @@ func (m *calendarTUIModel) jumpSectionRowStart() {
 			return
 		}
 		m.treeRowIndex = 0
-		m.selectedTaskID = m.treeRows[0].Task.ID
+		m.syncSelectionFromMain(m.treeRows[0].Task.ID)
 		m.syncRangeSelection()
 		return
 	}
@@ -2223,7 +2241,7 @@ func (m *calendarTUIModel) jumpSectionRowStart() {
 		return
 	}
 	m.sectionRows[section.ID] = 0
-	m.selectedTaskID = section.Items[0].Task.ID
+	m.syncSelectionFromMain(section.Items[0].Task.ID)
 }
 
 func (m *calendarTUIModel) jumpSectionRowEnd() {
@@ -2232,7 +2250,7 @@ func (m *calendarTUIModel) jumpSectionRowEnd() {
 			return
 		}
 		m.treeRowIndex = len(m.treeRows) - 1
-		m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+		m.syncSelectionFromMain(m.treeRows[m.treeRowIndex].Task.ID)
 		m.syncRangeSelection()
 		return
 	}
@@ -2242,7 +2260,7 @@ func (m *calendarTUIModel) jumpSectionRowEnd() {
 	}
 	row := len(section.Items) - 1
 	m.sectionRows[section.ID] = row
-	m.selectedTaskID = section.Items[row].Task.ID
+	m.syncSelectionFromMain(section.Items[row].Task.ID)
 }
 
 func (m *calendarTUIModel) jumpToSection(index int) {
@@ -2289,7 +2307,7 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 			m.treeRowIndex = -1
 		}
 		if m.treeRowIndex >= 0 {
-			m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+			m.syncSelectionFromMain(m.treeRows[m.treeRowIndex].Task.ID)
 		}
 		m.syncRangeSelection()
 		return
@@ -2301,7 +2319,7 @@ func (m *calendarTUIModel) moveTreeRow(delta int) {
 	if m.treeRowIndex >= len(m.treeRows) {
 		m.treeRowIndex = 0
 	}
-	m.selectedTaskID = m.treeRows[m.treeRowIndex].Task.ID
+	m.syncSelectionFromMain(m.treeRows[m.treeRowIndex].Task.ID)
 	m.syncRangeSelection()
 }
 
@@ -2403,7 +2421,7 @@ func (m *calendarTUIModel) clampBoardSelection() {
 		row = maxRow
 	}
 	m.boardRowIndex[m.boardColumnIdx] = row
-	m.selectedTaskID = column.Tasks[row].ID
+	m.syncSelectionFromMain(column.Tasks[row].ID)
 	m.syncRangeSelection()
 }
 
@@ -2437,7 +2455,7 @@ func (m *calendarTUIModel) moveBoardRow(delta int) {
 		row = 0
 	}
 	m.boardRowIndex[m.boardColumnIdx] = row
-	m.selectedTaskID = column.Tasks[row].ID
+	m.syncSelectionFromMain(column.Tasks[row].ID)
 	m.syncRangeSelection()
 }
 
@@ -2450,7 +2468,7 @@ func (m *calendarTUIModel) jumpBoardRowStart() {
 		return
 	}
 	m.boardRowIndex[m.boardColumnIdx] = 0
-	m.selectedTaskID = column.Tasks[0].ID
+	m.syncSelectionFromMain(column.Tasks[0].ID)
 	m.syncRangeSelection()
 }
 
@@ -2464,7 +2482,7 @@ func (m *calendarTUIModel) jumpBoardRowEnd() {
 	}
 	row := len(column.Tasks) - 1
 	m.boardRowIndex[m.boardColumnIdx] = row
-	m.selectedTaskID = column.Tasks[row].ID
+	m.syncSelectionFromMain(column.Tasks[row].ID)
 	m.syncRangeSelection()
 }
 
@@ -2526,6 +2544,13 @@ func (m *calendarTUIModel) syncMainSelectionToFocusedDay() {
 		row = len(section.Items) - 1
 	}
 	m.selectTaskByID(section.Items[row].Task.ID)
+}
+
+func (m *calendarTUIModel) syncSelectionFromMain(taskID string) {
+	m.selectedTaskID = taskID
+	if m.mode != calendarModeCalendar {
+		m.syncFocusedDateToTask(taskID)
+	}
 }
 
 func (m calendarTUIModel) focusedDay() *calendarDay {
@@ -3521,7 +3546,11 @@ func (m *calendarTUIModel) selectTaskByID(taskID string) {
 		m.clampBoardSelection()
 		return
 	}
-	if secIdx, rowIdx, ok := findCalendarSectionTask(m.sections, taskID); ok {
+	findSectionTask := findCalendarSectionTask
+	if m.mode == calendarModeReview || m.mode == calendarModeNow {
+		findSectionTask = findPreferredCalendarSectionTask
+	}
+	if secIdx, rowIdx, ok := findSectionTask(m.sections, taskID); ok {
 		m.sectionIndex = secIdx
 		m.sectionRows[m.sections[secIdx].ID] = rowIdx
 		m.syncFocusedDateToTask(taskID)

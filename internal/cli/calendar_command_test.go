@@ -2030,6 +2030,72 @@ func TestSidebarCalendarNavigationSyncsMainSelection(t *testing.T) {
 	}
 }
 
+func TestReviewSelectTaskPrefersOperationalSectionAndSyncsSidebarDate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Today", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Tomorrow", Kind: "todo", Status: "open", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	if model.sectionIndex == 0 {
+		t.Fatalf("expected review selection to prefer operational sections over Selected Day")
+	}
+	model.selectTaskByID(second.ID)
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected main review move to select second task, got %s", model.selectedTaskID)
+	}
+	if model.sectionIndex == 0 {
+		t.Fatalf("expected selected task to stay in an operational section, got section %d", model.sectionIndex)
+	}
+	if model.focusedDayLabel() != tomorrow {
+		t.Fatalf("expected sidebar date to sync to tomorrow, got %s", model.focusedDayLabel())
+	}
+}
+
+func TestBoardSelectionSyncsSidebarDate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-10"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeBoard,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.moveBoardRow(1)
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected board row move to select second task, got %s", model.selectedTaskID)
+	}
+	if model.focusedDayLabel() != "2026-03-10" {
+		t.Fatalf("expected sidebar date to sync to 2026-03-10, got %s", model.focusedDayLabel())
+	}
+}
+
 func TestCalendarTJumpToToday(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
