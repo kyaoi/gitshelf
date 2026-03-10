@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -685,6 +686,81 @@ func TestSelectedTitleCopyTextUsesMarkedOrderAndSeparator(t *testing.T) {
 	}
 	if count != 2 || text != "First, Second" {
 		t.Fatalf("unexpected copy payload: count=%d text=%q", count, text)
+	}
+}
+
+func TestSelectedPathCopyTextUsesMarkedAbsolutePaths(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	model := calendarTUIModel{
+		rootDir:       root,
+		copySeparator: "\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First"},
+		},
+		markedTaskIDs: map[string]struct{}{"01A": {}},
+	}
+	text, count, err := model.selectedPathCopyText()
+	if err != nil {
+		t.Fatalf("selectedPathCopyText failed: %v", err)
+	}
+	want := filepath.Join(shelf.TasksDir(root), "01A.md")
+	if count != 1 || text != want {
+		t.Fatalf("unexpected path payload: count=%d text=%q want=%q", count, text, want)
+	}
+}
+
+func TestSelectedBodyCopyTextUsesMarkedOrderAndSeparator(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeTree,
+		copySeparator: "\n---\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First", Body: "alpha"},
+			"01B": {ID: "01B", Title: "Second", Body: "beta"},
+		},
+		treeRows: []cockpitTreeRow{
+			{Task: shelf.Task{ID: "01A", Title: "First"}},
+			{Task: shelf.Task{ID: "01B", Title: "Second"}},
+		},
+		markedTaskIDs: map[string]struct{}{
+			"01A": {},
+			"01B": {},
+		},
+	}
+	text, count, err := model.selectedBodyCopyText()
+	if err != nil {
+		t.Fatalf("selectedBodyCopyText failed: %v", err)
+	}
+	if count != 2 || text != "alpha\n---\nbeta" {
+		t.Fatalf("unexpected body payload: count=%d text=%q", count, text)
+	}
+}
+
+func TestSelectedSubtreeCopyTextUsesIndentedTreeAndDedupesMarkedDescendants(t *testing.T) {
+	parent := shelf.Task{ID: "01A", Title: "Parent"}
+	child := shelf.Task{ID: "01B", Title: "Child", Parent: "01A"}
+	grandchild := shelf.Task{ID: "01C", Title: "Grandchild", Parent: "01B"}
+	model := calendarTUIModel{
+		taskByID: map[string]shelf.Task{
+			parent.ID:     parent,
+			child.ID:      child,
+			grandchild.ID: grandchild,
+		},
+		allTasks: []shelf.Task{parent, child, grandchild},
+		markedTaskIDs: map[string]struct{}{
+			parent.ID: {},
+			child.ID:  {},
+		},
+	}
+	text, count, err := model.selectedSubtreeCopyText()
+	if err != nil {
+		t.Fatalf("selectedSubtreeCopyText failed: %v", err)
+	}
+	want := "Parent\n  Child\n    Grandchild"
+	if count != 3 || text != want {
+		t.Fatalf("unexpected subtree payload: count=%d text=%q want=%q", count, text, want)
 	}
 }
 

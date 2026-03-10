@@ -90,6 +90,9 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `K`: edit kind on the selected task
 - `#`: edit tags for the selected task
 - `y`: copy the selected title, or marked titles joined by the configured separator
+- `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
+- `P`: copy the selected task file path, or marked file paths, as absolute paths
+- `O`: copy the selected task body, or marked task bodies
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`

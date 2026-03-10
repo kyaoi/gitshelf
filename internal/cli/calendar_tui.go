@@ -575,6 +575,21 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = err.Error()
 			}
 			return m, nil
+		case "Y":
+			if err := m.copySelectedTaskSubtrees(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
+		case "P":
+			if err := m.copySelectedTaskPaths(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
+		case "O":
+			if err := m.copySelectedTaskBodies(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
 		case "L":
 			m.beginLinkMode(calendarLinkActionAdd)
 			return m, nil
@@ -1651,6 +1666,37 @@ func (m calendarTUIModel) activeTaskIDs() []string {
 		return nil
 	}
 	return []string{task.ID}
+}
+
+func (m calendarTUIModel) copySubtreeRootIDs() []string {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) <= 1 {
+		return taskIDs
+	}
+	roots := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			continue
+		}
+		include := true
+		parentID := task.Parent
+		for parentID != "" {
+			if slices.Contains(taskIDs, parentID) {
+				include = false
+				break
+			}
+			parent, ok := m.taskByID[parentID]
+			if !ok {
+				break
+			}
+			parentID = parent.Parent
+		}
+		if include {
+			roots = append(roots, taskID)
+		}
+	}
+	return roots
 }
 
 func (m calendarTUIModel) orderedMarkedTaskIDs() []string {
@@ -2895,14 +2941,7 @@ func (m *calendarTUIModel) applySelectedTaskTags(tags []string) error {
 }
 
 func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
-	taskIDs := m.orderedMarkedTaskIDs()
-	if len(taskIDs) == 0 {
-		task, ok := m.selectedTask()
-		if !ok {
-			return "", 0, fmt.Errorf("選択中の task がありません")
-		}
-		taskIDs = []string{task.ID}
-	}
+	taskIDs := m.activeTaskIDs()
 	titles := make([]string, 0, len(taskIDs))
 	for _, taskID := range taskIDs {
 		task, ok := m.taskByID[taskID]
@@ -2917,20 +2956,124 @@ func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
 	return strings.Join(titles, m.copySeparator), len(titles), nil
 }
 
+func (m calendarTUIModel) selectedPathCopyText() (string, int, error) {
+	taskIDs := m.activeTaskIDs()
+	paths := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		if _, ok := m.taskByID[taskID]; !ok {
+			continue
+		}
+		paths = append(paths, filepath.Join(shelf.TasksDir(m.rootDir), taskID+".md"))
+	}
+	if len(paths) == 0 {
+		return "", 0, fmt.Errorf("コピー対象の path がありません")
+	}
+	return strings.Join(paths, m.copySeparator), len(paths), nil
+}
+
+func (m calendarTUIModel) selectedBodyCopyText() (string, int, error) {
+	taskIDs := m.activeTaskIDs()
+	bodies := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok || strings.TrimSpace(task.Body) == "" {
+			continue
+		}
+		bodies = append(bodies, task.Body)
+	}
+	if len(bodies) == 0 {
+		return "", 0, fmt.Errorf("コピー対象の本文がありません")
+	}
+	return strings.Join(bodies, m.copySeparator), len(bodies), nil
+}
+
+func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
+	rootIDs := m.copySubtreeRootIDs()
+	if len(rootIDs) == 0 {
+		return "", 0, fmt.Errorf("選択中の task がありません")
+	}
+	byParent := make(map[string][]shelf.Task)
+	for _, task := range m.allTasks {
+		byParent[task.Parent] = append(byParent[task.Parent], task)
+	}
+	for parentID := range byParent {
+		sort.Slice(byParent[parentID], func(i, j int) bool {
+			left := byParent[parentID][i]
+			right := byParent[parentID][j]
+			if left.Title != right.Title {
+				return left.Title < right.Title
+			}
+			return left.ID < right.ID
+		})
+	}
+	lines := make([]string, 0, len(rootIDs))
+	count := 0
+	var appendSubtree func(taskID string, depth int)
+	appendSubtree = func(taskID string, depth int) {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			return
+		}
+		lines = append(lines, strings.Repeat("  ", depth)+task.Title)
+		count++
+		for _, child := range byParent[taskID] {
+			appendSubtree(child.ID, depth+1)
+		}
+	}
+	for i, rootID := range rootIDs {
+		if i > 0 {
+			lines = append(lines, "")
+		}
+		appendSubtree(rootID, 0)
+	}
+	if count == 0 {
+		return "", 0, fmt.Errorf("コピー対象の subtree がありません")
+	}
+	return strings.Join(lines, "\n"), count, nil
+}
+
+func (m *calendarTUIModel) copyClipboardPayload(text string, count int, singular string, plural string) error {
+	if err := copyTextToClipboard(text); err != nil {
+		return err
+	}
+	if count == 1 {
+		m.message = "Copied " + singular
+		return nil
+	}
+	m.message = fmt.Sprintf("Copied %d %s", count, plural)
+	return nil
+}
+
 func (m *calendarTUIModel) copySelectedTaskTitles() error {
 	text, count, err := m.selectedTitleCopyText()
 	if err != nil {
 		return err
 	}
-	if err := copyTextToClipboard(text); err != nil {
+	return m.copyClipboardPayload(text, count, "title", "titles")
+}
+
+func (m *calendarTUIModel) copySelectedTaskPaths() error {
+	text, count, err := m.selectedPathCopyText()
+	if err != nil {
 		return err
 	}
-	if count == 1 {
-		m.message = "Copied title"
-		return nil
+	return m.copyClipboardPayload(text, count, "path", "paths")
+}
+
+func (m *calendarTUIModel) copySelectedTaskBodies() error {
+	text, count, err := m.selectedBodyCopyText()
+	if err != nil {
+		return err
 	}
-	m.message = fmt.Sprintf("Copied %d titles", count)
-	return nil
+	return m.copyClipboardPayload(text, count, "body", "bodies")
+}
+
+func (m *calendarTUIModel) copySelectedTaskSubtrees() error {
+	text, count, err := m.selectedSubtreeCopyText()
+	if err != nil {
+		return err
+	}
+	return m.copyClipboardPayload(text, count, "subtree", "subtrees")
 }
 
 func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
@@ -3952,7 +4095,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y: copy title  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
+		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)

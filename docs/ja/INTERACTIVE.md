@@ -80,6 +80,9 @@ calendar main view では pane focus 切り替えは使いません。
 - `K`: 選択 task の kind を編集
 - `#`: 選択 task の tag を編集
 - `y`: 選択 title、または mark 済み title 群を config の区切り文字でコピー
+- `Y`: 選択 task の subtree、または mark 済み subtree 群をインデント付き title tree としてコピー
+- `P`: 選択 task file path、または mark 済み file path 群を絶対パスでコピー
+- `O`: 選択 task の本文、または mark 済み task 群の本文をコピー
 - `o`: `open`
 - `i`: `in_progress`
 - `b`: `blocked`
