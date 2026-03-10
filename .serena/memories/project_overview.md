@@ -1,0 +1,1 @@
+gitshelf is a Go CLI/TUI task manager centered on the `shelf` command and a Cockpit-first workflow. Storage lives under `.shelf/` with task markdown files, edge TOML files, and config TOML. Main code is under `internal/cli`, `internal/shelf`, `internal/interactive`, and `internal/paths`.
