@@ -3581,9 +3581,7 @@ func (m *calendarTUIModel) syncFocusedDateToTask(taskID string) {
 	m.days = buildCalendarDays(applyEffectiveDue(m.visibleTasks, m.effectiveDue), m.startDate, m.daysCount)
 	m.dayIndex = newIndex
 	m.syncFocusedDayRow()
-	if m.mode == calendarModeReview || m.mode == calendarModeNow {
-		m.rebuildSections()
-	}
+	m.rebuildSections()
 }
 
 func (m *calendarTUIModel) syncFocusedDayRow() {
@@ -4049,6 +4047,9 @@ func renderCalendarMiniSidebar(m calendarTUIModel, width int, height int, active
 	}
 	month := buildCalendarMonthView(m.days, focused)
 	borderColor := lipgloss.Color("240")
+	if active {
+		borderColor = lipgloss.Color("45")
+	}
 	boxStyle := calendarPanelStyle(width, height, borderColor)
 	contentWidth, contentHeight := calendarPanelContentSize(width, height)
 	contentWidth = max(20, contentWidth)

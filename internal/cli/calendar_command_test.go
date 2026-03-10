@@ -1187,6 +1187,9 @@ func TestSelectTaskByIDInTreeSyncsFocusedDateToTask(t *testing.T) {
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Other", Kind: "todo", Status: "open", DueOn: "2026-03-09"}); err != nil {
+		t.Fatalf("add other task failed: %v", err)
+	}
 	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Due", Kind: "todo", Status: "open", DueOn: "2026-03-12"})
 	if err != nil {
 		t.Fatalf("add task failed: %v", err)
@@ -1199,6 +1202,13 @@ func TestSelectTaskByIDInTreeSyncsFocusedDateToTask(t *testing.T) {
 	model.selectTaskByID(task.ID)
 	if model.focusedDayLabel() != "2026-03-12" {
 		t.Fatalf("expected focused day synced to task due date, got %s", model.focusedDayLabel())
+	}
+	section := model.focusedDaySection()
+	if section == nil || len(section.Items) != 1 {
+		t.Fatalf("expected selected day section rebuilt for synced date, got %+v", section)
+	}
+	if section.Items[0].Task.ID != task.ID {
+		t.Fatalf("expected selected day contents synced to selected task, got %+v", section.Items)
 	}
 }
 
