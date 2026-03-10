@@ -45,8 +45,8 @@ Main keys:
 - `j` / `k`: move by week
 - `[` / `]`: move by month
 - `n` / `p`: cycle tasks on the focused day
-- `a`: create from the current context
-- `A`: quick capture
+- `a`: create as a child of the selected task
+- `A`: create at root
 
 ## Tree Mode
 
@@ -80,7 +80,7 @@ These are compact operational views inside the same workspace.
 
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
-- `K`: edit kind, or choose the kind while the add composer is open
+- `K`: edit kind on the selected task
 - `#`: edit tags for the selected task
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `o`: set `open`
@@ -96,17 +96,20 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `Enter`: toggle compact / detailed inspector
 - `r`: reload
 
-Link selectors use tree/path labels so duplicate titles remain identifiable.
+Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.
 
-## Add / Capture
+## Add
 
-- `a`: create using the current mode context
-  - calendar / review / now: use focused day as the due date default
-  - tree: use selected task as the parent default
-  - board: use selected column status as the status default
-  - `K` inside the composer opens a kind picker before creation
-- `A`: quick capture (`kind=inbox`, `status=open`)
+- `a`: create using the current mode context as a child of the selected task
+- `A`: create using the current mode context at root
+- calendar / review / now keep using the focused day as the due date default
+- board keeps using the selected column status as the status default
+- the add composer now includes a title field and kind field
+- `Tab` / `Enter` moves from title to kind
+- `Shift+Tab` moves back to title
+- `h` / `j` / `k` / `l` cycle kinds while the kind field is active
+- `Ctrl+K` jumps directly to the kind field
 
 ## Scrolling
 

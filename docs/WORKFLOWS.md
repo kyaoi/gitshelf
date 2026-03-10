@@ -55,8 +55,8 @@ Useful keys:
 - `j/k`: previous/next week
 - `[` / `]`: previous/next month
 - `n/p`: cycle tasks on the focused day
-- `a`: create from the current context
-- `A`: quick capture
+- `a`: create as a child of the selected task
+- `A`: create at root
 
 ### 4. Change task state in place
 

@@ -41,8 +41,8 @@
 - `j` / `k`: 週移動
 - `[` / `]`: 月移動
 - `n` / `p`: focused day の task 切り替え
-- `a`: 現在文脈で作成
-- `A`: quick capture
+- `a`: 選択 task の子として作成
+- `A`: root に作成
 
 ## Tree Mode
 
@@ -70,7 +70,7 @@
 
 選択 task、または multi-select 中の mark 済み task に適用されます。
 
-- `K`: kind を編集、または add composer 中の kind を選択
+- `K`: 選択 task の kind を編集
 - `#`: 選択 task の tag を編集
 - `y`: 選択 title、または mark 済み title 群を config の区切り文字でコピー
 - `o`: `open`
@@ -86,17 +86,20 @@
 - `Enter`: compact / detailed inspector 切り替え
 - `r`: reload
 
-link selector は tree/path ラベルを使います。
+link selector は tree 風ラベルを使い、件数が多いときはスクロールします。
 ID は `--show-id` を有効にしたときだけ表示します。
 
 ## 作成
 
-- `a`: 現在 mode の文脈で作成
-  - calendar / review / now: focused day を due default にする
-  - tree: selected task を parent default にする
-  - board: selected column の status を default にする
-  - composer 中の `K` で kind picker を開けます
-- `A`: quick capture（`kind=inbox`, `status=open`）
+- `a`: 現在 mode の文脈で、選択 task の子として作成
+- `A`: 現在 mode の文脈で、root に作成
+- calendar / review / now では focused day を due default にする
+- board では selected column の status を default にする
+- add composer は title と kind を同じ box 内で編集する
+- `Tab` / `Enter` で title から kind へ移る
+- `Shift+Tab` で title に戻る
+- kind フィールド中は `h` / `j` / `k` / `l` で kind を切り替える
+- `Ctrl+K` で kind フィールドへ移動する
 
 ## スクロール
 

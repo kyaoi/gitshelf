@@ -478,7 +478,7 @@ func TestCalendarKindPickerUpdatesAddKind(t *testing.T) {
 		t.Fatalf("newCalendarTUIModel failed: %v", err)
 	}
 
-	model.beginAddMode(false)
+	model.beginAddMode(true)
 	model.beginKindMode(calendarKindTargetAdd)
 	for i, kind := range model.kindChoices {
 		if kind == "idea" {
@@ -866,7 +866,10 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 			},
 		},
 	}
-	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{})
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{}, map[string]string{
+		"01A": "2026-03-09",
+		"01B": "2026-03-09",
+	})
 	if len(rows) != 2 {
 		t.Fatalf("unexpected row count: %d", len(rows))
 	}
@@ -875,6 +878,9 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 	}
 	if !strings.Contains(rows[1].Label, "Child") || !strings.Contains(rows[1].Label, "└─") || rows[1].Meta != "memo/blocked" {
 		t.Fatalf("unexpected child row: %+v", rows[1])
+	}
+	if rows[1].DueOn != "2026-03-09" || !rows[1].DueInherited {
+		t.Fatalf("expected inherited due on child row, got %+v", rows[1])
 	}
 }
 
@@ -887,7 +893,7 @@ func TestFlattenCockpitTreeRowsSkipsCollapsedChildren(t *testing.T) {
 			},
 		},
 	}
-	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{"01A": {}})
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{"01A": {}}, map[string]string{})
 	if len(rows) != 1 {
 		t.Fatalf("expected collapsed tree to hide children, got %d rows", len(rows))
 	}
@@ -896,6 +902,56 @@ func TestFlattenCockpitTreeRowsSkipsCollapsedChildren(t *testing.T) {
 	}
 	if !strings.Contains(rows[0].Label, "[+]") {
 		t.Fatalf("expected collapsed marker in label, got %q", rows[0].Label)
+	}
+}
+
+func TestCreateTaskFromAddModeUsesSelectedTaskAsParent(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(false)
+	if err := model.createTaskFromAddMode("Child task"); err != nil {
+		t.Fatalf("createTaskFromAddMode failed: %v", err)
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Parent != parent.ID {
+		t.Fatalf("expected child task parent %s, got %+v", parent.ID, created)
+	}
+}
+
+func TestCreateTaskFromAddModeAtRootClearsParent(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(true)
+	if err := model.createTaskFromAddMode("Root task"); err != nil {
+		t.Fatalf("createTaskFromAddMode failed: %v", err)
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Parent != "" {
+		t.Fatalf("expected root task without parent, got %+v", created)
 	}
 }
 

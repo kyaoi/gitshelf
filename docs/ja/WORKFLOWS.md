@@ -53,8 +53,8 @@ Cockpit 内:
 - `j/k`: 週移動
 - `[` / `]`: 月移動
 - `n/p`: focused day の task 切り替え
-- `a`: 現在文脈で作成
-- `A`: quick capture
+- `a`: 選択 task の子として作成
+- `A`: root に作成
 
 ### 4. その場で更新する
 
