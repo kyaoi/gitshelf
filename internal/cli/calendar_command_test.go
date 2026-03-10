@@ -979,6 +979,26 @@ func TestRenderCockpitHelpOverlayUsesGroupedSections(t *testing.T) {
 	}
 }
 
+func TestRenderCalendarFilterPickerShowsCurrentSummary(t *testing.T) {
+	model := calendarTUIModel{
+		filter: shelf.TaskFilter{
+			Statuses:    []shelf.Status{"open", "blocked"},
+			NotStatuses: []shelf.Status{"done"},
+			Kinds:       []shelf.Kind{"todo"},
+			NotKinds:    []shelf.Kind{"idea"},
+		},
+		filterSection: calendarFilterIncludeStatuses,
+		statusChoices: []shelf.Status{"open", "blocked", "done"},
+		kindChoices:   []shelf.Kind{"todo", "idea"},
+	}
+	rendered := renderCalendarFilterPicker(model, 90, 22)
+	for _, want := range []string{"include: status=open,blocked  kind=todo", "exclude: status=done  kind=idea"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("expected filter picker to contain %q, got:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestCalendarShowsDescendantsOfDueParent(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

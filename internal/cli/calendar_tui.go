@@ -5320,9 +5320,23 @@ func formatCalendarRepeat(value string) string {
 }
 
 func formatCalendarStatusFilter(statuses []shelf.Status) string {
+	if len(statuses) == 0 {
+		return "-"
+	}
 	labels := make([]string, 0, len(statuses))
 	for _, status := range statuses {
 		labels = append(labels, string(status))
+	}
+	return strings.Join(labels, ",")
+}
+
+func formatCalendarKindFilter(kinds []shelf.Kind) string {
+	if len(kinds) == 0 {
+		return "-"
+	}
+	labels := make([]string, 0, len(kinds))
+	for _, kind := range kinds {
+		labels = append(labels, string(kind))
 	}
 	return strings.Join(labels, ",")
 }
@@ -5428,6 +5442,8 @@ func renderCalendarFilterPicker(m calendarTUIModel, width int, height int) strin
 	header := []string{
 		titleStyle.Render("Filter"),
 		mutedStyle.Render(popupControls("h/l or Tab: section", "j/k: move", "Space: toggle", "Enter: apply", "Esc/q: close")),
+		mutedStyle.Render(fmt.Sprintf("include: status=%s  kind=%s", formatCalendarStatusFilter(m.filter.Statuses), formatCalendarKindFilter(m.filter.Kinds))),
+		mutedStyle.Render(fmt.Sprintf("exclude: status=%s  kind=%s", formatCalendarStatusFilter(m.filter.NotStatuses), formatCalendarKindFilter(m.filter.NotKinds))),
 	}
 	lines := make([]string, 0, 32)
 	anchor := -1

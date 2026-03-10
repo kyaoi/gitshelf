@@ -148,6 +148,7 @@ IDs are hidden there unless `--show-id` is enabled.
 
 - `f`: open a popup filter editor
 - include / exclude filters are available for both `status` and `kind`
+- the popup header summarizes the current include / exclude filter state before you apply it
 - the applied filters affect every Cockpit mode
 
 ## Tags
