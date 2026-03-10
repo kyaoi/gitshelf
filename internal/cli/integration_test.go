@@ -787,6 +787,86 @@ func TestCLILsRejectsUnknownSortField(t *testing.T) {
 	}
 }
 
+func TestCLILsCountMode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open A", Status: "open"}); err != nil {
+		t.Fatalf("add open a failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open B", Status: "open"}); err != nil {
+		t.Fatalf("add open b failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--status", "open", "--count")
+	if err != nil {
+		t.Fatalf("ls --count failed: %v", err)
+	}
+	if strings.TrimSpace(out) != "2" {
+		t.Fatalf("expected count 2, got %q", out)
+	}
+
+	jsonOut, err := executeCLI(t, "ls", "--root", root, "--status", "open", "--count", "--json")
+	if err != nil {
+		t.Fatalf("ls --count --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("parse count json failed: %v\n%s", err, jsonOut)
+	}
+	if payload["count"] != float64(2) {
+		t.Fatalf("unexpected count payload: %#v", payload)
+	}
+}
+
+func TestCLINextCountMode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	ready, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add ready failed: %v", err)
+	}
+	blocker, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocker", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocker failed: %v", err)
+	}
+	blocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocked", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, blocked.ID, blocker.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--count")
+	if err != nil {
+		t.Fatalf("next --count failed: %v", err)
+	}
+	if strings.TrimSpace(out) != "2" {
+		t.Fatalf("expected ready count 2, got %q", out)
+	}
+	_ = ready
+}
+
+func TestCLICountModeRejectsRowFormattingFlags(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--count", "--format", "csv"); err == nil || !strings.Contains(err.Error(), "--count cannot be combined with --format") {
+		t.Fatalf("expected count/format error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "next", "--root", root, "--count", "--sort", "title"); err == nil || !strings.Contains(err.Error(), "--count cannot be combined with --sort or --reverse") {
+		t.Fatalf("expected count/sort error, got: %v", err)
+	}
+}
+
 func TestCLILsPresetNowUsesReadyDefaultsButAllowsOverride(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -71,6 +71,9 @@ shelf links 01AAA
 # preview ready tasks in jq
 shelf next --json | jq '.[].path'
 
+# count ready tasks without rendering rows
+shelf next --count
+
 # sort ready tasks by due date before inspection
 shelf next --format tsv --fields title,due_on --sort due_on
 

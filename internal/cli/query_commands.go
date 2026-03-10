@@ -35,6 +35,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		noHeader        bool
 		sortBy          string
 		reverse         bool
+		countOnly       bool
 		limit           int
 		search          string
 	)
@@ -51,6 +52,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
+			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
+				return err
+			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
 				return fmt.Errorf("--fields requires --format tsv or csv")
 			}
@@ -62,6 +66,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 
+			filterLimit := limit
+			if countOnly {
+				filterLimit = 0
+			}
 			filter := shelf.TaskFilter{
 				Kinds:           toKinds(kinds),
 				Statuses:        toStatuses(statuses),
@@ -78,7 +86,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Overdue:         overdue,
 				NoDue:           noDue,
 				Parent:          parent,
-				Limit:           limit,
+				Limit:           filterLimit,
 				Search:          search,
 			}
 
@@ -96,6 +104,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
 				return err
+			}
+			if countOnly {
+				return printCountResult(len(tasks), asJSON)
 			}
 
 			if asJSON {
@@ -290,6 +301,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
+	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of matching tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -297,14 +309,15 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		limit    int
-		asJSON   bool
-		format   string
-		fields   string
-		header   bool
-		noHeader bool
-		sortBy   string
-		reverse  bool
+		limit     int
+		asJSON    bool
+		format    string
+		fields    string
+		header    bool
+		noHeader  bool
+		sortBy    string
+		reverse   bool
+		countOnly bool
 	)
 
 	cmd := &cobra.Command{
@@ -313,8 +326,11 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf next\n" +
 			"  shelf next --limit 20\n" +
 			"  shelf next --format tsv",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
@@ -336,6 +352,16 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
 				return err
+			}
+			if countOnly {
+				count := 0
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if ok && info.Ready {
+						count++
+					}
+				}
+				return printCountResult(count, asJSON)
 			}
 
 			if asJSON {
@@ -468,6 +494,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
+	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of ready tasks")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -762,4 +789,39 @@ func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *
 	default:
 		return fmt.Errorf("unknown --preset: %s (allowed: now|review|board)", preset)
 	}
+}
+
+func validateCountModeFlags(cmd *cobra.Command, countOnly bool, fields string, header bool, noHeader bool, sortBy string, reverse bool, limit int) error {
+	if !countOnly {
+		return nil
+	}
+	if cmd.Flags().Changed("format") {
+		return fmt.Errorf("--count cannot be combined with --format")
+	}
+	if strings.TrimSpace(fields) != "" {
+		return fmt.Errorf("--count cannot be combined with --fields")
+	}
+	if header || noHeader {
+		return fmt.Errorf("--count cannot be combined with --header or --no-header")
+	}
+	if strings.TrimSpace(sortBy) != "" || reverse {
+		return fmt.Errorf("--count cannot be combined with --sort or --reverse")
+	}
+	if cmd.Flags().Changed("limit") && limit != 50 {
+		return fmt.Errorf("--count cannot be combined with --limit")
+	}
+	return nil
+}
+
+func printCountResult(count int, asJSON bool) error {
+	if asJSON {
+		data, err := json.MarshalIndent(map[string]int{"count": count}, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+	fmt.Println(count)
+	return nil
 }

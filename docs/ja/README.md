@@ -97,9 +97,11 @@ shelf ls --status open --json
 shelf next --format tsv
 shelf next --format csv --fields id,title,path --no-header
 shelf next --format tsv --fields title,due_on --sort due_on
+shelf next --count
 shelf ls --format tsv
 shelf ls --format jsonl
 shelf ls --format tsv --fields title,path --sort title --reverse
+shelf ls --status open --count --json
 shelf ls --preset board
 shelf show 01AAA
 shelf show 01AAA --format csv --fields title,file,body --no-header

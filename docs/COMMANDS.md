@@ -229,6 +229,7 @@ Flags:
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--count`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
@@ -247,6 +248,7 @@ Task fields:
 
 `--fields` can reorder or reduce those columns.
 `--format jsonl` prints one task object per line using the same record shape as `--json`.
+`--count` prints only the total number of matching tasks. With `--json`, it returns `{ "count": N }`.
 
 ## shelf next
 
@@ -261,7 +263,10 @@ Flags:
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--count`
 - `--json`
+
+`--count` prints only the total number of ready tasks. With `--json`, it returns `{ "count": N }`.
 
 ## shelf show
 

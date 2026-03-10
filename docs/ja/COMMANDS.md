@@ -219,6 +219,7 @@ script と単発確認向けの read-only 一覧です。
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--count`
 - `--json`
 
 未知の kind/status/tag は即エラーです。
@@ -237,6 +238,7 @@ task field:
 
 `--fields` で列の順序変更や絞り込みができます。
 `--format jsonl` は `--json` と同じ task object を1行1件で出力します。
+`--count` は条件に一致する task 総数だけを返します。`--json` を付けると `{ "count": N }` です。
 
 ## `shelf next`
 
@@ -251,7 +253,10 @@ task field:
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--count`
 - `--json`
+
+`--count` は ready task の総数だけを返します。`--json` を付けると `{ "count": N }` です。
 
 ## `shelf show`
 
