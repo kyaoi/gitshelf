@@ -96,10 +96,14 @@ shelf now
 # script-friendly queries
 shelf ls --status open --json
 shelf next --format tsv
+shelf next --format csv --fields id,title,path --no-header
 shelf ls --format tsv
+shelf ls --format jsonl
 shelf ls --preset board
 shelf show 01AAA
+shelf show 01AAA --format csv --fields title,file,body --no-header
 shelf config show --json
+shelf config copy-preset list --format csv
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
 shelf next
@@ -140,6 +144,9 @@ shelf next --json | jq '.[].path'
 # pick one task with fzf, then inspect it
 shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
+# the same flow with csv and no header
+shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, --with-nth=2,3 | cut -d, -f1 | xargs -r shelf show
+
 # open task files from ls output
 shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
 
@@ -148,6 +155,9 @@ shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 
 # inspect one task as a single shell-friendly row
 shelf show 01AAA --format tsv --fields id,title,file,body
+
+# inspect saved copy presets as tabular rows
+shelf config copy-preset list --format csv --fields name,scope,subtree_style
 ```
 
 ## Cockpit-First Usage

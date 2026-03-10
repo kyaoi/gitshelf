@@ -83,6 +83,10 @@ user-facing config を永続化します。
 フラグ:
 
 - `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 
 ### `shelf config copy-preset list`
 
@@ -91,6 +95,10 @@ user-facing config を永続化します。
 フラグ:
 
 - `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 
 ### `shelf config copy-preset get`
 
@@ -204,9 +212,11 @@ script と単発確認向けの read-only 一覧です。
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban|tree|tsv`
+- `--format compact|detail|kanban|tree|tsv|csv|jsonl`
 - `--preset <now|review|board>`
-- `--fields <name,...>` (`--format tsv` 専用)
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 - `--json`
 
 未知の kind/status/tag は即エラーです。
@@ -214,12 +224,17 @@ script と単発確認向けの read-only 一覧です。
 `--preset` は対応する Cockpit view に近い read-only default を適用します。
 明示した flag がある場合はそちらが優先されます。
 
-`--format tsv` は header なしの固定列です:
+`--format tsv` と `--format csv` は同じ task field を使います。
+TSV は既定で header なし、CSV は既定で header ありです。
+`--header` と `--no-header` で上書きできます。
+
+task field:
 
 - `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
 - `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
 
 `--fields` で列の順序変更や絞り込みができます。
+`--format jsonl` は `--json` と同じ task object を1行1件で出力します。
 
 ## `shelf next`
 
@@ -228,8 +243,10 @@ script と単発確認向けの read-only 一覧です。
 フラグ:
 
 - `--limit <n>`
-- `--format compact|tsv`
-- `--fields <name,...>` (`--format tsv` 専用)
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 - `--json`
 
 ## `shelf show`
@@ -242,16 +259,20 @@ script と単発確認向けの read-only 一覧です。
 
 フラグ:
 
-- `--format compact|tsv`
-- `--fields <name,...>` (`--format tsv` 専用)
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 - `--json`
 
-`--format tsv` は選択 task を1行で出力します。
+`--format tsv` と `--format csv` は選択 task を1行で出力します。
 使える field:
 
 - `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
 - `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
 - `outbound_count`, `inbound_count`
+
+`--format jsonl` は task object を1行で出力します。
 
 ## `shelf link`
 
@@ -287,17 +308,21 @@ outbound link を削除します。
 
 フラグ:
 
-- `--format compact|tsv`
-- `--fields <name,...>` (`--format tsv` 専用)
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
 - `--json`
 
 JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれます。
-`--format tsv` は edge ごとに1行です。
+`--format tsv` と `--format csv` は edge ごとに1行です。
 使える field:
 
 - `direction`, `type`
 - `task_id`, `task_title`, `task_path`, `task_file`
 - `other_id`, `other_title`, `other_path`, `other_file`
+
+`--format jsonl` は edge object を1行1件で出力します。
 
 text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
 ID は `--show-id` を付けたときだけ表示します。

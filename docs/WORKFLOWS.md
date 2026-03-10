@@ -60,6 +60,7 @@ In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchroniz
 shelf ls --status open --json
 shelf next --json
 shelf next --format tsv
+shelf next --format csv --fields id,title,path --no-header
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
 ```
@@ -73,6 +74,9 @@ shelf next --json | jq '.[].path'
 # choose a task interactively with fzf
 shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
+# the same flow using csv without a header row
+shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, --with-nth=2,3 | cut -d, -f1 | xargs -r shelf show
+
 # jump from search results to task files
 shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
 
@@ -81,6 +85,9 @@ shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 
 # read one task as a single tsv row
 shelf show 01AAA --format tsv --fields id,title,file,body
+
+# inspect saved copy presets as csv
+shelf config copy-preset list --format csv --fields name,scope,subtree_style
 ```
 
 ## When to Use Which Mode

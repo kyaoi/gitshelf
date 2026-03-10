@@ -83,6 +83,10 @@ Show the effective config for the current root.
 Flags:
 
 - `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 
 ### shelf config copy-preset list
 
@@ -91,6 +95,10 @@ List saved advanced copy presets.
 Flags:
 
 - `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 
 ### shelf config copy-preset get
 
@@ -214,9 +222,11 @@ Flags:
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban|tree|tsv`
+- `--format compact|detail|kanban|tree|tsv|csv|jsonl`
 - `--preset <now|review|board>`
-- `--fields <name,...>` for `--format tsv`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
@@ -224,12 +234,17 @@ Unknown kind/status/tag values fail fast.
 `--preset` applies read-only defaults similar to the matching Cockpit view.
 Explicit flags still win.
 
-`--format tsv` prints fixed columns without a header:
+`--format tsv` and `--format csv` use the same task fields.
+TSV defaults to no header. CSV defaults to a header row.
+`--header` and `--no-header` override those defaults.
+
+Task fields:
 
 - `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
 - `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
 
 `--fields` can reorder or reduce those columns.
+`--format jsonl` prints one task object per line using the same record shape as `--json`.
 
 ## shelf next
 
@@ -238,8 +253,10 @@ Read-only shortlist of actionable tasks.
 Flags:
 
 - `--limit <n>`
-- `--format compact|tsv`
-- `--fields <name,...>` for `--format tsv`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 - `--json`
 
 ## shelf show
@@ -252,16 +269,20 @@ Usage:
 
 Flags:
 
-- `--format compact|tsv`
-- `--fields <name,...>` for `--format tsv`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 - `--json`
 
-`--format tsv` prints one row for the selected task.
+`--format tsv` and `--format csv` print one row for the selected task.
 Available fields:
 
 - `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
 - `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
 - `outbound_count`, `inbound_count`
+
+`--format jsonl` prints one task object per line.
 
 ## shelf link
 
@@ -297,17 +318,21 @@ Usage:
 
 Flags:
 
-- `--format compact|tsv`
-- `--fields <name,...>` for `--format tsv`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
 - `--json`
 
 JSON output includes `task`, `outbound`, and `inbound` path/file metadata for shell pipelines.
-`--format tsv` prints one row per edge.
+`--format tsv` and `--format csv` print one row per edge.
 Available fields:
 
 - `direction`, `type`
 - `task_id`, `task_title`, `task_path`, `task_file`
 - `other_id`, `other_title`, `other_path`, `other_file`
+
+`--format jsonl` prints one edge object per line.
 
 Text output uses tree/path labels so duplicate titles are distinguishable.
 IDs stay hidden unless `--show-id` is enabled.
