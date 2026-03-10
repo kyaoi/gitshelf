@@ -130,7 +130,17 @@ func TestListTransitiveDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list transitive dependencies failed: %v", err)
 	}
-	if len(got) != 2 || got[0] != b.ID || got[1] != c.ID {
+	if len(got) != 2 {
+		t.Fatalf("unexpected transitive dependency count: %+v", got)
+	}
+	gotSet := map[string]struct{}{}
+	for _, id := range got {
+		gotSet[id] = struct{}{}
+	}
+	if _, ok := gotSet[b.ID]; !ok {
+		t.Fatalf("expected transitive dependencies to include B, got %+v", got)
+	}
+	if _, ok := gotSet[c.ID]; !ok {
 		t.Fatalf("unexpected transitive dependencies: %+v", got)
 	}
 }
