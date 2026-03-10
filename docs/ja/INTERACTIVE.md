@@ -29,7 +29,7 @@
 - `Tab` / `Shift+Tab`: non-calendar mode で pane 切り替え
 - `?`: help overlay 切り替え
 - `q`: help を閉じる、または終了
-- `Esc`: 終了または一時状態から離脱
+- `Esc`: 一時状態から離脱、または help を閉じる
 - `Ctrl+[` : popup や入力 mode を抜けて normal に戻る
 
 transient picker / composer は中央 popup で表示します。

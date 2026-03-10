@@ -370,12 +370,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.applyMoveSelection()
 			}
 		}
-		if m.showHelp && (msg.String() == "q" || msg.String() == "ctrl+[") {
+		if m.showHelp && (msg.String() == "q" || msg.String() == "esc" || msg.String() == "ctrl+[") {
 			m.showHelp = false
 			return m, nil
 		}
 		switch msg.String() {
-		case "q", "esc":
+		case "q":
 			return m, tea.Quit
 		case "tab":
 			if m.mode != calendarModeCalendar {
@@ -4105,7 +4105,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
 		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
-		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
+		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
 }

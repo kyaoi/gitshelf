@@ -31,7 +31,7 @@ All of those open the same TUI workspace with different starting modes.
 - `Tab` / `Shift+Tab`: move focus between panes in non-calendar modes
 - `?`: toggle help overlay
 - `q`: close help first, otherwise quit
-- `Esc`: quit or leave transient state
+- `Esc`: leave transient state, or close help if it is open
 - `Ctrl+[` : leave popup or input mode and return to normal state
 
 Transient pickers and composers are shown as centered popups.

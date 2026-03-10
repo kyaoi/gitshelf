@@ -1959,6 +1959,30 @@ func TestCalendarQClosesHelpBeforeQuit(t *testing.T) {
 	}
 }
 
+func TestCalendarEscDoesNotQuit(t *testing.T) {
+	model := calendarTUIModel{}
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	toggled := updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected esc in normal mode to leave help closed")
+	}
+	if cmd != nil {
+		t.Fatal("expected esc in normal mode to not quit")
+	}
+}
+
+func TestCalendarEscClosesHelpWithoutQuit(t *testing.T) {
+	model := calendarTUIModel{showHelp: true}
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	toggled := updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected esc to close help when help is visible")
+	}
+	if cmd != nil {
+		t.Fatal("expected esc on help to close help without quitting")
+	}
+}
+
 func TestRenderCockpitHeaderIsSingleLine(t *testing.T) {
 	model := calendarTUIModel{
 		mode:     calendarModeCalendar,
