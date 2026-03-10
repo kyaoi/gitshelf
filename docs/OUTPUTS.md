@@ -2,8 +2,13 @@
 
 Machine-readable output contract for `shelf`.
 
-This document covers the current public shapes for `--json`, `--format jsonl`,
-and tabular `--format tsv|csv` outputs.
+This document covers the public shapes for `--json`, `--format jsonl`, and
+tabular `--format tsv|csv` outputs.
+
+Task and edge queries support `--schema <v1|v2>`.
+
+- `v1` is the default compatibility schema.
+- `v2` is the canonical opt-in schema.
 
 ## Task Record
 
@@ -12,6 +17,8 @@ Used by:
 - `shelf ls`
 - `shelf next`
 - `shelf show --json` `task`
+
+### v1
 
 Fields:
 
@@ -52,6 +59,44 @@ Tabular task fields:
 - `updated_at`
 - `body`
 
+### v2
+
+Fields:
+
+- `id`
+- `title`
+- `path`
+- `file`
+- `kind`
+- `status`
+- `tags`
+- `due_on`
+- `repeat_every`
+- `archived_at`
+- `parent_id`
+- `parent_path`
+- `created_at`
+- `updated_at`
+- `body`
+
+Tabular task fields:
+
+- `id`
+- `title`
+- `path`
+- `kind`
+- `status`
+- `tags`
+- `due_on`
+- `repeat_every`
+- `archived_at`
+- `parent_id`
+- `parent_path`
+- `file`
+- `created_at`
+- `updated_at`
+- `body`
+
 `shelf show --format tsv|csv` also supports:
 
 - `outbound_count`
@@ -67,7 +112,7 @@ Adds:
 
 - `group`
 
-JSON and JSONL keep the normal task fields and add `group`.
+JSON and JSONL keep the normal task fields for the selected schema and add `group`.
 TSV and CSV expose the same `group` field.
 
 ## Edge Record
@@ -77,6 +122,8 @@ Used by:
 - `shelf links --json` `edges`
 - `shelf show --json` `edges`
 - `shelf links --format jsonl`
+
+### v1
 
 Fields:
 
@@ -117,6 +164,35 @@ Tabular edge fields:
 - `other_title`
 - `other_path`
 - `other_file`
+
+### v2
+
+Fields:
+
+- `direction`
+- `type`
+- `source`
+- `target`
+
+Nested refs contain:
+
+- `id`
+- `title`
+- `path`
+- `file`
+
+Tabular edge fields:
+
+- `direction`
+- `type`
+- `source_id`
+- `source_title`
+- `source_path`
+- `source_file`
+- `target_id`
+- `target_title`
+- `target_path`
+- `target_file`
 
 ## Link Summary Record
 
@@ -166,7 +242,7 @@ JSON output:
 
 - one `taskRecord` per line
 
-### `shelf show --json`
+### `shelf show --json --schema v1`
 
 Contains:
 
@@ -176,7 +252,14 @@ Contains:
 - `outbound`: compatibility link payloads
 - `inbound`: compatibility link payloads
 
-### `shelf links --json`
+### `shelf show --json --schema v2`
+
+Contains:
+
+- `task`: canonical task record
+- `edges`: canonical edge records
+
+### `shelf links --json --schema v1`
 
 Contains:
 
@@ -184,6 +267,13 @@ Contains:
 - `edges`: normalized edge records
 - `outbound`: compatibility link payloads
 - `inbound`: compatibility link payloads
+
+### `shelf links --json --schema v2`
+
+Contains:
+
+- `task`: inspected task ref
+- `edges`: canonical edge records
 
 ### `shelf links --json --summary`
 
@@ -210,6 +300,6 @@ Contains:
 
 ## Compatibility Notes
 
-- `parent_id` and `parent` currently contain the same task ID.
-- `source_*` / `target_*` are canonical edge aliases.
-- `task_*` / `other_*` remain available for compatibility with older scripts.
+- `v1` remains the default schema.
+- `v2` removes task field aliases such as `parent`.
+- `v2` removes edge field aliases such as `task`, `other`, `task_*`, and `other_*`.

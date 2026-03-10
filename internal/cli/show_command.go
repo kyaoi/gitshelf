@@ -11,11 +11,12 @@ import (
 
 func newShowCommand(ctx *commandContext) *cobra.Command {
 	var (
-		asJSON   bool
-		format   string
-		fields   string
-		header   bool
-		noHeader bool
+		asJSON      bool
+		format      string
+		fields      string
+		header      bool
+		noHeader    bool
+		schemaValue string
 	)
 
 	cmd := &cobra.Command{
@@ -25,6 +26,10 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf show 01AAA\n  shelf show 01AAA --json\n  shelf show 01AAA --format tsv --fields id,title,file\n  shelf show 01AAA --format csv",
 		RunE: func(_ *cobra.Command, args []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			schema, err := parseOutputSchema(schemaValue)
+			if err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
@@ -50,7 +55,11 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if asJSON {
-				data, err := json.MarshalIndent(buildShowTaskPayload(ctx.rootDir, task, byID, outbound, inbound), "", "  ")
+				payload := any(buildShowTaskPayload(ctx.rootDir, task, byID, outbound, inbound))
+				if schema == outputSchemaV2 {
+					payload = buildShowTaskPayloadV2(ctx.rootDir, task, byID, outbound, inbound)
+				}
+				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
 					return err
 				}
@@ -58,19 +67,26 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
-			record := buildTaskQueryRecord(ctx.rootDir, task, byID)
-
 			if format == "jsonl" {
-				text, err := renderJSONL([]taskQueryRecord{record})
-				if err != nil {
-					return err
+				switch schema {
+				case outputSchemaV2:
+					text, err := renderJSONL([]taskQueryRecordV2{buildTaskQueryRecordV2(ctx.rootDir, task, byID)})
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
+				default:
+					text, err := renderJSONL([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)})
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
 				}
-				fmt.Print(text)
 				return nil
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(), allowedShowTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(schema), allowedShowTSVFields(schema))
 				if err != nil {
 					return err
 				}
@@ -78,7 +94,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				row := record.TSVFields()
+				row := buildShowTaskRow(schema, ctx.rootDir, task, byID)
 				row["outbound_count"] = fmt.Sprintf("%d", len(outbound))
 				row["inbound_count"] = fmt.Sprintf("%d", len(inbound))
 				if includeHeader {
@@ -89,7 +105,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultShowCSVFields(), allowedShowTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultShowCSVFields(schema), allowedShowTSVFields(schema))
 				if err != nil {
 					return err
 				}
@@ -97,11 +113,20 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				text, err := renderCSV([]taskQueryRecord{record}, selectedFields, includeHeader)
-				if err != nil {
-					return err
+				switch schema {
+				case outputSchemaV2:
+					text, err := renderCSV([]taskQueryRecordV2{buildTaskQueryRecordV2(ctx.rootDir, task, byID)}, selectedFields, includeHeader)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
+				default:
+					text, err := renderCSV([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)}, selectedFields, includeHeader)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
 				}
-				fmt.Print(text)
 				return nil
 			}
 
@@ -114,6 +139,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().StringVar(&schemaValue, "schema", "v1", "Machine-readable schema: v1|v2")
 	return cmd
 }
 
@@ -148,6 +174,11 @@ type showLinkPayload struct {
 	Type  string `json:"type"`
 }
 
+type showTaskPayloadV2 struct {
+	Task  taskQueryRecordV2   `json:"task"`
+	Edges []edgeQueryRecordV2 `json:"edges"`
+}
+
 func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
 	record := buildTaskQueryRecord(rootDir, task, byID)
 	payload := showTaskPayload{
@@ -179,6 +210,20 @@ func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf
 	for _, edge := range inbound {
 		payload.Edges = append(payload.Edges, buildEdgeQueryRecord(rootDir, "inbound", edge.From, task.ID, edge.Type, byID))
 		payload.Inbound = append(payload.Inbound, buildShowLinkPayload(rootDir, edge.From, edge.Type, byID))
+	}
+	return payload
+}
+
+func buildShowTaskPayloadV2(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayloadV2 {
+	payload := showTaskPayloadV2{
+		Task:  buildTaskQueryRecordV2(rootDir, task, byID),
+		Edges: make([]edgeQueryRecordV2, 0, len(outbound)+len(inbound)),
+	}
+	for _, edge := range outbound {
+		payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(rootDir, "outbound", task.ID, edge.To, edge.Type, byID))
+	}
+	for _, edge := range inbound {
+		payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(rootDir, "inbound", edge.From, task.ID, edge.Type, byID))
 	}
 	return payload
 }
@@ -234,18 +279,33 @@ func blankAsDash(value string) string {
 	return value
 }
 
-func defaultShowTSVFields() []string {
-	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file", "body"}
+func defaultShowTSVFields(schema outputSchema) []string {
+	parentField := "parent"
+	if schema == outputSchemaV2 {
+		parentField = "parent_id"
+	}
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", parentField, "parent_path", "tags", "file", "body"}
 }
 
-func defaultShowCSVFields() []string {
-	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file", "body"}
+func defaultShowCSVFields(schema outputSchema) []string {
+	return defaultShowTSVFields(schema)
 }
 
-func allowedShowTSVFields() map[string]struct{} {
-	return map[string]struct{}{
+func allowedShowTSVFields(schema outputSchema) map[string]struct{} {
+	allowed := map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "tags": {}, "due_on": {},
-		"repeat_every": {}, "archived_at": {}, "parent_id": {}, "parent": {}, "parent_path": {}, "file": {},
+		"repeat_every": {}, "archived_at": {}, "parent_id": {}, "parent_path": {}, "file": {},
 		"created_at": {}, "updated_at": {}, "body": {}, "outbound_count": {}, "inbound_count": {},
 	}
+	if schema == outputSchemaV1 {
+		allowed["parent"] = struct{}{}
+	}
+	return allowed
+}
+
+func buildShowTaskRow(schema outputSchema, rootDir string, task shelf.Task, byID map[string]shelf.Task) map[string]string {
+	if schema == outputSchemaV2 {
+		return buildTaskQueryRecordV2(rootDir, task, byID).TSVFields()
+	}
+	return buildTaskQueryRecord(rootDir, task, byID).TSVFields()
 }

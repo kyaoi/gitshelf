@@ -224,11 +224,15 @@ script と単発確認向けの read-only 一覧です。
 - `--group-by <status|kind|parent>`
 - `--count`
 - `--json`
+- `--schema <v1|v2>`（`--json`, `--format jsonl`, `--format tsv`, `--format csv` 用）
 
 未知の kind/status/tag は即エラーです。
 
 `--preset` は対応する Cockpit view に近い read-only default を適用します。
 明示した flag がある場合はそちらが優先されます。
+
+`--schema v1` は現在の互換 shape を維持します。
+`--schema v2` は canonical な machine-readable field 名を使います。
 
 `--format tsv` と `--format csv` は同じ task field を使います。
 TSV は既定で header なし、CSV は既定で header ありです。
@@ -236,8 +240,8 @@ TSV は既定で header なし、CSV は既定で header ありです。
 
 task field:
 
-- `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
-- `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
+- `v1`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
+- `v2`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `tags`, `file`
 
 `--fields` で列の順序変更や絞り込みができます。
 `--format jsonl` は `--json` と同じ task object を1行1件で出力します。
@@ -260,8 +264,12 @@ task field:
 - `--reverse`
 - `--count`
 - `--json`
+- `--schema <v1|v2>`（`--json`, `--format jsonl`, `--format tsv`, `--format csv` 用）
 
 `--count` は ready task の総数だけを返します。`--json` を付けると `{ "count": N }` です。
+
+`--schema v1` は現在の互換 shape を維持します。
+`--schema v2` は canonical な machine-readable field 名を使います。
 
 ## `shelf show`
 
@@ -278,12 +286,16 @@ task field:
 - `--header`
 - `--no-header`
 - `--json`
+- `--schema <v1|v2>`（`--json`, `--format jsonl`, `--format tsv`, `--format csv` 用）
+
+`--schema v1` は現在の互換 shape を維持します。
+`--schema v2` は machine-readable output から alias field を外します。
 
 `--format tsv` と `--format csv` は選択 task を1行で出力します。
 使える field:
 
-- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
-- `parent_id`, `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `v1`: `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `v2`: `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
 - `outbound_count`, `inbound_count`
 
 `--format jsonl` は task object を1行で出力します。
@@ -328,16 +340,16 @@ outbound link を削除します。
 - `--no-header`
 - `--summary`
 - `--json`
+- `--schema <v1|v2>`（`--json`, `--format jsonl`, `--format tsv`, `--format csv` 用）
 
-JSON 出力には正規化された `task` と `edges` が含まれ、互換維持のために `outbound` / `inbound` の path/file 情報も残しています。
+`--schema v1` は現在の互換 shape を維持します。
+`--schema v2` は machine-readable output から edge alias field を外します。
+
 `--format tsv` と `--format csv` は edge ごとに1行です。
 使える field:
 
-- `direction`, `type`
-- `source_id`, `source_title`, `source_path`, `source_file`
-- `target_id`, `target_title`, `target_path`, `target_file`
-- `task_id`, `task_title`, `task_path`, `task_file`
-- `other_id`, `other_title`, `other_path`, `other_file`
+- `v1`: `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`, `task_id`, `task_title`, `task_path`, `task_file`, `other_id`, `other_title`, `other_path`, `other_file`
+- `v2`: `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`
 
 `--format jsonl` は edge object を1行1件で出力します。
 `--summary` を付けると `direction/type/count` の集計行に切り替わります。

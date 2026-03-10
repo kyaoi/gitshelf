@@ -8,6 +8,11 @@
 - `--format jsonl`
 - `--format tsv|csv`
 
+task / edge query は `--schema <v1|v2>` をサポートします。
+
+- `v1` は既定の互換 schema です。
+- `v2` は opt-in の canonical schema です。
+
 ## Task Record
 
 使われる場所:
@@ -15,6 +20,8 @@
 - `shelf ls`
 - `shelf next`
 - `shelf show --json` の `task`
+
+### v1
 
 field:
 
@@ -55,6 +62,44 @@ tabular field:
 - `updated_at`
 - `body`
 
+### v2
+
+field:
+
+- `id`
+- `title`
+- `path`
+- `file`
+- `kind`
+- `status`
+- `tags`
+- `due_on`
+- `repeat_every`
+- `archived_at`
+- `parent_id`
+- `parent_path`
+- `created_at`
+- `updated_at`
+- `body`
+
+tabular field:
+
+- `id`
+- `title`
+- `path`
+- `kind`
+- `status`
+- `tags`
+- `due_on`
+- `repeat_every`
+- `archived_at`
+- `parent_id`
+- `parent_path`
+- `file`
+- `created_at`
+- `updated_at`
+- `body`
+
 `shelf show --format tsv|csv` では次も使えます。
 
 - `outbound_count`
@@ -70,7 +115,7 @@ tabular field:
 
 - `group`
 
-JSON/JSONL では通常の task field に `group` が追加されます。
+JSON/JSONL では選択した schema の task field に `group` が追加されます。
 TSV/CSV でも同じ `group` field を使います。
 
 ## Edge Record
@@ -80,6 +125,8 @@ TSV/CSV でも同じ `group` field を使います。
 - `shelf links --json` の `edges`
 - `shelf show --json` の `edges`
 - `shelf links --format jsonl`
+
+### v1
 
 field:
 
@@ -120,6 +167,35 @@ tabular edge field:
 - `other_title`
 - `other_path`
 - `other_file`
+
+### v2
+
+field:
+
+- `direction`
+- `type`
+- `source`
+- `target`
+
+ネストされた ref の field:
+
+- `id`
+- `title`
+- `path`
+- `file`
+
+tabular edge field:
+
+- `direction`
+- `type`
+- `source_id`
+- `source_title`
+- `source_path`
+- `source_file`
+- `target_id`
+- `target_title`
+- `target_path`
+- `target_file`
 
 ## Link Summary Record
 
@@ -169,7 +245,7 @@ JSON 出力:
 
 - 1行1 `taskRecord`
 
-### `shelf show --json`
+### `shelf show --json --schema v1`
 
 内容:
 
@@ -179,7 +255,14 @@ JSON 出力:
 - `outbound`: 互換維持の link payload
 - `inbound`: 互換維持の link payload
 
-### `shelf links --json`
+### `shelf show --json --schema v2`
+
+内容:
+
+- `task`: canonical task record
+- `edges`: canonical edge record
+
+### `shelf links --json --schema v1`
 
 内容:
 
@@ -187,6 +270,13 @@ JSON 出力:
 - `edges`: 正規化された edge record
 - `outbound`: 互換維持の link payload
 - `inbound`: 互換維持の link payload
+
+### `shelf links --json --schema v2`
+
+内容:
+
+- `task`: inspected task ref
+- `edges`: canonical edge record
 
 ### `shelf links --json --summary`
 
@@ -213,6 +303,6 @@ JSON 出力:
 
 ## Compatibility Notes
 
-- `parent_id` と `parent` は現時点では同じ task ID を持ちます。
-- `source_*` / `target_*` が canonical な edge alias です。
-- `task_*` / `other_*` も旧 script 互換のために残しています。
+- `v1` は既定 schema のままです。
+- `v2` では `parent` のような task alias を出しません。
+- `v2` では `task`, `other`, `task_*`, `other_*` のような edge alias を出しません。

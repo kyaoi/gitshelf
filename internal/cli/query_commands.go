@@ -39,6 +39,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		countOnly       bool
 		limit           int
 		search          string
+		schemaValue     string
 	)
 
 	cmd := &cobra.Command{
@@ -54,6 +55,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			if err := validateLsGrouping(format, groupBy, countOnly); err != nil {
+				return err
+			}
+			schema, err := parseOutputSchema(schemaValue)
+			if err != nil {
 				return err
 			}
 			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
@@ -113,9 +118,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return printCountResult(len(tasks), asJSON)
 			}
 			groupedRecords := buildGroupedTaskQueryRecords(ctx.rootDir, tasks, byID, groupBy)
+			groupedRecordsV2 := buildGroupedTaskQueryRecordsV2(ctx.rootDir, tasks, byID, groupBy)
 
 			if asJSON {
-				items := groupedRecordsToAny(groupedRecords, groupBy)
+				items := groupedTaskRecordsToAny(schema, groupedRecords, groupedRecordsV2, groupBy)
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
 					return err
@@ -125,7 +131,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "jsonl" {
-				text, err := renderGroupedTaskJSONL(groupedRecords, groupBy)
+				text, err := renderGroupedTaskJSONL(schema, groupedRecords, groupedRecordsV2, groupBy)
 				if err != nil {
 					return err
 				}
@@ -176,18 +182,25 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(schema, groupBy), allowedLsTabularFields(schema, groupBy))
 				if err != nil {
 					return err
 				}
-				for _, record := range groupedRecords {
-					fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+				switch schema {
+				case outputSchemaV2:
+					for _, record := range groupedRecordsV2 {
+						fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+					}
+				default:
+					for _, record := range groupedRecords {
+						fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+					}
 				}
 				return nil
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(schema, groupBy), allowedLsTabularFields(schema, groupBy))
 				if err != nil {
 					return err
 				}
@@ -195,11 +208,20 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				text, err := renderCSV(groupedRecords, selectedFields, includeHeader)
-				if err != nil {
-					return err
+				switch schema {
+				case outputSchemaV2:
+					text, err := renderCSV(groupedRecordsV2, selectedFields, includeHeader)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
+				default:
+					text, err := renderCSV(groupedRecords, selectedFields, includeHeader)
+					if err != nil {
+						return err
+					}
+					fmt.Print(text)
 				}
-				fmt.Print(text)
 				return nil
 			}
 
@@ -303,20 +325,22 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of matching tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
+	cmd.Flags().StringVar(&schemaValue, "schema", "v1", "Machine-readable schema: v1|v2")
 	return cmd
 }
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		limit     int
-		asJSON    bool
-		format    string
-		fields    string
-		header    bool
-		noHeader  bool
-		sortBy    string
-		reverse   bool
-		countOnly bool
+		limit       int
+		asJSON      bool
+		format      string
+		fields      string
+		header      bool
+		noHeader    bool
+		sortBy      string
+		reverse     bool
+		countOnly   bool
+		schemaValue string
 	)
 
 	cmd := &cobra.Command{
@@ -327,6 +351,10 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			"  shelf next --format tsv",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			schema, err := parseOutputSchema(schemaValue)
+			if err != nil {
 				return err
 			}
 			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
@@ -364,17 +392,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if asJSON {
-				items := make([]taskQueryRecord, 0)
-				for _, task := range tasks {
-					info, ok := readiness[task.ID]
-					if !ok || !info.Ready {
-						continue
-					}
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-					if limit > 0 && len(items) >= limit {
-						break
-					}
-				}
+				items := buildNextJSONItems(schema, ctx.rootDir, tasks, readiness, byID, limit)
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
 					return err
@@ -384,18 +402,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "jsonl" {
-				items := make([]taskQueryRecord, 0)
-				for _, task := range tasks {
-					info, ok := readiness[task.ID]
-					if !ok || !info.Ready {
-						continue
-					}
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-					if limit > 0 && len(items) >= limit {
-						break
-					}
-				}
-				text, err := renderJSONL(items)
+				text, err := renderNextJSONL(schema, ctx.rootDir, tasks, readiness, byID, limit)
 				if err != nil {
 					return err
 				}
@@ -404,27 +411,16 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(schema), allowedNextTSVFields(schema))
 				if err != nil {
 					return err
 				}
-				count := 0
-				for _, task := range tasks {
-					info, ok := readiness[task.ID]
-					if !ok || !info.Ready {
-						continue
-					}
-					fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()))
-					count++
-					if limit > 0 && count >= limit {
-						break
-					}
-				}
+				printNextTSV(schema, selectedFields, ctx.rootDir, tasks, readiness, byID, limit)
 				return nil
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(schema), allowedNextTSVFields(schema))
 				if err != nil {
 					return err
 				}
@@ -432,18 +428,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				items := make([]taskQueryRecord, 0)
-				for _, task := range tasks {
-					info, ok := readiness[task.ID]
-					if !ok || !info.Ready {
-						continue
-					}
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-					if limit > 0 && len(items) >= limit {
-						break
-					}
-				}
-				text, err := renderCSV(items, selectedFields, includeHeader)
+				text, err := renderNextCSV(schema, selectedFields, includeHeader, ctx.rootDir, tasks, readiness, byID, limit)
 				if err != nil {
 					return err
 				}
@@ -495,6 +480,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
 	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of ready tasks")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&schemaValue, "schema", "v1", "Machine-readable schema: v1|v2")
 	return cmd
 }
 
@@ -646,42 +632,58 @@ func joinTSVFields(fields []string, row map[string]string) string {
 	return strings.Join(values, "\t")
 }
 
-func defaultLsTSVFields() []string {
-	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "archived_at", "parent", "parent_path", "tags", "file"}
-}
-
-func allowedLsTSVFields() map[string]struct{} {
-	return map[string]struct{}{
-		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
-		"archived_at": {}, "parent_id": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
+func defaultLsTSVFields(schema outputSchema) []string {
+	parentField := "parent"
+	if schema == outputSchemaV2 {
+		parentField = "parent_id"
 	}
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "archived_at", parentField, "parent_path", "tags", "file"}
 }
 
-func defaultLsTabularFields(groupBy string) []string {
-	fields := append([]string{}, defaultLsTSVFields()...)
+func allowedLsTSVFields(schema outputSchema) map[string]struct{} {
+	allowed := map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
+		"archived_at": {}, "parent_id": {}, "parent_path": {}, "tags": {}, "file": {},
+	}
+	if schema == outputSchemaV1 {
+		allowed["parent"] = struct{}{}
+	}
+	return allowed
+}
+
+func defaultLsTabularFields(schema outputSchema, groupBy string) []string {
+	fields := append([]string{}, defaultLsTSVFields(schema)...)
 	if strings.TrimSpace(groupBy) == "" {
 		return fields
 	}
 	return append([]string{"group"}, fields...)
 }
 
-func allowedLsTabularFields(groupBy string) map[string]struct{} {
-	allowed := allowedLsTSVFields()
+func allowedLsTabularFields(schema outputSchema, groupBy string) map[string]struct{} {
+	allowed := allowedLsTSVFields(schema)
 	if strings.TrimSpace(groupBy) != "" {
 		allowed["group"] = struct{}{}
 	}
 	return allowed
 }
 
-func defaultNextTSVFields() []string {
-	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file"}
+func defaultNextTSVFields(schema outputSchema) []string {
+	parentField := "parent"
+	if schema == outputSchemaV2 {
+		parentField = "parent_id"
+	}
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", parentField, "parent_path", "tags", "file"}
 }
 
-func allowedNextTSVFields() map[string]struct{} {
-	return map[string]struct{}{
+func allowedNextTSVFields(schema outputSchema) map[string]struct{} {
+	allowed := map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
-		"parent_id": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
+		"parent_id": {}, "parent_path": {}, "tags": {}, "file": {},
 	}
+	if schema == outputSchemaV1 {
+		allowed["parent"] = struct{}{}
+	}
+	return allowed
 }
 
 func sortTaskQueryResults(tasks []shelf.Task, byID map[string]shelf.Task, sortBy string, reverse bool) error {
@@ -872,6 +874,27 @@ func buildGroupedTaskQueryRecords(rootDir string, tasks []shelf.Task, byID map[s
 	return records
 }
 
+func buildGroupedTaskQueryRecordsV2(rootDir string, tasks []shelf.Task, byID map[string]shelf.Task, groupBy string) []groupedTaskQueryRecordV2 {
+	field := strings.TrimSpace(groupBy)
+	records := make([]groupedTaskQueryRecordV2, 0, len(tasks))
+	for _, task := range tasks {
+		records = append(records, groupedTaskQueryRecordV2{
+			Group:             groupTaskLabel(task, byID, field),
+			taskQueryRecordV2: buildTaskQueryRecordV2(rootDir, task, byID),
+		})
+	}
+	if field == "" {
+		return records
+	}
+	sort.SliceStable(records, func(i, j int) bool {
+		if records[i].Group != records[j].Group {
+			return records[i].Group < records[j].Group
+		}
+		return records[i].taskQueryRecordV2.ID < records[j].taskQueryRecordV2.ID
+	})
+	return records
+}
+
 func groupTaskLabel(task shelf.Task, byID map[string]shelf.Task, field string) string {
 	switch field {
 	case "status":
@@ -903,15 +926,108 @@ func groupedRecordsToAny(records []groupedTaskQueryRecord, groupBy string) any {
 	return records
 }
 
-func renderGroupedTaskJSONL(records []groupedTaskQueryRecord, groupBy string) (string, error) {
+func groupedTaskRecordsToAny(schema outputSchema, recordsV1 []groupedTaskQueryRecord, recordsV2 []groupedTaskQueryRecordV2, groupBy string) any {
+	if schema == outputSchemaV2 {
+		if strings.TrimSpace(groupBy) == "" {
+			items := make([]taskQueryRecordV2, 0, len(recordsV2))
+			for _, record := range recordsV2 {
+				items = append(items, record.taskQueryRecordV2)
+			}
+			return items
+		}
+		return recordsV2
+	}
+	return groupedRecordsToAny(recordsV1, groupBy)
+}
+
+func renderGroupedTaskJSONL(schema outputSchema, recordsV1 []groupedTaskQueryRecord, recordsV2 []groupedTaskQueryRecordV2, groupBy string) (string, error) {
+	if schema == outputSchemaV2 {
+		if strings.TrimSpace(groupBy) == "" {
+			items := make([]taskQueryRecordV2, 0, len(recordsV2))
+			for _, record := range recordsV2 {
+				items = append(items, record.taskQueryRecordV2)
+			}
+			return renderJSONL(items)
+		}
+		return renderJSONL(recordsV2)
+	}
 	if strings.TrimSpace(groupBy) == "" {
-		items := make([]taskQueryRecord, 0, len(records))
-		for _, record := range records {
+		items := make([]taskQueryRecord, 0, len(recordsV1))
+		for _, record := range recordsV1 {
 			items = append(items, record.taskQueryRecord)
 		}
 		return renderJSONL(items)
 	}
-	return renderJSONL(records)
+	return renderJSONL(recordsV1)
+}
+
+func buildNextJSONItems(schema outputSchema, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) any {
+	switch schema {
+	case outputSchemaV2:
+		items := make([]taskQueryRecordV2, 0)
+		for _, task := range tasks {
+			info, ok := readiness[task.ID]
+			if !ok || !info.Ready {
+				continue
+			}
+			items = append(items, buildTaskQueryRecordV2(rootDir, task, byID))
+			if limit > 0 && len(items) >= limit {
+				break
+			}
+		}
+		return items
+	default:
+		items := make([]taskQueryRecord, 0)
+		for _, task := range tasks {
+			info, ok := readiness[task.ID]
+			if !ok || !info.Ready {
+				continue
+			}
+			items = append(items, buildTaskQueryRecord(rootDir, task, byID))
+			if limit > 0 && len(items) >= limit {
+				break
+			}
+		}
+		return items
+	}
+}
+
+func renderNextJSONL(schema outputSchema, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) (string, error) {
+	switch items := buildNextJSONItems(schema, rootDir, tasks, readiness, byID, limit).(type) {
+	case []taskQueryRecordV2:
+		return renderJSONL(items)
+	default:
+		return renderJSONL(items.([]taskQueryRecord))
+	}
+}
+
+func printNextTSV(schema outputSchema, selectedFields []string, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) {
+	count := 0
+	for _, task := range tasks {
+		info, ok := readiness[task.ID]
+		if !ok || !info.Ready {
+			continue
+		}
+		switch schema {
+		case outputSchemaV2:
+			fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecordV2(rootDir, task, byID).TSVFields()))
+		default:
+			fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(rootDir, task, byID).TSVFields()))
+		}
+		count++
+		if limit > 0 && count >= limit {
+			break
+		}
+	}
+}
+
+func renderNextCSV(schema outputSchema, selectedFields []string, includeHeader bool, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) (string, error) {
+	switch items := buildNextJSONItems(schema, rootDir, tasks, readiness, byID, limit).(type) {
+	case []taskQueryRecordV2:
+		return renderCSV(items, selectedFields, includeHeader)
+	default:
+		return renderCSV(items.([]taskQueryRecord), selectedFields, includeHeader)
+	}
 }
 
 func printGroupedLsRecords(records []groupedTaskQueryRecord, format string, showID bool) {
