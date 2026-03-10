@@ -2077,6 +2077,85 @@ func TestReviewSelectTaskPrefersOperationalSectionAndSyncsSidebarDate(t *testing
 	}
 }
 
+func TestReviewMoveWithinBlockedSectionKeepsCurrentTab(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	todayBlocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Today blocked", Kind: "todo", Status: "blocked", DueOn: today})
+	if err != nil {
+		t.Fatalf("add today blocked failed: %v", err)
+	}
+	tomorrowBlocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Tomorrow blocked", Kind: "todo", Status: "blocked", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add tomorrow blocked failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"blocked"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	blockedIndex := -1
+	for i, section := range model.sections {
+		if section.ID == calendarSectionBlocked {
+			blockedIndex = i
+			break
+		}
+	}
+	if blockedIndex < 0 {
+		t.Fatal("expected blocked section")
+	}
+	model.sectionIndex = blockedIndex
+	model.sectionRows[calendarSectionBlocked] = 1
+	model.selectedTaskID = tomorrowBlocked.ID
+
+	model.moveSectionRow(-1)
+
+	if model.sectionIndex != blockedIndex {
+		t.Fatalf("expected blocked tab to stay selected, got section %d", model.sectionIndex)
+	}
+	if model.selectedTaskID != todayBlocked.ID {
+		t.Fatalf("expected blocked selection to move to today task, got %s", model.selectedTaskID)
+	}
+}
+
+func TestNowSelectedDayNavigationKeepsSelectedDayTab(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeNow,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.sectionIndex = 0
+	model.sectionRows[calendarSectionFocusedDay] = 0
+	model.selectedTaskID = first.ID
+
+	model.moveSelectedDayTask(1)
+
+	if model.sectionIndex != 0 {
+		t.Fatalf("expected Selected Day tab to stay selected, got section %d", model.sectionIndex)
+	}
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected selected day move to choose second task, got %s", model.selectedTaskID)
+	}
+}
+
 func TestBoardSelectionSyncsSidebarDate(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

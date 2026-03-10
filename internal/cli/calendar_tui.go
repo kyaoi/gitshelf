@@ -1843,6 +1843,11 @@ func (m *calendarTUIModel) rebuildSections() {
 		return
 	}
 	if m.selectedTaskID != "" {
+		if secIdx, rowIdx, ok := findCalendarSectionTaskInSection(m.sections, prevSectionID, m.selectedTaskID); ok {
+			m.sectionIndex = secIdx
+			m.sectionRows[m.sections[secIdx].ID] = rowIdx
+			return
+		}
 		findSectionTask := findCalendarSectionTask
 		if m.mode == calendarModeReview || m.mode == calendarModeNow {
 			findSectionTask = findPreferredCalendarSectionTask
@@ -2130,6 +2135,21 @@ func findCalendarSectionTask(sections []calendarSection, taskID string) (int, in
 	return 0, 0, false
 }
 
+func findCalendarSectionTaskInSection(sections []calendarSection, sectionID calendarSectionID, taskID string) (int, int, bool) {
+	for secIdx, section := range sections {
+		if section.ID != sectionID {
+			continue
+		}
+		for rowIdx, item := range section.Items {
+			if item.Task.ID == taskID {
+				return secIdx, rowIdx, true
+			}
+		}
+		return 0, 0, false
+	}
+	return 0, 0, false
+}
+
 func findPreferredCalendarSectionTask(sections []calendarSection, taskID string) (int, int, bool) {
 	for secIdx, section := range sections {
 		if section.ID == calendarSectionFocusedDay {
@@ -2392,7 +2412,7 @@ func (m *calendarTUIModel) moveSelectedDayTask(delta int) {
 		m.selectedTaskID = taskID
 		return
 	}
-	m.selectTaskByID(taskID)
+	m.selectTaskByIDPreservingSection(taskID)
 	m.sectionRows[section.ID] = row
 }
 
@@ -2545,7 +2565,7 @@ func (m *calendarTUIModel) syncMainSelectionToFocusedDay() {
 	if row >= len(section.Items) {
 		row = len(section.Items) - 1
 	}
-	m.selectTaskByID(section.Items[row].Task.ID)
+	m.selectTaskByIDPreservingSection(section.Items[row].Task.ID)
 }
 
 func (m *calendarTUIModel) syncSelectionFromMain(taskID string) {
@@ -3521,6 +3541,14 @@ func (m *calendarTUIModel) insertTaskOnFocusedDay(task shelf.Task) {
 }
 
 func (m *calendarTUIModel) selectTaskByID(taskID string) {
+	m.selectTaskByIDWithOptions(taskID, false)
+}
+
+func (m *calendarTUIModel) selectTaskByIDPreservingSection(taskID string) {
+	m.selectTaskByIDWithOptions(taskID, true)
+}
+
+func (m *calendarTUIModel) selectTaskByIDWithOptions(taskID string, preserveCurrentSection bool) {
 	m.selectedTaskID = taskID
 	if m.mode == calendarModeTree {
 		for i, row := range m.treeRows {
@@ -3550,6 +3578,16 @@ func (m *calendarTUIModel) selectTaskByID(taskID string) {
 	}
 	findSectionTask := findCalendarSectionTask
 	if m.mode == calendarModeReview || m.mode == calendarModeNow {
+		if preserveCurrentSection {
+			if section := m.currentSection(); section != nil {
+				if secIdx, rowIdx, ok := findCalendarSectionTaskInSection(m.sections, section.ID, taskID); ok {
+					m.sectionIndex = secIdx
+					m.sectionRows[m.sections[secIdx].ID] = rowIdx
+					m.syncFocusedDateToTask(taskID)
+					return
+				}
+			}
+		}
 		findSectionTask = findPreferredCalendarSectionTask
 	}
 	if secIdx, rowIdx, ok := findSectionTask(m.sections, taskID); ok {
