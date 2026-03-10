@@ -5326,7 +5326,7 @@ func renderCalendarSnoozePicker(targetLabel string, selected int, width int, hei
 	header := []string{
 		titleStyle.Render("Snooze Presets"),
 		helpStyle.Render("Target: " + targetLabel),
-		helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る"),
+		helpStyle.Render(popupControls("j/k: move", "Enter: apply", "Esc/q: close")),
 	}
 	lines := make([]string, 0, len(calendarSnoozeOptions()))
 	anchor := -1
@@ -5346,10 +5346,10 @@ func renderCalendarLinkPicker(action calendarLinkAction, linkType string, query 
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	title := "Add Link"
-	help := "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Tab/Shift+Tab: type  Enter: apply  Esc/q: close"
+	help := popupControls("/: query", "j/k: move", "h/l: collapse-expand", "Left/Right: cursor", "Tab/Shift+Tab: type", "Enter: apply", "Esc/q: close")
 	if action == calendarLinkActionRemove {
 		title = "Remove Link"
-		help = "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Enter: remove  Esc/q: close"
+		help = popupControls("/: query", "j/k: move", "h/l: collapse-expand", "Left/Right: cursor", "Enter: apply", "Esc/q: close")
 	}
 	header := []string{titleStyle.Render(title), helpStyle.Render(help), helpStyle.Render("Selected: " + selectedTask)}
 	if action == calendarLinkActionAdd {
@@ -5419,7 +5419,7 @@ func renderCalendarFilterPicker(m calendarTUIModel, width int, height int) strin
 	sectionTitles := []string{"Include Status", "Exclude Status", "Include Kind", "Exclude Kind"}
 	header := []string{
 		titleStyle.Render("Filter"),
-		mutedStyle.Render("h/l or Tab: section  j/k: move  Space: toggle  Enter: apply  Esc/q: cancel"),
+		mutedStyle.Render(popupControls("h/l or Tab: section", "j/k: move", "Space: toggle", "Enter: apply", "Esc/q: close")),
 	}
 	lines := make([]string, 0, 32)
 	anchor := -1
@@ -5482,7 +5482,7 @@ func renderCalendarKindPicker(selectedTask string, kinds []shelf.Kind, selected 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	header := []string{titleStyle.Render("Kind"), helpStyle.Render("Selected: " + selectedTask), helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る")}
+	header := []string{titleStyle.Render("Kind"), helpStyle.Render("Target: " + selectedTask), helpStyle.Render(popupControls("j/k: move", "Enter: apply", "Esc/q: close"))}
 	lines := make([]string, 0, len(kinds))
 	anchor := -1
 	for i, kind := range kinds {
@@ -5500,11 +5500,10 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	targetLabel := "Selected: " + selectedTask
-	helpLabel := "j/k: move  Space: toggle  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"
+	targetLabel := "Target: " + selectedTask
+	helpLabel := popupControls("j/k: move", "Space: toggle", "Left/Right: cursor", "Enter: save/add", "Ctrl+S: save", "Esc/q: close")
 	if bulkMode {
-		targetLabel = "Target: " + selectedTask
-		helpLabel = "j/k: move  Space: cycle [+]/[-]/[ ]  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"
+		helpLabel = popupControls("j/k: move", "Space: cycle [+]/[-]/[ ]", "Left/Right: cursor", "Enter: save/add", "Ctrl+S: save", "Esc/q: close")
 	}
 	header := []string{
 		titleStyle.Render("Tags"),
@@ -5545,7 +5544,7 @@ func renderCalendarTextPrompt(title string, help string, value string) string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	lines := []string{
 		titleStyle.Render(title),
-		helpStyle.Render("入力して Enter で確定  Left/Right で移動  Esc/q でキャンセル"),
+		helpStyle.Render(popupControls("Enter: save", "Left/Right: cursor", "Esc/q: close")),
 		helpStyle.Render(help),
 	}
 	valueLines := strings.Split(value, "\n")
@@ -5584,7 +5583,7 @@ func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatu
 	}
 	header := []string{
 		titleStyle.Render("Add Task"),
-		helpStyle.Render("Tab/Shift+Tab: switch  Left/Right: cursor  Enter: create  j/k: kind  Esc: cancel"),
+		helpStyle.Render(popupControls("Tab/Shift+Tab: switch", "Left/Right: cursor", "j/k: kind", "Enter: create", "Esc: cancel")),
 		fmt.Sprintf("due=%s  status=%s  target=%s", date, defaultStatus, targetMode),
 		fmt.Sprintf("parent=%s", trimLine(targetLabel, 42)),
 	}
@@ -5607,6 +5606,10 @@ func calendarSnoozeOptions() []snoozePreset {
 		options = append(options, option)
 	}
 	return options
+}
+
+func popupControls(parts ...string) string {
+	return strings.Join(parts, "  ")
 }
 
 func dominantCalendarStatus(tasks []shelf.Task) shelf.Status {

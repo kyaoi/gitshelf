@@ -178,6 +178,14 @@ IDs are hidden there unless `--show-id` is enabled.
 - `Enter` saves the appended note
 - `e` still opens the full task file in the external editor for full-body edits
 
+## Popup Conventions
+
+- pickers use `j` / `k` for movement and `Esc` / `q` to close
+- `Enter` applies or saves the current popup action
+- `Ctrl+S` is used only where a popup has an explicit save action separate from normal navigation
+- `Left` / `Right` always mean cursor movement inside editable text fields
+- add mode keeps `q` as normal text input and uses `Esc` for cancel
+
 ## Non-Calendar Sidebar
 
 - the right pane is split into `Calendar / Selected Day / Inspector`

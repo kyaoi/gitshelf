@@ -454,7 +454,7 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 
 	header := []string{
 		titleStyle.Render("Advanced Copy"),
-		helpStyle.Render("j/k: preset  Tab: focus  Enter: copy payload  Ctrl+S: save preset  Esc/q: close"),
+		helpStyle.Render(popupControls("j/k: move", "Tab: focus", "Enter: copy", "Ctrl+S: save", "Esc/q: close")),
 		helpStyle.Render("template uses {{title}} {{path}} {{body}} {{subtree}}; enter \\n in fields for newlines"),
 	}
 

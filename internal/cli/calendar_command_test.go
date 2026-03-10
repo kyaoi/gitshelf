@@ -962,6 +962,14 @@ func TestCalendarBulkActionPopupLabelUsesMarkedCount(t *testing.T) {
 	}
 }
 
+func TestPopupControlsJoinsLabelsConsistently(t *testing.T) {
+	got := popupControls("j/k: move", "Enter: apply", "Esc/q: close")
+	want := "j/k: move  Enter: apply  Esc/q: close"
+	if got != want {
+		t.Fatalf("unexpected popup controls: got=%q want=%q", got, want)
+	}
+}
+
 func TestCalendarShowsDescendantsOfDueParent(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
