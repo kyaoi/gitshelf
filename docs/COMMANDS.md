@@ -293,7 +293,7 @@ Flags:
 Available fields:
 
 - `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
-- `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `parent_id`, `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
 - `outbound_count`, `inbound_count`
 
 `--format jsonl` prints one task object per line.
@@ -344,6 +344,8 @@ JSON output includes normalized `task` and `edges` data, and also keeps `outboun
 Available fields:
 
 - `direction`, `type`
+- `source_id`, `source_title`, `source_path`, `source_file`
+- `target_id`, `target_title`, `target_path`, `target_file`
 - `task_id`, `task_title`, `task_path`, `task_file`
 - `other_id`, `other_title`, `other_path`, `other_file`
 
