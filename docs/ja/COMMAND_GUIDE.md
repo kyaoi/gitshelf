@@ -30,6 +30,18 @@ shelf cockpit --mode board --months 3
 
 これらは同じ TUI の開始プリセットです。
 
+## 日常編集は Cockpit の中で行う
+
+- `a`: 選択 task の子として追加
+- `A`: root に追加
+- `K`: kind 編集
+- `#`: tag 編集
+- `o/i/b/d/c`: status 変更
+- `L` / `U`: link の追加 / 削除
+- `y`: title コピー
+
+完全なキー一覧は [`INTERACTIVE.md`](INTERACTIVE.md) を参照してください。
+
 ## text / JSON が欲しいなら `shelf ls`
 
 ```bash
@@ -43,6 +55,14 @@ shelf ls --ready --json
 ```bash
 shelf next
 shelf next --json
+```
+
+## script から link を触るなら standalone command
+
+```bash
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf unlink --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 ```
 
 ## 初期化や整理は `shelf init`

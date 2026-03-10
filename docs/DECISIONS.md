@@ -1,21 +1,26 @@
 # DECISIONS
 
-## 保存形式（確定）
-- タスク: `.shelf/tasks/<id>.md`（フラット）
-- 親子: タスクfront matterの `parent` で表現（無限ネスト可）
-- リンク: `.shelf/edges/<src_id>.toml`（outbound edges）
-- Kind/Status: 分離する
+## Storage
 
-## UI（確定）
-- 基本は通常CLI
-- ただし `shelf add` や `shelf link` はターミナルで対話選択を提供（j/k、検索、ページング）
-- 追加拡張として `shelf board` は TUI を許可する
+- tasks: `.shelf/tasks/<id>.md`
+- hierarchy: `parent` in task front matter
+- links: `.shelf/edges/<src_id>.toml`
+- kind and status are independent
 
-## ID（確定）
-- ULID（推奨）
-- 表示用は短縮（先頭8〜10文字）
-- デフォルト表示は ID 非表示（`--show-id` / `-i` で表示）
+## UI
 
-## Lock（確定）
-- mutating command は `.shelf/.write.lock` で排他
-- lock 取得に失敗した場合はタイムアウトエラーを返す
+- daily editing is centered on `Cockpit`
+- `calendar/tree/board/review/now` are launcher presets for `Cockpit`
+- read-only queries use `ls` / `next`
+- scriptable link operations use `link` / `unlink` / `links`
+
+## IDs
+
+- ULID
+- short IDs for display
+- IDs are hidden by default and shown with `--show-id`
+
+## Locking
+
+- mutating operations use `.shelf/.write.lock`
+- lock acquisition failures return a timeout error

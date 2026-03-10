@@ -199,6 +199,5 @@ ID は `--show-id` を付けたときだけ表示します。
 
 ## 補足
 
-現在の公開 CLI では、add/edit/show/set/mv/snooze/archive/history/import/export/github/view/doctor などの standalone command は公開していません。
-
-日常編集の中心は Cockpit のままですが、link 管理は standalone command でも行えます。
+日常編集の中心は Cockpit です。
+link 管理は standalone command でも行えます。

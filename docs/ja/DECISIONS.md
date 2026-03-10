@@ -1,25 +1,26 @@
 # DECISIONS（日本語版）
 
-## 保存形式（確定）
+## 保存形式
 
-- タスク: `.shelf/tasks/<id>.md`（フラット）
-- 親子: task front matter の `parent` で表現（無限ネスト可）
-- リンク: `.shelf/edges/<src_id>.toml`（outbound edges）
-- Kind / Status は分離
+- task: `.shelf/tasks/<id>.md`
+- 親子: task front matter の `parent`
+- link: `.shelf/edges/<src_id>.toml`
+- kind と status は独立
 
-## UI（確定）
+## UI
 
-- 基本は通常 CLI
-- `shelf add` や `shelf link` は対話選択を提供
-- `shelf board` は例外的に TUI を許可
+- 日常編集は `Cockpit` に集約する
+- `calendar/tree/board/review/now` は `Cockpit` の起動プリセット
+- read-only query は `ls` / `next`
+- script からの link 操作は `link` / `unlink` / `links`
 
-## ID（確定）
+## ID
 
-- ULID を使用
+- ULID を使う
 - 表示用は short ID
-- 既定表示では ID 非表示（`--show-id` / `-i` で表示）
+- 既定では ID を隠し、`--show-id` で表示する
 
-## Lock（確定）
+## Lock
 
-- mutating command は `.shelf/.write.lock` で排他
+- 変更系操作は `.shelf/.write.lock` で排他する
 - lock 取得失敗時は timeout error を返す

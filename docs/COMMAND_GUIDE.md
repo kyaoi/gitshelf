@@ -30,6 +30,20 @@ shelf cockpit --mode board --months 3
 
 These are only starting presets for the same TUI.
 
+## Inside Cockpit
+
+Most daily editing happens inside `Cockpit`.
+
+- `a`: add as a child of the selected task
+- `A`: add at root
+- `K`: edit kind
+- `#`: edit tags
+- `o/i/b/d/c`: change status
+- `L` / `U`: add or remove links
+- `y`: copy the selected title
+
+See [`INTERACTIVE.md`](INTERACTIVE.md) for the full key map.
+
 ## Use `shelf ls` when you want text or JSON
 
 Examples:
@@ -47,6 +61,14 @@ Examples:
 ```bash
 shelf next
 shelf next --json
+```
+
+## Use link commands when you need direct scripting
+
+```bash
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf unlink --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 ```
 
 ## Use `shelf init` only for setup or cleanup

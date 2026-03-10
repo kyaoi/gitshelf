@@ -1,64 +1,32 @@
 # IMPLEMENTATION_PLAN（日本語版）
 
-この文書は初期リリース時の実装計画の記録です。
-現在の実装状態そのものではなく、仕様をどの順番で組み立てたかを示します。
+現在の Cockpit-first 実装に至るまでの大まかな実装段階です。
 
-## GS-01: プロジェクト雛形
+## Phase 1: bootstrap
 
-- Go module 初期化
-- `cmd/shelf` 追加
-- `internal/` 骨格
+- module / entrypoint
+- `init`
+- 安定した `.shelf/` layout
 
-## GS-02: init
+## Phase 2: storage と不変条件
 
-- `.shelf/` 作成
-- デフォルト `config.toml` 作成
-
-## GS-03: データモデルとパーサ
-
-- task front matter の読み書き
-- edge TOML の読み書き
-- config TOML の読み書き
-
-## GS-04: ID 生成
-
+- task / edge / config parser
 - ULID 生成
-- short ID helper
+- 安定フォーマットと atomic write
 
-## GS-05: add（非対話）
+## Phase 3: Cockpit workspace
 
-- `--title` 必須
-- kind / status / parent 検証
-- atomic write
+- calendar / tree / board / review / now
+- TUI 内 task 編集
+- sidebar 同期と popup editor
 
-## GS-06: add（対話）
+## Phase 4: read-only / scripting command
 
-- TTY 判定
-- title 入力
-- kind 選択
-- parent 選択
+- `ls`
+- `next`
+- `link` / `unlink` / `links`
 
-## GS-07: ls / show / tree
+## Phase 5: docs / verification
 
-- `ls` filter
-- `show`
-- `tree`
-
-## GS-08: set / mv
-
-- metadata 更新
-- parent 付け替え
-
-## GS-09: link / unlink / links
-
-- edge 追加 / 削除
-- inbound 逆引き
-
-## GS-10: doctor
-
-- task / edge / config 検証
-
-## GS-11: ドキュメント仕上げ
-
-- README
-- `docs/` と実装の整合
+- docs と実装の一致
+- format / test / race / vet を green に保つ

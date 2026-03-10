@@ -131,6 +131,7 @@ Most daily editing still happens inside Cockpit, but link management is also ava
 - transient editors and selectors are shown as centered popups
 - non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
 - the sidebar and main pane synchronize selection in both directions
+- direct scripting is mainly `ls`, `next`, `link`, `unlink`, and `links`
 
 Recommended starting point:
 

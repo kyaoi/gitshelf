@@ -67,6 +67,9 @@
 - `board`
 - `review`
 - `now`
+- `link`
+- `unlink`
+- `links`
 - `ls`
 - `next`
 - `init`
@@ -77,6 +80,7 @@
 - `shelf` を TTY で実行すると `Cockpit` が開く
 - `calendar/tree/board/review/now` は `Cockpit` の起動プリセット
 - `ls` と `next` は read-only query 用
+- `link` / `unlink` / `links` は script から link を扱う command
 
 日付入力で使う token:
 

@@ -1,43 +1,25 @@
-# EXAMPLES（運用例）
+# EXAMPLES
 
-## 週→曜日→具体タスク
+## Start the main workspace
+
 ```sh
-shelf add --title "1週間の目標" --kind todo
-# => 01JWEEK...
-
-shelf add --title "月曜日にやること" --kind todo --parent 01JWEEK...
-# => 01JMON...
-
-shelf add --title "英単語100個" --kind todo --parent 01JMON...
-shelf add --title "量子力学 教科書P50まで" --kind todo --parent 01JMON...
+shelf
+shelf review
+shelf tree
 ```
 
-### 子同士の関係（例: 先に英単語の単語帳を準備）
-```sh
-shelf add --title "単語帳を用意する" --kind todo --parent 01JMON...
-# => 01JBOOK...
+## Read-only listing
 
-shelf link --from 01JWORD... --to 01JBOOK... --type depends_on
-# 英単語100個 depends_on 単語帳を用意する
-```
-
-## tree 表示
-```sh
-shelf tree --from 01JWEEK...
-```
-
-## ls のフィルタ
 ```sh
 shelf ls --kind todo --status open
-shelf ls --not-status done --not-status cancelled
+shelf ls --tag backend --json
+shelf next
 ```
 
-## done にする
-```sh
-shelf set 01JWORD... --status done
-```
+## Direct link management
 
-## links 確認
 ```sh
-shelf links 01JWORD...
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf unlink --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 ```

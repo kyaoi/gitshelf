@@ -209,6 +209,5 @@ IDs stay hidden unless `--show-id` is enabled.
 
 ## Notes
 
-The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/archive/history/import/export/github/view/doctor.
-
-Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
+Most daily editing happens inside Cockpit.
+Link management is also available through standalone commands.

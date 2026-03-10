@@ -127,6 +127,10 @@ shelf next
 * `shelf cockpit` で明示的に開ける
 * `calendar/tree/board/review/now` は同じワークスペースに対するランチャープリセット
 * 作成、編集、移動、スヌーズ、リンク、アーカイブ、ステータス変更は TUI 内で行う
+* transient editor / selector は中央 popup で表示する
+* non-calendar mode の右ペインは `Calendar / Selected Day / Inspector`
+* main pane と sidebar は双方向に選択同期する
+* script から直接使うのは主に `ls`, `next`, `link`, `unlink`, `links`
 
 推奨される開始地点:
 
