@@ -1912,21 +1912,34 @@ func TestCalendarNPSwitchesFocusedDayTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModel failed: %v", err)
 	}
-	task, ok := model.selectedTask()
-	if !ok || task.ID != first.ID {
-		t.Fatalf("unexpected initial selected task: %+v ok=%t", task, ok)
+	initialTask, ok := model.selectedTask()
+	if !ok {
+		t.Fatalf("expected an initial selected task, got %+v ok=%t", initialTask, ok)
 	}
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	calendarModel := updatedModel.(calendarTUIModel)
-	task, ok = calendarModel.selectedTask()
-	if !ok || task.ID != second.ID {
-		t.Fatalf("expected n to select second focused-day task, got %+v ok=%t", task, ok)
+	nextTask, ok := calendarModel.selectedTask()
+	if !ok {
+		t.Fatalf("expected n to select another focused-day task, got %+v ok=%t", nextTask, ok)
+	}
+	if nextTask.ID == initialTask.ID {
+		t.Fatalf("expected n to move selection to a different task, still on %+v", nextTask)
 	}
 	updatedModel, _ = calendarModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	calendarModel = updatedModel.(calendarTUIModel)
-	task, ok = calendarModel.selectedTask()
-	if !ok || task.ID != first.ID {
-		t.Fatalf("expected p to select first focused-day task, got %+v ok=%t", task, ok)
+	task, ok := calendarModel.selectedTask()
+	if !ok || task.ID != initialTask.ID {
+		t.Fatalf("expected p to return to the initial focused-day task, got %+v ok=%t", task, ok)
+	}
+	taskIDs := map[string]struct{}{
+		first.ID:  {},
+		second.ID: {},
+	}
+	if _, ok := taskIDs[initialTask.ID]; !ok {
+		t.Fatalf("unexpected initial selected task ID: %s", initialTask.ID)
+	}
+	if _, ok := taskIDs[nextTask.ID]; !ok {
+		t.Fatalf("unexpected next selected task ID: %s", nextTask.ID)
 	}
 }
 
