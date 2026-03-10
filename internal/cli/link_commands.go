@@ -137,12 +137,12 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					Inbound:  make([]edgeItem, 0, len(inbound)),
 				}
 				for _, edge := range outbound {
-					ref := buildLinkTaskRef(ctx.rootDir, edge.To, byID)
-					payload.Outbound = append(payload.Outbound, edgeItem{ID: ref.ID, File: ref.File, Title: ref.Title, Path: ref.Path, Type: string(edge.Type)})
+					record := buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID)
+					payload.Outbound = append(payload.Outbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
 				}
 				for _, edge := range inbound {
-					ref := buildLinkTaskRef(ctx.rootDir, edge.From, byID)
-					payload.Inbound = append(payload.Inbound, edgeItem{ID: ref.ID, File: ref.File, Title: ref.Title, Path: ref.Path, Type: string(edge.Type)})
+					record := buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID)
+					payload.Inbound = append(payload.Inbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -157,14 +157,11 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				taskRef := buildLinkTaskRef(ctx.rootDir, taskID, byID)
 				for _, edge := range outbound {
-					other := buildLinkTaskRef(ctx.rootDir, edge.To, byID)
-					fmt.Println(joinTSVFields(selectedFields, buildLinksTSVRow("outbound", string(edge.Type), taskRef, other)))
+					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID).TSVFields()))
 				}
 				for _, edge := range inbound {
-					other := buildLinkTaskRef(ctx.rootDir, edge.From, byID)
-					fmt.Println(joinTSVFields(selectedFields, buildLinksTSVRow("inbound", string(edge.Type), taskRef, other)))
+					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID).TSVFields()))
 				}
 				return nil
 			}
@@ -223,38 +220,6 @@ func formatLinkEndpoint(taskID string, byID map[string]shelf.Task, showID bool) 
 		return taskID
 	}
 	return formatTaskPathLabel(task, byID, showID)
-}
-
-type linkTaskRef struct {
-	ID    string `json:"id"`
-	File  string `json:"file,omitempty"`
-	Title string `json:"title,omitempty"`
-	Path  string `json:"path,omitempty"`
-}
-
-func buildLinkTaskRef(rootDir, taskID string, byID map[string]shelf.Task) linkTaskRef {
-	ref := linkTaskRef{ID: taskID}
-	if task, ok := byID[taskID]; ok {
-		ref.File = taskFilePath(rootDir, task.ID)
-		ref.Title = task.Title
-		ref.Path = buildTaskPath(task, byID)
-	}
-	return ref
-}
-
-func buildLinksTSVRow(direction string, linkType string, task linkTaskRef, other linkTaskRef) map[string]string {
-	return map[string]string{
-		"direction":   direction,
-		"type":        linkType,
-		"task_id":     task.ID,
-		"task_title":  task.Title,
-		"task_path":   task.Path,
-		"task_file":   task.File,
-		"other_id":    other.ID,
-		"other_title": other.Title,
-		"other_path":  other.Path,
-		"other_file":  other.File,
-	}
 }
 
 func defaultLinksTSVFields() []string {

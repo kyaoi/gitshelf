@@ -61,25 +61,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				row := map[string]string{
-					"id":             task.ID,
-					"title":          task.Title,
-					"path":           buildTaskPath(task, byID),
-					"kind":           string(task.Kind),
-					"status":         string(task.Status),
-					"tags":           strings.Join(task.Tags, ","),
-					"due_on":         task.DueOn,
-					"repeat_every":   task.RepeatEvery,
-					"archived_at":    task.ArchivedAt,
-					"parent":         task.Parent,
-					"parent_path":    buildShowParentPath(task, byID),
-					"file":           taskFilePath(ctx.rootDir, task.ID),
-					"created_at":     task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-					"updated_at":     task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-					"body":           task.Body,
-					"outbound_count": fmt.Sprintf("%d", len(outbound)),
-					"inbound_count":  fmt.Sprintf("%d", len(inbound)),
-				}
+				row := buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()
+				row["outbound_count"] = fmt.Sprintf("%d", len(outbound))
+				row["inbound_count"] = fmt.Sprintf("%d", len(inbound))
 				fmt.Println(joinTSVFields(selectedFields, row))
 				return nil
 			}
@@ -124,29 +108,26 @@ type showLinkPayload struct {
 }
 
 func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
+	record := buildTaskQueryRecord(rootDir, task, byID)
 	payload := showTaskPayload{
-		ID:          task.ID,
-		File:        taskFilePath(rootDir, task.ID),
-		Title:       task.Title,
-		Path:        buildTaskPath(task, byID),
-		Kind:        string(task.Kind),
-		Status:      string(task.Status),
-		Tags:        append([]string{}, task.Tags...),
-		DueOn:       task.DueOn,
-		RepeatEvery: task.RepeatEvery,
-		ArchivedAt:  task.ArchivedAt,
-		Parent:      task.Parent,
-		CreatedAt:   task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:   task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		Body:        task.Body,
+		ID:          record.ID,
+		File:        record.File,
+		Title:       record.Title,
+		Path:        record.Path,
+		Kind:        record.Kind,
+		Status:      record.Status,
+		Tags:        record.Tags,
+		DueOn:       record.DueOn,
+		RepeatEvery: record.RepeatEvery,
+		ArchivedAt:  record.ArchivedAt,
+		Parent:      record.Parent,
+		ParentTitle: record.ParentTitle,
+		ParentPath:  record.ParentPath,
+		CreatedAt:   record.CreatedAt,
+		UpdatedAt:   record.UpdatedAt,
+		Body:        record.Body,
 		Outbound:    make([]showLinkPayload, 0, len(outbound)),
 		Inbound:     make([]showLinkPayload, 0, len(inbound)),
-	}
-	if task.Parent != "" {
-		if parent, ok := byID[task.Parent]; ok {
-			payload.ParentTitle = parent.Title
-			payload.ParentPath = buildTaskPath(parent, byID)
-		}
 	}
 	for _, edge := range outbound {
 		payload.Outbound = append(payload.Outbound, buildShowLinkPayload(rootDir, edge.To, edge.Type, byID))
@@ -206,17 +187,6 @@ func blankAsDash(value string) string {
 		return "-"
 	}
 	return value
-}
-
-func buildShowParentPath(task shelf.Task, byID map[string]shelf.Task) string {
-	if task.Parent == "" {
-		return ""
-	}
-	parent, ok := byID[task.Parent]
-	if !ok {
-		return ""
-	}
-	return buildTaskPath(parent, byID)
 }
 
 func defaultShowTSVFields() []string {

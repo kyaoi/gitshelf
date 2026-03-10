@@ -227,18 +227,10 @@ type configShowCalendarPayload struct {
 }
 
 type configShowCockpitPayload struct {
-	CopySeparator     string              `json:"copy_separator"`
-	CopyPresets       []copyPresetPayload `json:"copy_presets,omitempty"`
-	PostExitGitAction string              `json:"post_exit_git_action"`
-	CommitMessage     string              `json:"commit_message"`
-}
-
-type copyPresetPayload struct {
-	Name         string `json:"name"`
-	Scope        string `json:"scope"`
-	SubtreeStyle string `json:"subtree_style"`
-	Template     string `json:"template"`
-	JoinWith     string `json:"join_with,omitempty"`
+	CopySeparator     string             `json:"copy_separator"`
+	CopyPresets       []copyPresetRecord `json:"copy_presets,omitempty"`
+	PostExitGitAction string             `json:"post_exit_git_action"`
+	CommitMessage     string             `json:"commit_message"`
 }
 
 func buildConfigShowPayload(rootDir string, cfg shelf.Config) configShowPayload {
@@ -277,22 +269,16 @@ func buildConfigShowPayload(rootDir string, cfg shelf.Config) configShowPayload 
 	}
 }
 
-func buildCopyPresetListPayload(presets []shelf.CopyPreset) []copyPresetPayload {
-	items := make([]copyPresetPayload, 0, len(presets))
+func buildCopyPresetListPayload(presets []shelf.CopyPreset) []copyPresetRecord {
+	items := make([]copyPresetRecord, 0, len(presets))
 	for _, preset := range presets {
 		items = append(items, buildCopyPresetPayload(preset))
 	}
 	return items
 }
 
-func buildCopyPresetPayload(preset shelf.CopyPreset) copyPresetPayload {
-	return copyPresetPayload{
-		Name:         preset.Name,
-		Scope:        string(preset.Scope),
-		SubtreeStyle: string(preset.EffectiveSubtreeStyle()),
-		Template:     preset.Template,
-		JoinWith:     preset.JoinWith,
-	}
+func buildCopyPresetPayload(preset shelf.CopyPreset) copyPresetRecord {
+	return buildCopyPresetRecord(preset)
 }
 
 func printConfigShow(rootDir string, cfg shelf.Config) {

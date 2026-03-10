@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -86,54 +85,15 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			titleByID := make(map[string]string, len(allTasks))
 			byID := make(map[string]shelf.Task, len(allTasks))
 			for _, task := range allTasks {
-				titleByID[task.ID] = task.Title
 				byID[task.ID] = task
 			}
 
 			if asJSON {
-				type lsItem struct {
-					ID          string   `json:"id"`
-					File        string   `json:"file"`
-					Title       string   `json:"title"`
-					Path        string   `json:"path"`
-					Kind        string   `json:"kind"`
-					Status      string   `json:"status"`
-					Tags        []string `json:"tags,omitempty"`
-					DueOn       string   `json:"due_on,omitempty"`
-					RepeatEvery string   `json:"repeat_every,omitempty"`
-					ArchivedAt  string   `json:"archived_at,omitempty"`
-					Parent      string   `json:"parent,omitempty"`
-					ParentTitle string   `json:"parent_title,omitempty"`
-					ParentPath  string   `json:"parent_path,omitempty"`
-				}
-				items := make([]lsItem, 0, len(tasks))
+				items := make([]taskQueryRecord, 0, len(tasks))
 				for _, task := range tasks {
-					parentTitle := ""
-					parentPath := ""
-					if task.Parent != "" {
-						parentTitle = titleByID[task.Parent]
-						if parent, ok := byID[task.Parent]; ok {
-							parentPath = buildTaskPath(parent, byID)
-						}
-					}
-					items = append(items, lsItem{
-						ID:          task.ID,
-						File:        taskFilePath(ctx.rootDir, task.ID),
-						Title:       task.Title,
-						Path:        buildTaskPath(task, byID),
-						Kind:        string(task.Kind),
-						Status:      string(task.Status),
-						Tags:        task.Tags,
-						DueOn:       task.DueOn,
-						RepeatEvery: task.RepeatEvery,
-						ArchivedAt:  task.ArchivedAt,
-						Parent:      task.Parent,
-						ParentTitle: parentTitle,
-						ParentPath:  parentPath,
-					})
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
 				}
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
@@ -191,27 +151,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					return err
 				}
 				for _, task := range tasks {
-					parentPath := ""
-					if task.Parent != "" {
-						if parent, ok := byID[task.Parent]; ok {
-							parentPath = buildTaskPath(parent, byID)
-						}
-					}
-					row := map[string]string{
-						"id":           task.ID,
-						"title":        task.Title,
-						"path":         buildTaskPath(task, byID),
-						"kind":         string(task.Kind),
-						"status":       string(task.Status),
-						"due_on":       task.DueOn,
-						"repeat_every": task.RepeatEvery,
-						"archived_at":  task.ArchivedAt,
-						"parent":       task.Parent,
-						"parent_path":  parentPath,
-						"tags":         strings.Join(task.Tags, ","),
-						"file":         taskFilePath(ctx.rootDir, task.ID),
-					}
-					fmt.Println(joinTSVFields(selectedFields, row))
+					fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()))
 				}
 				return nil
 			}
@@ -340,56 +280,19 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 
-			titleByID := make(map[string]string, len(tasks))
 			byID := make(map[string]shelf.Task, len(tasks))
 			for _, task := range tasks {
-				titleByID[task.ID] = task.Title
 				byID[task.ID] = task
 			}
 
 			if asJSON {
-				type nextItem struct {
-					ID          string `json:"id"`
-					File        string `json:"file"`
-					Title       string `json:"title"`
-					Path        string `json:"path"`
-					Kind        string `json:"kind"`
-					Status      string `json:"status"`
-					DueOn       string `json:"due_on,omitempty"`
-					RepeatEvery string `json:"repeat_every,omitempty"`
-					ArchivedAt  string `json:"archived_at,omitempty"`
-					Parent      string `json:"parent,omitempty"`
-					ParentTitle string `json:"parent_title,omitempty"`
-					ParentPath  string `json:"parent_path,omitempty"`
-				}
-				items := make([]nextItem, 0)
+				items := make([]taskQueryRecord, 0)
 				for _, task := range tasks {
 					info, ok := readiness[task.ID]
 					if !ok || !info.Ready {
 						continue
 					}
-					parentTitle := ""
-					parentPath := ""
-					if task.Parent != "" {
-						parentTitle = titleByID[task.Parent]
-						if parent, ok := byID[task.Parent]; ok {
-							parentPath = buildTaskPath(parent, byID)
-						}
-					}
-					items = append(items, nextItem{
-						ID:          task.ID,
-						File:        taskFilePath(ctx.rootDir, task.ID),
-						Title:       task.Title,
-						Path:        buildTaskPath(task, byID),
-						Kind:        string(task.Kind),
-						Status:      string(task.Status),
-						DueOn:       task.DueOn,
-						RepeatEvery: task.RepeatEvery,
-						ArchivedAt:  task.ArchivedAt,
-						Parent:      task.Parent,
-						ParentTitle: parentTitle,
-						ParentPath:  parentPath,
-					})
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
 					if limit > 0 && len(items) >= limit {
 						break
 					}
@@ -413,26 +316,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 					if !ok || !info.Ready {
 						continue
 					}
-					parentPath := ""
-					if task.Parent != "" {
-						if parent, ok := byID[task.Parent]; ok {
-							parentPath = buildTaskPath(parent, byID)
-						}
-					}
-					row := map[string]string{
-						"id":           task.ID,
-						"title":        task.Title,
-						"path":         buildTaskPath(task, byID),
-						"kind":         string(task.Kind),
-						"status":       string(task.Status),
-						"due_on":       task.DueOn,
-						"repeat_every": task.RepeatEvery,
-						"parent":       task.Parent,
-						"parent_path":  parentPath,
-						"tags":         strings.Join(task.Tags, ","),
-						"file":         taskFilePath(ctx.rootDir, task.ID),
-					}
-					fmt.Println(joinTSVFields(selectedFields, row))
+					fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()))
 					count++
 					if limit > 0 && count >= limit {
 						break
@@ -586,10 +470,6 @@ func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID boo
 		return fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
 	}
 	return label
-}
-
-func taskFilePath(rootDir, taskID string) string {
-	return filepath.Join(shelf.TasksDir(rootDir), taskID+".md")
 }
 
 func sanitizeTSVField(value string) string {
