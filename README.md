@@ -97,8 +97,10 @@ shelf now
 shelf ls --status open --json
 shelf next --format tsv
 shelf next --format csv --fields id,title,path --no-header
+shelf next --format tsv --fields title,due_on --sort due_on
 shelf ls --format tsv
 shelf ls --format jsonl
+shelf ls --format tsv --fields title,path --sort title --reverse
 shelf ls --preset board
 shelf show 01AAA
 shelf show 01AAA --format csv --fields title,file,body --no-header
@@ -149,6 +151,9 @@ shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, -
 
 # open task files from ls output
 shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# sort before handing off to another tool
+shelf ls --format tsv --fields title,path --sort title --reverse
 
 # inspect dependency paths from one task
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'

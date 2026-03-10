@@ -667,6 +667,69 @@ func TestCLILsCSVFieldsAndNoHeader(t *testing.T) {
 	}
 }
 
+func TestCLILsSortAndReverse(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Bravo"}); err != nil {
+		t.Fatalf("add bravo failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Alpha"}); err != nil {
+		t.Fatalf("add alpha failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title", "--sort", "title", "--reverse")
+	if err != nil {
+		t.Fatalf("ls --sort failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "Bravo" || lines[1] != "Alpha" {
+		t.Fatalf("unexpected sorted rows: %#v", lines)
+	}
+}
+
+func TestCLINextSortsByDueOn(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Later", Status: "open", DueOn: "2026-03-20"}); err != nil {
+		t.Fatalf("add later failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Sooner", Status: "open", DueOn: "2026-03-12"}); err != nil {
+		t.Fatalf("add sooner failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "No Due", Status: "open"}); err != nil {
+		t.Fatalf("add no due failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "tsv", "--fields", "title,due_on", "--sort", "due_on")
+	if err != nil {
+		t.Fatalf("next --sort failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "Sooner\t2026-03-12" || lines[1] != "Later\t2026-03-20" || lines[2] != "No Due" {
+		t.Fatalf("unexpected sorted rows: %#v", lines)
+	}
+}
+
+func TestCLILsRejectsUnknownSortField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--sort", "body"); err == nil || !strings.Contains(err.Error(), "unknown --sort field: body") {
+		t.Fatalf("expected sort field error, got: %v", err)
+	}
+}
+
 func TestCLILsPresetNowUsesReadyDefaultsButAllowsOverride(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

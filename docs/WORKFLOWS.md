@@ -71,6 +71,9 @@ shelf links 01AAA
 # preview ready tasks in jq
 shelf next --json | jq '.[].path'
 
+# sort ready tasks by due date before inspection
+shelf next --format tsv --fields title,due_on --sort due_on
+
 # choose a task interactively with fzf
 shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
 
@@ -79,6 +82,9 @@ shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, -
 
 # jump from search results to task files
 shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# reverse-sort titles before piping elsewhere
+shelf ls --format tsv --fields title,path --sort title --reverse
 
 # inspect dependency targets with jq
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'

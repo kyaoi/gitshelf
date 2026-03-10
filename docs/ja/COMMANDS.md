@@ -217,6 +217,8 @@ script と単発確認向けの read-only 一覧です。
 - `--fields <name,...>` (`--format tsv|csv` 専用)
 - `--header`
 - `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
 - `--json`
 
 未知の kind/status/tag は即エラーです。
@@ -247,6 +249,8 @@ task field:
 - `--fields <name,...>` (`--format tsv|csv` 専用)
 - `--header`
 - `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
 - `--json`
 
 ## `shelf show`

@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -32,6 +33,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		fields          string
 		header          bool
 		noHeader        bool
+		sortBy          string
+		reverse         bool
 		limit           int
 		search          string
 	)
@@ -90,6 +93,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			byID := make(map[string]shelf.Task, len(allTasks))
 			for _, task := range allTasks {
 				byID[task.ID] = task
+			}
+			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
+				return err
 			}
 
 			if asJSON {
@@ -279,9 +285,11 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
 	cmd.Flags().StringVar(&preset, "preset", "", "Apply read-only defaults similar to a Cockpit view: now|review|board")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -295,6 +303,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		fields   string
 		header   bool
 		noHeader bool
+		sortBy   string
+		reverse  bool
 	)
 
 	cmd := &cobra.Command{
@@ -323,6 +333,9 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			byID := make(map[string]shelf.Task, len(tasks))
 			for _, task := range tasks {
 				byID[task.ID] = task
+			}
+			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
+				return err
 			}
 
 			if asJSON {
@@ -450,9 +463,11 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -625,6 +640,94 @@ func allowedNextTSVFields() map[string]struct{} {
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
 		"parent": {}, "parent_path": {}, "tags": {}, "file": {},
 	}
+}
+
+func sortTaskQueryResults(tasks []shelf.Task, byID map[string]shelf.Task, sortBy string, reverse bool) error {
+	field := strings.TrimSpace(sortBy)
+	if field == "" {
+		return nil
+	}
+	if _, ok := allowedTaskSortFields()[field]; !ok {
+		return fmt.Errorf("unknown --sort field: %s", field)
+	}
+	sort.SliceStable(tasks, func(i, j int) bool {
+		order := compareTaskQueryField(tasks[i], tasks[j], byID, field)
+		if reverse {
+			return order > 0
+		}
+		return order < 0
+	})
+	return nil
+}
+
+func allowedTaskSortFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "created_at": {}, "updated_at": {},
+	}
+}
+
+func compareTaskQueryField(a shelf.Task, b shelf.Task, byID map[string]shelf.Task, field string) int {
+	switch field {
+	case "id":
+		return compareTaskStringField(a.ID, b.ID)
+	case "title":
+		return compareTaskStringFieldWithID(a.Title, b.Title, a.ID, b.ID)
+	case "path":
+		return compareTaskStringFieldWithID(buildTaskPath(a, byID), buildTaskPath(b, byID), a.ID, b.ID)
+	case "kind":
+		return compareTaskStringFieldWithID(string(a.Kind), string(b.Kind), a.ID, b.ID)
+	case "status":
+		return compareTaskStringFieldWithID(string(a.Status), string(b.Status), a.ID, b.ID)
+	case "due_on":
+		return compareOptionalTaskStringField(a.DueOn, b.DueOn, a.ID, b.ID)
+	case "created_at":
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			if a.CreatedAt.Before(b.CreatedAt) {
+				return -1
+			}
+			return 1
+		}
+		return compareTaskStringField(a.ID, b.ID)
+	case "updated_at":
+		if !a.UpdatedAt.Equal(b.UpdatedAt) {
+			if a.UpdatedAt.Before(b.UpdatedAt) {
+				return -1
+			}
+			return 1
+		}
+		return compareTaskStringField(a.ID, b.ID)
+	default:
+		return compareTaskStringField(a.ID, b.ID)
+	}
+}
+
+func compareTaskStringField(a string, b string) int {
+	if a != b {
+		if a < b {
+			return -1
+		}
+		return 1
+	}
+	return 0
+}
+
+func compareTaskStringFieldWithID(a string, b string, aID string, bID string) int {
+	if cmp := compareTaskStringField(a, b); cmp != 0 {
+		return cmp
+	}
+	return compareTaskStringField(aID, bID)
+}
+
+func compareOptionalTaskStringField(a string, b string, aID string, bID string) int {
+	aBlank := strings.TrimSpace(a) == ""
+	bBlank := strings.TrimSpace(b) == ""
+	if aBlank != bBlank {
+		if aBlank {
+			return 1
+		}
+		return -1
+	}
+	return compareTaskStringFieldWithID(a, b, aID, bID)
 }
 
 func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {

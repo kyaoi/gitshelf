@@ -96,8 +96,10 @@ shelf now
 shelf ls --status open --json
 shelf next --format tsv
 shelf next --format csv --fields id,title,path --no-header
+shelf next --format tsv --fields title,due_on --sort due_on
 shelf ls --format tsv
 shelf ls --format jsonl
+shelf ls --format tsv --fields title,path --sort title --reverse
 shelf ls --preset board
 shelf show 01AAA
 shelf show 01AAA --format csv --fields title,file,body --no-header
@@ -148,6 +150,9 @@ shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, -
 
 # ls の出力から task file を開く
 shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# 別ツールに渡す前に並び替える
+shelf ls --format tsv --fields title,path --sort title --reverse
 
 # 1 task の依存先 path を確認
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'

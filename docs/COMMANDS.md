@@ -227,6 +227,8 @@ Flags:
 - `--fields <name,...>` for `--format tsv|csv`
 - `--header`
 - `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
@@ -257,6 +259,8 @@ Flags:
 - `--fields <name,...>` for `--format tsv|csv`
 - `--header`
 - `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
 - `--json`
 
 ## shelf show
