@@ -110,23 +110,29 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			if asJSON {
 				type edgeItem struct {
 					ID    string `json:"id"`
+					File  string `json:"file,omitempty"`
 					Title string `json:"title,omitempty"`
+					Path  string `json:"path,omitempty"`
 					Type  string `json:"type"`
 				}
 				payload := struct {
-					TaskID   string     `json:"task_id"`
-					Outbound []edgeItem `json:"outbound"`
-					Inbound  []edgeItem `json:"inbound"`
+					TaskID   string      `json:"task_id"`
+					Task     linkTaskRef `json:"task"`
+					Outbound []edgeItem  `json:"outbound"`
+					Inbound  []edgeItem  `json:"inbound"`
 				}{
 					TaskID:   taskID,
+					Task:     buildLinkTaskRef(ctx.rootDir, taskID, byID),
 					Outbound: make([]edgeItem, 0, len(outbound)),
 					Inbound:  make([]edgeItem, 0, len(inbound)),
 				}
 				for _, edge := range outbound {
-					payload.Outbound = append(payload.Outbound, edgeItem{ID: edge.To, Title: byID[edge.To].Title, Type: string(edge.Type)})
+					ref := buildLinkTaskRef(ctx.rootDir, edge.To, byID)
+					payload.Outbound = append(payload.Outbound, edgeItem{ID: ref.ID, File: ref.File, Title: ref.Title, Path: ref.Path, Type: string(edge.Type)})
 				}
 				for _, edge := range inbound {
-					payload.Inbound = append(payload.Inbound, edgeItem{ID: edge.From, Title: byID[edge.From].Title, Type: string(edge.Type)})
+					ref := buildLinkTaskRef(ctx.rootDir, edge.From, byID)
+					payload.Inbound = append(payload.Inbound, edgeItem{ID: ref.ID, File: ref.File, Title: ref.Title, Path: ref.Path, Type: string(edge.Type)})
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -188,4 +194,21 @@ func formatLinkEndpoint(taskID string, byID map[string]shelf.Task, showID bool) 
 		return taskID
 	}
 	return formatTaskPathLabel(task, byID, showID)
+}
+
+type linkTaskRef struct {
+	ID    string `json:"id"`
+	File  string `json:"file,omitempty"`
+	Title string `json:"title,omitempty"`
+	Path  string `json:"path,omitempty"`
+}
+
+func buildLinkTaskRef(rootDir, taskID string, byID map[string]shelf.Task) linkTaskRef {
+	ref := linkTaskRef{ID: taskID}
+	if task, ok := byID[taskID]; ok {
+		ref.File = taskFilePath(rootDir, task.ID)
+		ref.Title = task.Title
+		ref.Path = buildTaskPath(task, byID)
+	}
+	return ref
 }

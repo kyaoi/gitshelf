@@ -229,6 +229,55 @@ func TestCLILinkCommands(t *testing.T) {
 	}
 }
 
+func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--json")
+	if err != nil {
+		t.Fatalf("links --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("parse links json failed: %v\n%s", err, out)
+	}
+	taskPayload, ok := payload["task"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing task payload: %#v", payload)
+	}
+	if taskPayload["path"] != "root > Parent > From" || taskPayload["file"] != filepath.Join(shelf.TasksDir(root), from.ID+".md") {
+		t.Fatalf("unexpected task payload: %#v", taskPayload)
+	}
+	outbound, ok := payload["outbound"].([]any)
+	if !ok || len(outbound) != 1 {
+		t.Fatalf("unexpected outbound payload: %#v", payload["outbound"])
+	}
+	first, ok := outbound[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected outbound item: %#v", outbound[0])
+	}
+	if first["path"] != "root > To" || first["file"] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
+		t.Fatalf("unexpected outbound item: %#v", first)
+	}
+}
+
 func TestCLILsUnknownFilterValues(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
