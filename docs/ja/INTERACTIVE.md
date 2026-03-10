@@ -30,6 +30,9 @@
 - `Esc`: 終了または一時状態から離脱
 - `Ctrl+[` : transient overlay から normal に戻る
 
+transient picker / composer は中央 popup で表示します。
+件数の多い一覧は box の高さを変えず、内部スクロールで閲覧します。
+
 ## Calendar Mode
 
 週表示は日曜始まり、土曜終わりです。
@@ -43,6 +46,8 @@
 - `n` / `p`: selected day の task 切り替え
 - `a`: 選択 task の子として作成。未選択時は root に作成
 - `A`: root に作成
+
+calendar main view では pane focus 切り替えは使いません。
 
 ## Tree Mode
 
@@ -88,7 +93,6 @@
 
 link selector は tree 風ラベルを使い、件数が多いときはスクロールします。
 ID は `--show-id` を有効にしたときだけ表示します。
-transient picker / composer は中央 popup で表示します。
 - link picker では `h` / `l` で Tree mode と同様に開閉できます
 - link type の切り替えは `Tab` / `Shift+Tab` です
 
@@ -118,12 +122,16 @@ transient picker / composer は中央 popup で表示します。
 - `Enter` on `Done`: 保存して閉じる
 - `Enter` on `+ Add new tag`: 入力 mode に入る
 - `Ctrl+S`: tag 編集中のどこからでも保存して閉じる
+- 新規 tag 入力中は移動系 keybind ではなく通常の文字入力になります
 
 ## Non-Calendar Sidebar
 
 - 右ペインは `Calendar / Selected Day / Inspector` の3段です
+- 高さ比率は `Calendar 40% / gap 1% / Selected Day 28% / gap 1% / Inspector 30%` です
 - main selection は sidebar の日付と `Selected Day` に同期します
 - sidebar の calendar を動かすと、その日に visible task があれば main selection も追従します
+- non-calendar mode では `Selected Day` 上の `n` / `p` でも main selection が追従します
+- focus が calendar にあるときは main pane と同様に枠線を強調表示します
 
 ## スクロール
 
@@ -143,5 +151,5 @@ body の scroll:
 - 必要な場面では `(root)` を明示的に選べます
 - 通常の selector では `q`, `Esc` でキャンセルできます
 - Link は `/` で query 入力 mode に入り、入力中は移動系 keybind を発火させません
-- Tag は `+ Add new tag` から入力 mode に入り、入力中は移動系 keybind を発火させません
 - 旧 focused day panel 名は `Selected Day` に統一され、main selection と同期します
+- `Selected Day` は sidebar の calendar で日付を変えたときも追従します

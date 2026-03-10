@@ -52,9 +52,11 @@ Cockpit 内:
 - `h/l`: 日移動
 - `j/k`: 週移動
 - `[` / `]`: 月移動
-- `n/p`: focused day の task 切り替え
-- `a`: 選択 task の子として作成
+- `n/p`: selected day の task 切り替え
+- `a`: 選択 task の子として作成。未選択時は root に作成
 - `A`: root に作成
+
+non-calendar mode では sidebar の `Calendar` / `Selected Day` と main selection が相互同期します。
 
 ### 4. その場で更新する
 

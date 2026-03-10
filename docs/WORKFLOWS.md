@@ -54,9 +54,11 @@ Useful keys:
 - `h/l`: previous/next day
 - `j/k`: previous/next week
 - `[` / `]`: previous/next month
-- `n/p`: cycle tasks on the focused day
-- `a`: create as a child of the selected task
+- `n/p`: cycle tasks on the selected day
+- `a`: create as a child of the selected task, or at root when nothing is selected
 - `A`: create at root
+
+In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchronized with the main selection, and sidebar navigation can move the main selection back.
 
 ### 4. Change task state in place
 

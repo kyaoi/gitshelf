@@ -32,6 +32,9 @@ All of those open the same TUI workspace with different starting modes.
 - `Esc`: quit or leave transient state
 - `Ctrl+[` : return to normal state from transient overlays
 
+Transient pickers and composers are shown as centered popups.
+Scrollable lists keep a fixed box height; overflow is handled by scrolling instead of resizing the layout.
+
 ## Calendar Mode
 
 Weeks are rendered Sunday through Saturday.
@@ -47,6 +50,8 @@ Main keys:
 - `n` / `p`: cycle tasks on the selected day
 - `a`: create as a child of the selected task, or at root when nothing is selected
 - `A`: create at root
+
+The main calendar view does not use pane focus switching.
 
 ## Tree Mode
 
@@ -98,7 +103,6 @@ These actions operate on the selected task, or on marked tasks when multi-select
 
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.
-Transient pickers and composers are shown as centered popups.
 - In link pickers, `h` / `l` collapse and expand the hierarchy like Tree mode.
 - Link type cycling uses `Tab` / `Shift+Tab`.
 
@@ -128,12 +132,16 @@ Transient pickers and composers are shown as centered popups.
 - `Enter` on `Done`: save and close
 - `Enter` on `+ Add new tag`: enter text input mode
 - `Ctrl+S`: save and close from anywhere in tag editing
+- while typing a new tag, movement keys are treated as text input
 
 ## Non-Calendar Sidebar
 
 - the right pane is split into `Calendar / Selected Day / Inspector`
+- the height ratio is `Calendar 40% / gap 1% / Selected Day 28% / gap 1% / Inspector 30%`
 - main selection syncs the sidebar date and `Selected Day`
-- moving the sidebar calendar also updates the main selection when that day has visible tasks
+- moving the sidebar calendar updates the main selection when that day has visible tasks
+- `n` / `p` inside `Selected Day` updates the main selection in non-calendar modes
+- the focused sidebar calendar uses a highlighted border, matching the main pane focus treatment
 
 ## Scrolling
 
@@ -151,5 +159,5 @@ Long task selectors scroll automatically.
 - `(root)` appears as an explicit move target where relevant
 - `q` and `Esc` cancel plain selectors
 - Link uses `/` to enter query input mode; while typing, movement keys are treated as text
-- Tag enters text input mode from `+ Add new tag`; while typing, movement keys are treated as text
 - `Selected Day` replaces the old focused-day panel name and stays synced with the main selection
+- `Selected Day` also syncs when the sidebar calendar changes the selected date
