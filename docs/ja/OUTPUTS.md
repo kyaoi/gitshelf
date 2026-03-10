@@ -28,6 +28,7 @@ field:
 - `due_on`
 - `repeat_every`
 - `archived_at`
+- `parent_id`
 - `parent`
 - `parent_title`
 - `parent_path`
@@ -46,6 +47,7 @@ tabular field:
 - `due_on`
 - `repeat_every`
 - `archived_at`
+- `parent_id`
 - `parent`
 - `parent_path`
 - `file`
@@ -83,20 +85,33 @@ field:
 
 - `direction`
 - `type`
+- `source`
+- `target`
 - `task`
 - `other`
 
-ネストされた `task` / `other` ref の field:
+ネストされた ref の field:
 
 - `id`
 - `title`
 - `path`
 - `file`
 
+`source` と `target` が canonical な edge endpoint です。
+`task` と `other` は inspected task 基準の互換 alias です。
+
 tabular edge field:
 
 - `direction`
 - `type`
+- `source_id`
+- `source_title`
+- `source_path`
+- `source_file`
+- `target_id`
+- `target_title`
+- `target_path`
+- `target_file`
 - `task_id`
 - `task_title`
 - `task_path`
@@ -195,3 +210,9 @@ JSON 出力:
 - `subtree_style`
 - `template`
 - `join_with`
+
+## Compatibility Notes
+
+- `parent_id` と `parent` は現時点では同じ task ID を持ちます。
+- `source_*` / `target_*` が canonical な edge alias です。
+- `task_*` / `other_*` も旧 script 互換のために残しています。

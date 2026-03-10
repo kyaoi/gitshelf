@@ -133,6 +133,9 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	if !ok || taskPayload["title"] != "Task" {
 		t.Fatalf("expected normalized task payload, got: %#v", payload["task"])
 	}
+	if taskPayload["parent_id"] != nil {
+		t.Fatalf("expected root task to omit parent_id, got: %#v", taskPayload)
+	}
 	edges, ok := payload["edges"].([]any)
 	if !ok || len(edges) != 1 {
 		t.Fatalf("expected normalized edges payload, got: %#v", payload["edges"])
@@ -358,6 +361,18 @@ func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
 	if !ok || len(edges) != 1 {
 		t.Fatalf("expected normalized edges payload: %#v", payload["edges"])
 	}
+	edgePayload, ok := edges[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected edge payload: %#v", edges[0])
+	}
+	source, ok := edgePayload["source"].(map[string]any)
+	if !ok || source["id"] != from.ID {
+		t.Fatalf("expected source payload, got: %#v", edgePayload["source"])
+	}
+	target, ok := edgePayload["target"].(map[string]any)
+	if !ok || target["id"] != to.ID {
+		t.Fatalf("expected target payload, got: %#v", edgePayload["target"])
+	}
 	outbound, ok := payload["outbound"].([]any)
 	if !ok || len(outbound) != 1 {
 		t.Fatalf("unexpected outbound payload: %#v", payload["outbound"])
@@ -408,6 +423,32 @@ func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
 	}
 	if lines[1] != strings.Join([]string{"inbound", "related", peer.ID, "root > Peer"}, "\t") {
 		t.Fatalf("unexpected inbound row: %q", lines[1])
+	}
+}
+
+func TestCLILinksTSVSupportsSourceAndTargetAliases(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "source_id,target_id")
+	if err != nil {
+		t.Fatalf("links alias tsv failed: %v", err)
+	}
+	if strings.TrimSpace(out) != from.ID+"\t"+to.ID {
+		t.Fatalf("unexpected alias tsv row: %q", out)
 	}
 }
 
@@ -663,6 +704,9 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 			childPath, _ = item["path"].(string)
 			childFile, _ = item["file"].(string)
 			parentPath, _ = item["parent_path"].(string)
+			if item["parent_id"] != parent.ID {
+				t.Fatalf("expected parent_id alias, got: %#v", item)
+			}
 		}
 	}
 	if childPath != "root > Parent > Child" {

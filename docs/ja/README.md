@@ -166,6 +166,9 @@ shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 # 正規化された edge record を使う
 shelf links 01AAA --json | jq '.edges[] | {direction, type, other: .other.path}'
 
+# canonical alias の列を使う
+shelf links 01AAA --format tsv --fields source_id,target_id
+
 # link type ごとの件数を確認
 shelf links 01AAA --summary --format tsv --fields direction,type,count
 

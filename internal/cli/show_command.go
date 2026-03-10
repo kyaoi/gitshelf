@@ -245,7 +245,7 @@ func defaultShowCSVFields() []string {
 func allowedShowTSVFields() map[string]struct{} {
 	return map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "tags": {}, "due_on": {},
-		"repeat_every": {}, "archived_at": {}, "parent": {}, "parent_path": {}, "file": {},
+		"repeat_every": {}, "archived_at": {}, "parent_id": {}, "parent": {}, "parent_path": {}, "file": {},
 		"created_at": {}, "updated_at": {}, "body": {}, "outbound_count": {}, "inbound_count": {},
 	}
 }

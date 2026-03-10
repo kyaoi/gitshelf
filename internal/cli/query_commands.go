@@ -653,7 +653,7 @@ func defaultLsTSVFields() []string {
 func allowedLsTSVFields() map[string]struct{} {
 	return map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
-		"archived_at": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
+		"archived_at": {}, "parent_id": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
 	}
 }
 
@@ -680,7 +680,7 @@ func defaultNextTSVFields() []string {
 func allowedNextTSVFields() map[string]struct{} {
 	return map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
-		"parent": {}, "parent_path": {}, "tags": {}, "file": {},
+		"parent_id": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
 	}
 }
 

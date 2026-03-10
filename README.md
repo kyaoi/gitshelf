@@ -167,6 +167,9 @@ shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 # use normalized edge records
 shelf links 01AAA --json | jq '.edges[] | {direction, type, other: .other.path}'
 
+# use canonical edge aliases
+shelf links 01AAA --format tsv --fields source_id,target_id
+
 # inspect link counts by type
 shelf links 01AAA --summary --format tsv --fields direction,type,count
 

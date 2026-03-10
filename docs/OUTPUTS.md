@@ -25,6 +25,7 @@ Fields:
 - `due_on`
 - `repeat_every`
 - `archived_at`
+- `parent_id`
 - `parent`
 - `parent_title`
 - `parent_path`
@@ -43,6 +44,7 @@ Tabular task fields:
 - `due_on`
 - `repeat_every`
 - `archived_at`
+- `parent_id`
 - `parent`
 - `parent_path`
 - `file`
@@ -80,20 +82,33 @@ Fields:
 
 - `direction`
 - `type`
+- `source`
+- `target`
 - `task`
 - `other`
 
-Nested `task` and `other` refs contain:
+Nested refs contain:
 
 - `id`
 - `title`
 - `path`
 - `file`
 
+`source` and `target` are the canonical edge endpoints.
+`task` and `other` are compatibility aliases based on the inspected task context.
+
 Tabular edge fields:
 
 - `direction`
 - `type`
+- `source_id`
+- `source_title`
+- `source_path`
+- `source_file`
+- `target_id`
+- `target_title`
+- `target_path`
+- `target_file`
 - `task_id`
 - `task_title`
 - `task_path`
@@ -192,3 +207,9 @@ Contains:
 - `subtree_style`
 - `template`
 - `join_with`
+
+## Compatibility Notes
+
+- `parent_id` and `parent` currently contain the same task ID.
+- `source_*` / `target_*` are canonical edge aliases.
+- `task_*` / `other_*` remain available for compatibility with older scripts.

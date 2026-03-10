@@ -338,6 +338,16 @@ func defaultLinksTSVFields() []string {
 	return []string{"direction", "type", "task_id", "task_path", "other_id", "other_path", "other_file"}
 }
 
+func allowedLinksTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"direction": {}, "type": {},
+		"source_id": {}, "source_title": {}, "source_path": {}, "source_file": {},
+		"target_id": {}, "target_title": {}, "target_path": {}, "target_file": {},
+		"task_id": {}, "task_title": {}, "task_path": {}, "task_file": {},
+		"other_id": {}, "other_title": {}, "other_path": {}, "other_file": {},
+	}
+}
+
 func defaultLinkSummaryTSVFields() []string {
 	return []string{"direction", "type", "count"}
 }
@@ -382,12 +392,5 @@ func printLinkSummary(records []linkSummaryRecord) {
 	}
 	for _, record := range records {
 		fmt.Printf("  %s %s count=%d\n", record.Direction, record.Type, record.Count)
-	}
-}
-
-func allowedLinksTSVFields() map[string]struct{} {
-	return map[string]struct{}{
-		"direction": {}, "type": {}, "task_id": {}, "task_title": {}, "task_path": {}, "task_file": {},
-		"other_id": {}, "other_title": {}, "other_path": {}, "other_file": {},
 	}
 }
