@@ -56,6 +56,7 @@ const (
 	calendarTextPromptTag
 	calendarTextPromptDueOn
 	calendarTextPromptRepeatEvery
+	calendarTextPromptAppendBody
 )
 
 type calendarTagBulkState int
@@ -646,6 +647,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "K":
 			m.beginKindMode(calendarKindTargetTask)
+			return m, nil
+		case "J":
+			m.beginAppendBodyPrompt()
 			return m, nil
 		case "W":
 			m.beginRepeatPrompt()
@@ -1343,6 +1347,21 @@ func (m *calendarTUIModel) beginRepeatPrompt() {
 	m.message = "repeat を編集"
 }
 
+func (m *calendarTUIModel) beginAppendBodyPrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	m.beginTextPrompt(
+		"Append Note",
+		fmt.Sprintf("Target: %s  Ctrl+J inserts newline", m.bulkActionPopupLabel()),
+		"",
+		calendarTextPromptAppendBody,
+	)
+	m.message = "note を追記"
+}
+
 func (m calendarTUIModel) tagBulkState(tag string) calendarTagBulkState {
 	if m.tagBulkStates == nil {
 		return calendarTagBulkStateUnchanged
@@ -1684,9 +1703,24 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 				m.clearTextPromptState()
 				return m, nil
 			}
+		case calendarTextPromptAppendBody:
+			if value == "" {
+				m.message = "入力は必須です"
+				return m, nil
+			}
+			if err := m.applySelectedTaskAppendBody(m.textPromptValue); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
 		}
 		m.clearTextPromptState()
 		return m, nil
+	case "ctrl+j":
+		if m.textPromptPurpose == calendarTextPromptAppendBody {
+			m.textPromptValue, m.textPromptCursor = interactive.InsertRuneAtCursor(m.textPromptValue, m.textPromptCursor, '\n')
+			return m, nil
+		}
 	case "backspace":
 		m.textPromptValue, m.textPromptCursor = interactive.DeleteRuneBeforeCursor(m.textPromptValue, m.textPromptCursor)
 		return m, nil
@@ -3327,6 +3361,41 @@ func (m *calendarTUIModel) applySelectedTaskRepeatEvery(value string) error {
 	return nil
 }
 
+func (m *calendarTUIModel) applySelectedTaskAppendBody(value string) error {
+	appendix := strings.TrimSpace(value)
+	if appendix == "" {
+		return fmt.Errorf("入力は必須です")
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-body"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{AppendBody: &appendix}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if len(taskIDs) == 1 {
+		m.message = "Appended note"
+		return nil
+	}
+	m.message = fmt.Sprintf("Appended note to %d tasks", len(taskIDs))
+	return nil
+}
+
 func formatCalendarTagDeltaMessage(taskCount int, addTags []string, removeTags []string) string {
 	parts := make([]string, 0, 2)
 	if len(addTags) > 0 {
@@ -4498,7 +4567,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  D: due  W: repeat  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
+		"o/i/b/d/c: status  a: add child  A: add root  D: due  W: repeat  J: note  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
@@ -5447,7 +5516,17 @@ func renderCalendarTextPrompt(title string, help string, value string) string {
 		titleStyle.Render(title),
 		helpStyle.Render("入力して Enter で確定  Left/Right で移動  Esc/q でキャンセル"),
 		helpStyle.Render(help),
-		"Value: " + value,
+	}
+	valueLines := strings.Split(value, "\n")
+	if len(valueLines) == 0 {
+		valueLines = []string{""}
+	}
+	for i, line := range valueLines {
+		prefix := "       "
+		if i == 0 {
+			prefix = "Value: "
+		}
+		lines = append(lines, prefix+line)
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }

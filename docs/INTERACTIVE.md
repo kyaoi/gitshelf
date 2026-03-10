@@ -91,6 +91,7 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `#`: edit tags for the selected task, or edit marked tasks with bulk add/remove
 - `D`: edit `due_on` for the selected task, or for marked tasks
 - `W`: edit `repeat_every` for the selected task, or for marked tasks
+- `J`: append a quick note to the selected task body, or to marked task bodies
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
@@ -167,6 +168,14 @@ IDs are hidden there unless `--show-id` is enabled.
 - blank input clears the field
 - due accepts the same tokens as the CLI: `YYYY-MM-DD`, `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon`..`sun`, `next-mon`..`next-sun`, `in N days`
 - repeat accepts `<N>d`, `<N>w`, `<N>m`, or `<N>y`
+
+## Notes
+
+- `J`: open a quick note prompt that appends to `body`
+- marked tasks use the same prompt and append the same note to all marked tasks
+- `Ctrl+J` inserts a newline inside the note prompt
+- `Enter` saves the appended note
+- `e` still opens the full task file in the external editor for full-body edits
 
 ## Non-Calendar Sidebar
 
