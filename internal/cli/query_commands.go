@@ -41,7 +41,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := validateFormat(format, []string{"compact", "detail", "kanban"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree"}); err != nil {
 				return err
 			}
 
@@ -74,14 +74,17 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			titleByID := make(map[string]string, len(allTasks))
+			byID := make(map[string]shelf.Task, len(allTasks))
 			for _, task := range allTasks {
 				titleByID[task.ID] = task.Title
+				byID[task.ID] = task
 			}
 
 			if asJSON {
 				type lsItem struct {
 					ID          string   `json:"id"`
 					Title       string   `json:"title"`
+					Path        string   `json:"path"`
 					Kind        string   `json:"kind"`
 					Status      string   `json:"status"`
 					Tags        []string `json:"tags,omitempty"`
@@ -100,6 +103,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					items = append(items, lsItem{
 						ID:          task.ID,
 						Title:       task.Title,
+						Path:        buildTaskPath(task, byID),
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						Tags:        task.Tags,
@@ -115,6 +119,48 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					return err
 				}
 				fmt.Println(string(data))
+				return nil
+			}
+
+			if format == "tree" {
+				fromID := filter.Parent
+				if fromID == "root" {
+					fromID = ""
+				}
+				nodes, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{
+					Kinds:           filter.Kinds,
+					Statuses:        filter.Statuses,
+					Tags:            filter.Tags,
+					NotKinds:        filter.NotKinds,
+					NotStatuses:     filter.NotStatuses,
+					NotTags:         filter.NotTags,
+					IncludeArchived: filter.IncludeArchived,
+					OnlyArchived:    filter.OnlyArchived,
+					FromID:          fromID,
+				})
+				if err != nil {
+					return err
+				}
+				if filter.Parent == "root" {
+					rootNodes := make([]shelf.TreeNode, 0, len(nodes))
+					for _, node := range nodes {
+						if node.Task.Parent == "" {
+							rootNodes = append(rootNodes, node)
+						}
+					}
+					nodes = rootNodes
+				}
+				printed := 0
+				for i, node := range nodes {
+					printTreeNode(node, "", i == len(nodes)-1, ctx.showID, "compact")
+					printed++
+					if filter.Limit > 0 && printed >= filter.Limit {
+						break
+					}
+				}
+				if printed == 0 {
+					fmt.Println(uiMuted("(none)"))
+				}
 				return nil
 			}
 
@@ -149,11 +195,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
-					if title, ok := titleByID[task.Parent]; ok {
-						parentLabel = uiPrimary(title)
-						if ctx.showID {
-							parentLabel = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.Parent)), uiPrimary(title))
-						}
+					if parent, ok := byID[task.Parent]; ok {
+						parentLabel = formatTaskPathLabel(parent, byID, ctx.showID)
 					} else {
 						parentLabel = uiMuted("(missing)")
 					}
@@ -235,14 +278,17 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			titleByID := make(map[string]string, len(tasks))
+			byID := make(map[string]shelf.Task, len(tasks))
 			for _, task := range tasks {
 				titleByID[task.ID] = task.Title
+				byID[task.ID] = task
 			}
 
 			if asJSON {
 				type nextItem struct {
 					ID          string `json:"id"`
 					Title       string `json:"title"`
+					Path        string `json:"path"`
 					Kind        string `json:"kind"`
 					Status      string `json:"status"`
 					DueOn       string `json:"due_on,omitempty"`
@@ -264,6 +310,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 					items = append(items, nextItem{
 						ID:          task.ID,
 						Title:       task.Title,
+						Path:        buildTaskPath(task, byID),
 						Kind:        string(task.Kind),
 						Status:      string(task.Status),
 						DueOn:       task.DueOn,
@@ -292,11 +339,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				}
 				parentLabel := uiMuted("root")
 				if task.Parent != "" {
-					if title, ok := titleByID[task.Parent]; ok {
-						parentLabel = uiPrimary(title)
-						if ctx.showID {
-							parentLabel = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.Parent)), uiPrimary(title))
-						}
+					if parent, ok := byID[task.Parent]; ok {
+						parentLabel = formatTaskPathLabel(parent, byID, ctx.showID)
 					} else {
 						parentLabel = uiMuted("(missing)")
 					}

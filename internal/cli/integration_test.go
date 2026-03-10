@@ -282,6 +282,53 @@ func TestCLINextListsReadyTasks(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("expected 2 ready tasks, got %d: %s", len(items), jsonOut)
 	}
+	first, ok := items[0]["path"].(string)
+	if !ok || !strings.HasPrefix(first, "root > ") {
+		t.Fatalf("expected next json items to include path, got: %#v", items)
+	}
+}
+
+func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	jsonOut, err := executeCLI(t, "ls", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("ls --json failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &items); err != nil {
+		t.Fatalf("parse ls json failed: %v\n%s", err, jsonOut)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 tasks, got %d: %s", len(items), jsonOut)
+	}
+	var childPath string
+	for _, item := range items {
+		if item["title"] == "Child" {
+			childPath, _ = item["path"].(string)
+		}
+	}
+	if childPath != "root > Parent > Child" {
+		t.Fatalf("unexpected child path: %q", childPath)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tree")
+	if err != nil {
+		t.Fatalf("ls --format tree failed: %v", err)
+	}
+	if !strings.Contains(out, "Parent") || !strings.Contains(out, "Child") || !strings.Contains(out, "└─") {
+		t.Fatalf("unexpected tree output: %s", out)
+	}
 }
 
 func TestCLICompletionBash(t *testing.T) {
