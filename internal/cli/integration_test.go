@@ -749,6 +749,75 @@ func TestCLILsSortAndReverse(t *testing.T) {
 	}
 }
 
+func TestCLILsGroupByStatusTSV(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open", Status: "open"}); err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "group,title,status", "--group-by", "status")
+	if err != nil {
+		t.Fatalf("ls --group-by status failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "done\tDone\tdone" || lines[1] != "open\tOpen\topen" {
+		t.Fatalf("unexpected grouped rows: %#v", lines)
+	}
+}
+
+func TestCLILsGroupByParentJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--json", "--group-by", "parent")
+	if err != nil {
+		t.Fatalf("ls --json --group-by parent failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("parse grouped json failed: %v\n%s", err, out)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d: %s", len(items), out)
+	}
+	for _, item := range items {
+		if _, ok := item["group"].(string); !ok {
+			t.Fatalf("missing group field: %#v", item)
+		}
+		if _, ok := item["title"].(string); !ok {
+			t.Fatalf("expected flat task fields, got: %#v", item)
+		}
+	}
+}
+
+func TestCLILsGroupByRejectsKanbanFormat(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--format", "kanban", "--group-by", "status"); err == nil || !strings.Contains(err.Error(), "--group-by cannot be combined with --format kanban") {
+		t.Fatalf("expected group-by/format error, got: %v", err)
+	}
+}
+
 func TestCLINextSortsByDueOn(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {

@@ -101,6 +101,7 @@ shelf next --count
 shelf ls --format tsv
 shelf ls --format jsonl
 shelf ls --format tsv --fields title,path --sort title --reverse
+shelf ls --format tsv --fields group,title --group-by status
 shelf ls --status open --count --json
 shelf ls --preset board
 shelf show 01AAA

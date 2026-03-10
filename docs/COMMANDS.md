@@ -229,6 +229,7 @@ Flags:
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--group-by <status|kind|parent>`
 - `--count`
 - `--json`
 
@@ -248,6 +249,8 @@ Task fields:
 
 `--fields` can reorder or reduce those columns.
 `--format jsonl` prints one task object per line using the same record shape as `--json`.
+`--group-by` adds a `group` field to tabular/JSON output and prints grouped sections in text output.
+`--group-by` cannot be combined with `--format kanban`, `--format tree`, or `--count`.
 `--count` prints only the total number of matching tasks. With `--json`, it returns `{ "count": N }`.
 
 ## shelf next

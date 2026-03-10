@@ -35,6 +35,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		noHeader        bool
 		sortBy          string
 		reverse         bool
+		groupBy         string
 		countOnly       bool
 		limit           int
 		search          string
@@ -50,6 +51,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if err := validateLsGrouping(format, groupBy, countOnly); err != nil {
 				return err
 			}
 			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
@@ -108,12 +112,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if countOnly {
 				return printCountResult(len(tasks), asJSON)
 			}
+			groupedRecords := buildGroupedTaskQueryRecords(ctx.rootDir, tasks, byID, groupBy)
 
 			if asJSON {
-				items := make([]taskQueryRecord, 0, len(tasks))
-				for _, task := range tasks {
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-				}
+				items := groupedRecordsToAny(groupedRecords, groupBy)
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
 					return err
@@ -123,11 +125,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "jsonl" {
-				items := make([]taskQueryRecord, 0, len(tasks))
-				for _, task := range tasks {
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-				}
-				text, err := renderJSONL(items)
+				text, err := renderGroupedTaskJSONL(groupedRecords, groupBy)
 				if err != nil {
 					return err
 				}
@@ -178,18 +176,18 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLsTSVFields(), allowedLsTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
 				if err != nil {
 					return err
 				}
-				for _, task := range tasks {
-					fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()))
+				for _, record := range groupedRecords {
+					fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
 				}
 				return nil
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultLsTSVFields(), allowedLsTSVFields())
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
 				if err != nil {
 					return err
 				}
@@ -197,11 +195,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				items := make([]taskQueryRecord, 0, len(tasks))
-				for _, task := range tasks {
-					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
-				}
-				text, err := renderCSV(items, selectedFields, includeHeader)
+				text, err := renderCSV(groupedRecords, selectedFields, includeHeader)
 				if err != nil {
 					return err
 				}
@@ -237,6 +231,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if strings.TrimSpace(groupBy) != "" {
+				printGroupedLsRecords(groupedRecords, format, ctx.showID)
+				return nil
+			}
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
@@ -301,6 +299,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
+	cmd.Flags().StringVar(&groupBy, "group-by", "", "Group tasks by: status|kind|parent")
 	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of matching tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
@@ -658,6 +657,22 @@ func allowedLsTSVFields() map[string]struct{} {
 	}
 }
 
+func defaultLsTabularFields(groupBy string) []string {
+	fields := append([]string{}, defaultLsTSVFields()...)
+	if strings.TrimSpace(groupBy) == "" {
+		return fields
+	}
+	return append([]string{"group"}, fields...)
+}
+
+func allowedLsTabularFields(groupBy string) map[string]struct{} {
+	allowed := allowedLsTSVFields()
+	if strings.TrimSpace(groupBy) != "" {
+		allowed["group"] = struct{}{}
+	}
+	return allowed
+}
+
 func defaultNextTSVFields() []string {
 	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file"}
 }
@@ -811,6 +826,150 @@ func validateCountModeFlags(cmd *cobra.Command, countOnly bool, fields string, h
 		return fmt.Errorf("--count cannot be combined with --limit")
 	}
 	return nil
+}
+
+func validateLsGrouping(format string, groupBy string, countOnly bool) error {
+	field := strings.TrimSpace(groupBy)
+	if field == "" {
+		return nil
+	}
+	if countOnly {
+		return fmt.Errorf("--group-by cannot be combined with --count")
+	}
+	if format == "kanban" || format == "tree" {
+		return fmt.Errorf("--group-by cannot be combined with --format %s", format)
+	}
+	if _, ok := allowedLsGroupFields()[field]; !ok {
+		return fmt.Errorf("unknown --group-by field: %s", field)
+	}
+	return nil
+}
+
+func allowedLsGroupFields() map[string]struct{} {
+	return map[string]struct{}{
+		"status": {}, "kind": {}, "parent": {},
+	}
+}
+
+func buildGroupedTaskQueryRecords(rootDir string, tasks []shelf.Task, byID map[string]shelf.Task, groupBy string) []groupedTaskQueryRecord {
+	field := strings.TrimSpace(groupBy)
+	records := make([]groupedTaskQueryRecord, 0, len(tasks))
+	for _, task := range tasks {
+		records = append(records, groupedTaskQueryRecord{
+			Group:           groupTaskLabel(task, byID, field),
+			taskQueryRecord: buildTaskQueryRecord(rootDir, task, byID),
+		})
+	}
+	if field == "" {
+		return records
+	}
+	sort.SliceStable(records, func(i, j int) bool {
+		if records[i].Group != records[j].Group {
+			return records[i].Group < records[j].Group
+		}
+		return records[i].taskQueryRecord.ID < records[j].taskQueryRecord.ID
+	})
+	return records
+}
+
+func groupTaskLabel(task shelf.Task, byID map[string]shelf.Task, field string) string {
+	switch field {
+	case "status":
+		return string(task.Status)
+	case "kind":
+		return string(task.Kind)
+	case "parent":
+		if task.Parent == "" {
+			return "root"
+		}
+		parent, ok := byID[task.Parent]
+		if !ok {
+			return "(missing)"
+		}
+		return buildTaskPath(parent, byID)
+	default:
+		return ""
+	}
+}
+
+func groupedRecordsToAny(records []groupedTaskQueryRecord, groupBy string) any {
+	if strings.TrimSpace(groupBy) == "" {
+		items := make([]taskQueryRecord, 0, len(records))
+		for _, record := range records {
+			items = append(items, record.taskQueryRecord)
+		}
+		return items
+	}
+	return records
+}
+
+func renderGroupedTaskJSONL(records []groupedTaskQueryRecord, groupBy string) (string, error) {
+	if strings.TrimSpace(groupBy) == "" {
+		items := make([]taskQueryRecord, 0, len(records))
+		for _, record := range records {
+			items = append(items, record.taskQueryRecord)
+		}
+		return renderJSONL(items)
+	}
+	return renderJSONL(records)
+}
+
+func printGroupedLsRecords(records []groupedTaskQueryRecord, format string, showID bool) {
+	if len(records) == 0 {
+		fmt.Println(uiMuted("(none)"))
+		return
+	}
+	currentGroup := ""
+	for _, record := range records {
+		if record.Group != currentGroup {
+			currentGroup = record.Group
+			fmt.Println(uiHeading(currentGroup + ":"))
+		}
+		task := shelf.Task{
+			ID:          record.taskQueryRecord.ID,
+			Title:       record.taskQueryRecord.Title,
+			Kind:        shelf.Kind(record.taskQueryRecord.Kind),
+			Status:      shelf.Status(record.taskQueryRecord.Status),
+			Tags:        append([]string{}, record.taskQueryRecord.Tags...),
+			DueOn:       record.taskQueryRecord.DueOn,
+			RepeatEvery: record.taskQueryRecord.RepeatEvery,
+			ArchivedAt:  record.taskQueryRecord.ArchivedAt,
+			Parent:      record.taskQueryRecord.Parent,
+		}
+		parentLabel := uiMuted("root")
+		if record.taskQueryRecord.Parent != "" {
+			if strings.TrimSpace(record.taskQueryRecord.ParentPath) != "" {
+				parentLabel = record.taskQueryRecord.ParentPath
+			} else {
+				parentLabel = uiMuted("(missing)")
+			}
+		}
+		label := uiPrimary(task.Title)
+		if showID {
+			label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
+		}
+		dueText := ""
+		if task.DueOn != "" {
+			dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
+		}
+		tagText := ""
+		if len(task.Tags) > 0 {
+			tagText = fmt.Sprintf(" tags=%s", strings.Join(task.Tags, ","))
+		}
+		archivedText := ""
+		if task.ArchivedAt != "" {
+			archivedText = " " + uiMuted("[archived]")
+		}
+		if format == "detail" {
+			repeatText := "-"
+			if task.RepeatEvery != "" {
+				repeatText = task.RepeatEvery
+			}
+			fmt.Printf("  %s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+			continue
+		}
+		fmt.Printf("  %s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
+	}
 }
 
 func printCountResult(count int, asJSON bool) error {

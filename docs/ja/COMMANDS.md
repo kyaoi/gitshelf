@@ -219,6 +219,7 @@ script と単発確認向けの read-only 一覧です。
 - `--no-header`
 - `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
 - `--reverse`
+- `--group-by <status|kind|parent>`
 - `--count`
 - `--json`
 
@@ -238,6 +239,8 @@ task field:
 
 `--fields` で列の順序変更や絞り込みができます。
 `--format jsonl` は `--json` と同じ task object を1行1件で出力します。
+`--group-by` を付けると tabular/JSON 出力には `group` field が追加され、text 出力は group ごとの見出し付きになります。
+`--group-by` は `--format kanban`, `--format tree`, `--count` と併用できません。
 `--count` は条件に一致する task 総数だけを返します。`--json` を付けると `{ "count": N }` です。
 
 ## `shelf next`

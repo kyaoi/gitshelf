@@ -89,6 +89,9 @@ shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | 
 # reverse-sort titles before piping elsewhere
 shelf ls --format tsv --fields title,path --sort title --reverse
 
+# inspect grouped rows by status
+shelf ls --format tsv --fields group,title --group-by status
+
 # inspect dependency targets with jq
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 

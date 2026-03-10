@@ -47,6 +47,11 @@ type linkSummaryRecord struct {
 	Count     int    `json:"count"`
 }
 
+type groupedTaskQueryRecord struct {
+	Group string `json:"group"`
+	taskQueryRecord
+}
+
 type copyPresetRecord struct {
 	Name         string `json:"name"`
 	Scope        string `json:"scope"`
@@ -149,6 +154,12 @@ func (record linkSummaryRecord) TSVFields() map[string]string {
 		"type":      record.Type,
 		"count":     fmt.Sprintf("%d", record.Count),
 	}
+}
+
+func (record groupedTaskQueryRecord) TSVFields() map[string]string {
+	row := record.taskQueryRecord.TSVFields()
+	row["group"] = record.Group
+	return row
 }
 
 func buildCopyPresetRecord(preset shelf.CopyPreset) copyPresetRecord {
