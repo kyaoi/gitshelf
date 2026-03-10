@@ -535,6 +535,43 @@ func TestCLINextTSVFormatUsesStableColumns(t *testing.T) {
 	}
 }
 
+func TestCLILsTSVFieldsSelectAndReorderColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title,id,file,tags", "--search", "Task")
+	if err != nil {
+		t.Fatalf("ls --fields failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != "Task" || fields[1] != task.ID || fields[2] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || fields[3] != "focus" {
+		t.Fatalf("unexpected selected fields: %#v", fields)
+	}
+}
+
+func TestCLINextTSVFieldsRejectUnknownField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "next", "--root", root, "--format", "tsv", "--fields", "id,body"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: body") {
+		t.Fatalf("expected unknown field error, got: %v", err)
+	}
+}
+
 func TestCLICompletionBash(t *testing.T) {
 	out, err := executeCLI(t, "completion", "bash")
 	if err != nil {

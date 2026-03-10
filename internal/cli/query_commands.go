@@ -30,6 +30,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		asJSON          bool
 		parent          string
 		preset          string
+		fields          string
 		limit           int
 		search          string
 	)
@@ -45,6 +46,9 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv"}); err != nil {
 				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" {
+				return fmt.Errorf("--fields requires --format tsv")
 			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
@@ -182,6 +186,10 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLsTSVFields(), allowedLsTSVFields())
+				if err != nil {
+					return err
+				}
 				for _, task := range tasks {
 					parentPath := ""
 					if task.Parent != "" {
@@ -189,20 +197,21 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 							parentPath = buildTaskPath(parent, byID)
 						}
 					}
-					fmt.Println(strings.Join([]string{
-						sanitizeTSVField(task.ID),
-						sanitizeTSVField(task.Title),
-						sanitizeTSVField(buildTaskPath(task, byID)),
-						sanitizeTSVField(string(task.Kind)),
-						sanitizeTSVField(string(task.Status)),
-						sanitizeTSVField(task.DueOn),
-						sanitizeTSVField(task.RepeatEvery),
-						sanitizeTSVField(task.ArchivedAt),
-						sanitizeTSVField(task.Parent),
-						sanitizeTSVField(parentPath),
-						sanitizeTSVField(strings.Join(task.Tags, ",")),
-						sanitizeTSVField(taskFilePath(ctx.rootDir, task.ID)),
-					}, "\t"))
+					row := map[string]string{
+						"id":           task.ID,
+						"title":        task.Title,
+						"path":         buildTaskPath(task, byID),
+						"kind":         string(task.Kind),
+						"status":       string(task.Status),
+						"due_on":       task.DueOn,
+						"repeat_every": task.RepeatEvery,
+						"archived_at":  task.ArchivedAt,
+						"parent":       task.Parent,
+						"parent_path":  parentPath,
+						"tags":         strings.Join(task.Tags, ","),
+						"file":         taskFilePath(ctx.rootDir, task.ID),
+					}
+					fmt.Println(joinTSVFields(selectedFields, row))
 				}
 				return nil
 			}
@@ -294,6 +303,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
 	cmd.Flags().StringVar(&preset, "preset", "", "Apply read-only defaults similar to a Cockpit view: now|review|board")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -304,6 +314,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		limit  int
 		asJSON bool
 		format string
+		fields string
 	)
 
 	cmd := &cobra.Command{
@@ -315,6 +326,9 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
 				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" {
+				return fmt.Errorf("--fields requires --format tsv")
 			}
 			filter := shelf.TaskFilter{Limit: 0}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
@@ -389,6 +403,10 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				if err != nil {
+					return err
+				}
 				count := 0
 				for _, task := range tasks {
 					info, ok := readiness[task.ID]
@@ -401,19 +419,20 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 							parentPath = buildTaskPath(parent, byID)
 						}
 					}
-					fmt.Println(strings.Join([]string{
-						sanitizeTSVField(task.ID),
-						sanitizeTSVField(task.Title),
-						sanitizeTSVField(buildTaskPath(task, byID)),
-						sanitizeTSVField(string(task.Kind)),
-						sanitizeTSVField(string(task.Status)),
-						sanitizeTSVField(task.DueOn),
-						sanitizeTSVField(task.RepeatEvery),
-						sanitizeTSVField(task.Parent),
-						sanitizeTSVField(parentPath),
-						sanitizeTSVField(strings.Join(task.Tags, ",")),
-						sanitizeTSVField(taskFilePath(ctx.rootDir, task.ID)),
-					}, "\t"))
+					row := map[string]string{
+						"id":           task.ID,
+						"title":        task.Title,
+						"path":         buildTaskPath(task, byID),
+						"kind":         string(task.Kind),
+						"status":       string(task.Status),
+						"due_on":       task.DueOn,
+						"repeat_every": task.RepeatEvery,
+						"parent":       task.Parent,
+						"parent_path":  parentPath,
+						"tags":         strings.Join(task.Tags, ","),
+						"file":         taskFilePath(ctx.rootDir, task.ID),
+					}
+					fmt.Println(joinTSVFields(selectedFields, row))
 					count++
 					if limit > 0 && count >= limit {
 						break
@@ -459,6 +478,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -578,6 +598,63 @@ func sanitizeTSVField(value string) string {
 	value = strings.ReplaceAll(value, "\r", "\n")
 	value = strings.ReplaceAll(value, "\n", " ")
 	return value
+}
+
+func resolveTSVFields(raw string, defaults []string, allowed map[string]struct{}) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return append([]string{}, defaults...), nil
+	}
+	parts := strings.Split(raw, ",")
+	fields := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		field := strings.TrimSpace(part)
+		if field == "" {
+			continue
+		}
+		if _, ok := allowed[field]; !ok {
+			return nil, fmt.Errorf("unknown --fields entry: %s", field)
+		}
+		if _, ok := seen[field]; ok {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("--fields must not be empty")
+	}
+	return fields, nil
+}
+
+func joinTSVFields(fields []string, row map[string]string) string {
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		values = append(values, sanitizeTSVField(row[field]))
+	}
+	return strings.Join(values, "\t")
+}
+
+func defaultLsTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "archived_at", "parent", "parent_path", "tags", "file"}
+}
+
+func allowedLsTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
+		"archived_at": {}, "parent": {}, "parent_path": {}, "tags": {}, "file": {},
+	}
+}
+
+func defaultNextTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file"}
+}
+
+func allowedNextTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
+		"parent": {}, "parent_path": {}, "tags": {}, "file": {},
+	}
 }
 
 func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {
