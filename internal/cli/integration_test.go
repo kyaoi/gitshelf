@@ -421,6 +421,71 @@ func TestCLILsPresetReviewAndBoardApplyReadSideDefaults(t *testing.T) {
 	}
 }
 
+func TestCLILsTSVFormatUsesStableColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "Child\tTask",
+		Parent:      parent.ID,
+		Kind:        "todo",
+		Status:      "open",
+		DueOn:       "2026-03-20",
+		RepeatEvery: "1w",
+		Tags:        []string{"backend", "cli"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--search", "Child")
+	if err != nil {
+		t.Fatalf("ls --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 12 {
+		t.Fatalf("expected 12 tsv columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Child Task" || fields[2] != "root > Parent > Child Task" {
+		t.Fatalf("unexpected tsv columns: %#v", fields)
+	}
+	if fields[8] != parent.ID || fields[9] != "root > Parent" || fields[10] != "backend,cli" || fields[11] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected tsv tail columns: %#v", fields)
+	}
+}
+
+func TestCLINextTSVFormatUsesStableColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title: "Ready",
+		Kind:  "todo",
+		Tags:  []string{"focus"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "tsv")
+	if err != nil {
+		t.Fatalf("next --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 11 {
+		t.Fatalf("expected 11 tsv columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Ready" || fields[2] != "root > Ready" || fields[10] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected next tsv columns: %#v", fields)
+	}
+}
+
 func TestCLICompletionBash(t *testing.T) {
 	out, err := executeCLI(t, "completion", "bash")
 	if err != nil {

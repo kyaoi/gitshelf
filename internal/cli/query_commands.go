@@ -43,7 +43,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv"}); err != nil {
 				return err
 			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
@@ -181,6 +181,32 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "tsv" {
+				for _, task := range tasks {
+					parentPath := ""
+					if task.Parent != "" {
+						if parent, ok := byID[task.Parent]; ok {
+							parentPath = buildTaskPath(parent, byID)
+						}
+					}
+					fmt.Println(strings.Join([]string{
+						sanitizeTSVField(task.ID),
+						sanitizeTSVField(task.Title),
+						sanitizeTSVField(buildTaskPath(task, byID)),
+						sanitizeTSVField(string(task.Kind)),
+						sanitizeTSVField(string(task.Status)),
+						sanitizeTSVField(task.DueOn),
+						sanitizeTSVField(task.RepeatEvery),
+						sanitizeTSVField(task.ArchivedAt),
+						sanitizeTSVField(task.Parent),
+						sanitizeTSVField(parentPath),
+						sanitizeTSVField(strings.Join(task.Tags, ",")),
+						sanitizeTSVField(taskFilePath(ctx.rootDir, task.ID)),
+					}, "\t"))
+				}
+				return nil
+			}
+
 			if format == "kanban" {
 				statusOrder := []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}
 				grouped := map[shelf.Status][]shelf.Task{}
@@ -277,14 +303,19 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
 		limit  int
 		asJSON bool
+		format string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List actionable tasks (ready to work on)",
 		Example: "  shelf next\n" +
-			"  shelf next --limit 20",
+			"  shelf next --limit 20\n" +
+			"  shelf next --format tsv",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+				return err
+			}
 			filter := shelf.TaskFilter{Limit: 0}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
@@ -357,6 +388,40 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "tsv" {
+				count := 0
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if !ok || !info.Ready {
+						continue
+					}
+					parentPath := ""
+					if task.Parent != "" {
+						if parent, ok := byID[task.Parent]; ok {
+							parentPath = buildTaskPath(parent, byID)
+						}
+					}
+					fmt.Println(strings.Join([]string{
+						sanitizeTSVField(task.ID),
+						sanitizeTSVField(task.Title),
+						sanitizeTSVField(buildTaskPath(task, byID)),
+						sanitizeTSVField(string(task.Kind)),
+						sanitizeTSVField(string(task.Status)),
+						sanitizeTSVField(task.DueOn),
+						sanitizeTSVField(task.RepeatEvery),
+						sanitizeTSVField(task.Parent),
+						sanitizeTSVField(parentPath),
+						sanitizeTSVField(strings.Join(task.Tags, ",")),
+						sanitizeTSVField(taskFilePath(ctx.rootDir, task.ID)),
+					}, "\t"))
+					count++
+					if limit > 0 && count >= limit {
+						break
+					}
+				}
+				return nil
+			}
+
 			count := 0
 			for _, task := range tasks {
 				info, ok := readiness[task.ID]
@@ -393,6 +458,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -504,6 +570,14 @@ func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID boo
 
 func taskFilePath(rootDir, taskID string) string {
 	return filepath.Join(shelf.TasksDir(rootDir), taskID+".md")
+}
+
+func sanitizeTSVField(value string) string {
+	value = strings.ReplaceAll(value, "\t", " ")
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return value
 }
 
 func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {
