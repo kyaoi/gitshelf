@@ -955,6 +955,59 @@ func TestCreateTaskFromAddModeAtRootClearsParent(t *testing.T) {
 	}
 }
 
+func TestUpdateAddModeUsesTabForFieldSwitchAndEnterForCreate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(false)
+	model.addTitle = "Created"
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldKind {
+		t.Fatalf("expected tab to move to kind field, got %v", model.addField)
+	}
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if model.addMode {
+		t.Fatal("expected enter to confirm add")
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Title != "Created" {
+		t.Fatalf("expected created task selected, got %+v", created)
+	}
+}
+
+func TestSelectTaskByIDInTreeSyncsFocusedDateToTask(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Due", Kind: "todo", Status: "open", DueOn: "2026-03-12"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(task.ID)
+	if model.focusedDayLabel() != "2026-03-12" {
+		t.Fatalf("expected focused day synced to task due date, got %s", model.focusedDayLabel())
+	}
+}
+
 func TestCalendarSwitchModeKeepsSelectedTaskWhenPossible(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

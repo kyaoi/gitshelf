@@ -29,7 +29,7 @@ All of those open the same TUI workspace with different starting modes.
 - `Tab` / `Shift+Tab`: move focus between panes
 - `?`: toggle help overlay
 - `q`: close help first, otherwise quit
-- `Esc` / `Ctrl+C`: quit or leave transient state
+- `Esc`: quit or leave transient state
 - `Ctrl+[` : return to normal state from transient overlays
 
 ## Calendar Mode
@@ -98,6 +98,7 @@ These actions operate on the selected task, or on marked tasks when multi-select
 
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.
+Transient pickers and composers are shown as centered popups.
 
 ## Add
 
@@ -106,10 +107,17 @@ IDs are hidden there unless `--show-id` is enabled.
 - calendar / review / now keep using the focused day as the due date default
 - board keeps using the selected column status as the status default
 - the add composer now includes a title field and kind field
-- `Tab` / `Enter` moves from title to kind
+- `Tab` switches between title and kind
 - `Shift+Tab` moves back to title
 - `h` / `j` / `k` / `l` cycle kinds while the kind field is active
 - `Ctrl+K` jumps directly to the kind field
+- `Enter` confirms creation
+
+## Filters
+
+- `f`: open a popup filter editor
+- include / exclude filters are available for both `status` and `kind`
+- the applied filters affect every Cockpit mode
 
 ## Scrolling
 
@@ -125,4 +133,4 @@ Long task selectors scroll automatically.
 
 - tree-style labels are used where hierarchy matters
 - `(root)` appears as an explicit move target where relevant
-- `q`, `Esc`, and `Ctrl+C` cancel plain selectors
+- `q` and `Esc` cancel plain selectors

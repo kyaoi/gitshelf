@@ -27,7 +27,7 @@
 - `Tab` / `Shift+Tab`: pane 切り替え
 - `?`: help overlay 切り替え
 - `q`: help を閉じる、または終了
-- `Esc` / `Ctrl+C`: 終了または一時状態から離脱
+- `Esc`: 終了または一時状態から離脱
 - `Ctrl+[` : transient overlay から normal に戻る
 
 ## Calendar Mode
@@ -88,6 +88,7 @@
 
 link selector は tree 風ラベルを使い、件数が多いときはスクロールします。
 ID は `--show-id` を有効にしたときだけ表示します。
+transient picker / composer は中央 popup で表示します。
 
 ## 作成
 
@@ -96,10 +97,17 @@ ID は `--show-id` を有効にしたときだけ表示します。
 - calendar / review / now では focused day を due default にする
 - board では selected column の status を default にする
 - add composer は title と kind を同じ box 内で編集する
-- `Tab` / `Enter` で title から kind へ移る
+- `Tab` で title / kind を切り替える
 - `Shift+Tab` で title に戻る
 - kind フィールド中は `h` / `j` / `k` / `l` で kind を切り替える
 - `Ctrl+K` で kind フィールドへ移動する
+- `Enter` で作成を確定する
+
+## Filter
+
+- `f`: popup の filter editor を開く
+- `status` / `kind` の include / exclude を編集できる
+- 適用した filter は Cockpit の各 mode に共通で効く
 
 ## スクロール
 
@@ -117,4 +125,4 @@ body の scroll:
 
 - hierarchy が重要な場面では tree 形式ラベルを使います
 - 必要な場面では `(root)` を明示的に選べます
-- 通常の selector では `q`, `Esc`, `Ctrl+C` でキャンセルできます
+- 通常の selector では `q`, `Esc` でキャンセルできます
