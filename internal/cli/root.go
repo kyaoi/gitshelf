@@ -75,6 +75,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newLinksCommand(ctx))
 	cmd.AddCommand(newNextCommand(ctx))
 	cmd.AddCommand(newNowCommand(ctx))
+	cmd.AddCommand(newShowCommand(ctx))
 	cmd.AddCommand(newTreeCommand(ctx))
 	cmd.AddCommand(newUnlinkCommand(ctx))
 

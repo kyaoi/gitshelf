@@ -16,14 +16,14 @@ func TestCLIHelpShowsMinimalCockpitSurface(t *testing.T) {
 		t.Fatalf("help failed: %v", err)
 	}
 	for _, name := range []string{
-		"board", "calendar", "cockpit", "completion", "init", "link", "links", "ls", "next", "now", "review", "tree", "unlink",
+		"board", "calendar", "cockpit", "completion", "config", "init", "link", "links", "ls", "next", "now", "review", "show", "tree", "unlink",
 	} {
 		if !strings.Contains(out, "\n  "+name+"\t") && !strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should contain %q: %s", name, out)
 		}
 	}
 	for _, name := range []string{
-		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "show", "triage", "view",
+		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "triage", "view",
 	} {
 		if strings.Contains(out, "\n  "+name+"\t") || strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should not contain removed command %q: %s", name, out)
@@ -32,11 +32,100 @@ func TestCLIHelpShowsMinimalCockpitSurface(t *testing.T) {
 }
 
 func TestCLIRemovedCommandsReturnUnknown(t *testing.T) {
-	for _, name := range []string{"add", "show", "edit", "capture", "triage", "doctor", "github", "view", "import", "export"} {
+	for _, name := range []string{"add", "edit", "capture", "triage", "doctor", "github", "view", "import", "export"} {
 		_, err := executeCLI(t, name)
 		if err == nil || !strings.Contains(err.Error(), "unknown command") {
 			t.Fatalf("%s should be unknown, got %v", name, err)
 		}
+	}
+}
+
+func TestCLIShowDisplaysInspectorStyleTaskDetails(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "Child",
+		Kind:        "todo",
+		Status:      "in_progress",
+		Parent:      parent.ID,
+		Tags:        []string{"backend", "cli"},
+		DueOn:       "2026-03-15",
+		RepeatEvery: "1w",
+		Body:        "first line\nsecond line",
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	dependency, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Dependency", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add dependency failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, task.ID, dependency.ID, "depends_on"); err != nil {
+		t.Fatalf("link outbound failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, parent.ID, task.ID, "related"); err != nil {
+		t.Fatalf("link inbound failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	for _, want := range []string{
+		"Task: root > Parent > Child",
+		"Kind: todo",
+		"Status: in_progress",
+		"Tags: backend, cli",
+		"Parent: root > Parent",
+		"Body:",
+		"  first line",
+		"Outbound:",
+		"Inbound:",
+		"--depends_on--> root > Dependency",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected show output to contain %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Body: "note"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, task.ID, "related"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--json")
+	if err != nil {
+		t.Fatalf("show --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("parse show json failed: %v\n%s", err, out)
+	}
+	if payload["path"] != "root > Task" || payload["body"] != "note" {
+		t.Fatalf("unexpected show payload: %#v", payload)
+	}
+	inbound, ok := payload["inbound"].([]any)
+	if !ok || len(inbound) != 1 {
+		t.Fatalf("unexpected inbound payload: %#v", payload["inbound"])
 	}
 }
 
