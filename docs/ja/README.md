@@ -94,6 +94,8 @@ shelf now
 
 # スクリプト向けクエリ
 shelf ls --status open --json
+shelf next --format tsv
+shelf ls --format tsv
 shelf ls --preset board
 shelf show 01AAA
 shelf config show --json
@@ -123,6 +125,23 @@ shelf next
 * `shelf next`
 
 日常編集の中心は Cockpit のままですが、inspection、query、link、config は standalone command でも扱えます。
+
+## Shell ツール連携
+
+`gitshelf` は shell ツールと組み合わせやすいように設計しています。
+
+例:
+
+```bash
+# jq で現在の ready task の path を確認
+shelf next --json | jq '.[].path'
+
+# fzf で task を選んで詳細表示
+shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+
+# ls の出力から task file を開く
+shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
+```
 
 ## Cockpit-First Usage
 

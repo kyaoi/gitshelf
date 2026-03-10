@@ -95,6 +95,8 @@ shelf now
 
 # script-friendly queries
 shelf ls --status open --json
+shelf next --format tsv
+shelf ls --format tsv
 shelf ls --preset board
 shelf show 01AAA
 shelf config show --json
@@ -124,6 +126,23 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf next`
 
 Most daily editing still happens inside Cockpit, but inspection, query, link, and config flows are also available from standalone commands.
+
+## Shell Tooling
+
+`gitshelf` is designed to work well with shell tools.
+
+Examples:
+
+```bash
+# inspect current ready tasks with jq
+shelf next --json | jq '.[].path'
+
+# pick one task with fzf, then inspect it
+shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+
+# open task files from ls output
+shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
+```
 
 ## Cockpit-First Usage
 

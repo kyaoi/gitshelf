@@ -59,8 +59,22 @@ In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchroniz
 ```bash
 shelf ls --status open --json
 shelf next --json
+shelf next --format tsv
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
+```
+
+### 5. Compose with shell tools when needed
+
+```bash
+# preview ready tasks in jq
+shelf next --json | jq '.[].path'
+
+# choose a task interactively with fzf
+shelf next --format tsv | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+
+# jump from search results to task files
+shelf ls --format tsv | fzf --with-nth=2,3 | cut -f12 | xargs -r ${EDITOR:-vi}
 ```
 
 ## When to Use Which Mode

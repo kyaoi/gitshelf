@@ -204,7 +204,7 @@ script と単発確認向けの read-only 一覧です。
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban|tree`
+- `--format compact|detail|kanban|tree|tsv`
 - `--preset <now|review|board>`
 - `--json`
 
@@ -213,6 +213,11 @@ script と単発確認向けの read-only 一覧です。
 `--preset` は対応する Cockpit view に近い read-only default を適用します。
 明示した flag がある場合はそちらが優先されます。
 
+`--format tsv` は header なしの固定列です:
+
+- `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
+- `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
+
 ## `shelf next`
 
 着手可能 task の shortlist を返す read-only command です。
@@ -220,6 +225,7 @@ script と単発確認向けの read-only 一覧です。
 フラグ:
 
 - `--limit <n>`
+- `--format compact|tsv`
 - `--json`
 
 ## `shelf show`

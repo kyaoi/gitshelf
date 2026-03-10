@@ -214,7 +214,7 @@ Flags:
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban|tree`
+- `--format compact|detail|kanban|tree|tsv`
 - `--preset <now|review|board>`
 - `--json`
 
@@ -223,6 +223,11 @@ Unknown kind/status/tag values fail fast.
 `--preset` applies read-only defaults similar to the matching Cockpit view.
 Explicit flags still win.
 
+`--format tsv` prints fixed columns without a header:
+
+- `ls`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
+- `next`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `parent`, `parent_path`, `tags`, `file`
+
 ## shelf next
 
 Read-only shortlist of actionable tasks.
@@ -230,6 +235,7 @@ Read-only shortlist of actionable tasks.
 Flags:
 
 - `--limit <n>`
+- `--format compact|tsv`
 - `--json`
 
 ## shelf show
