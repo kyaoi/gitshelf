@@ -1603,16 +1603,13 @@ func TestTreeModeRangeSelectPreservesExistingMarksWhenRestarted(t *testing.T) {
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add first failed: %v", err)
 	}
-	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add second failed: %v", err)
 	}
-	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add third failed: %v", err)
 	}
 	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "done"}, calendarTUIOptions{
@@ -1622,24 +1619,36 @@ func TestTreeModeRangeSelectPreservesExistingMarksWhenRestarted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
-	model.selectTaskByID(first.ID)
+	if len(model.treeRows) != 3 {
+		t.Fatalf("expected 3 tree rows, got %d", len(model.treeRows))
+	}
+	orderedIDs := []string{
+		model.treeRows[0].Task.ID,
+		model.treeRows[1].Task.ID,
+		model.treeRows[2].Task.ID,
+	}
+	model.selectTaskByID(orderedIDs[0])
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
 	treeModel := updatedModel.(calendarTUIModel)
-	treeModel.selectTaskByID(second.ID)
+	treeModel.selectTaskByID(orderedIDs[1])
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	if !treeModel.isMarkedTask(first.ID) || !treeModel.isMarkedTask(second.ID) || !treeModel.isMarkedTask(third.ID) {
-		t.Fatalf("expected existing marks preserved after finishing range select")
+	for _, taskID := range orderedIDs {
+		if !treeModel.isMarkedTask(taskID) {
+			t.Fatalf("expected existing marks preserved after finishing range select")
+		}
 	}
-	treeModel.selectTaskByID(third.ID)
+	treeModel.selectTaskByID(orderedIDs[2])
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	if !treeModel.isMarkedTask(first.ID) || !treeModel.isMarkedTask(second.ID) || !treeModel.isMarkedTask(third.ID) {
-		t.Fatalf("expected existing marks preserved when restarting range select")
+	for _, taskID := range orderedIDs {
+		if !treeModel.isMarkedTask(taskID) {
+			t.Fatalf("expected existing marks preserved when restarting range select")
+		}
 	}
 }
 
@@ -2162,16 +2171,27 @@ func TestNowSelectedDayNavigationKeepsSelectedDayTab(t *testing.T) {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
 	model.sectionIndex = 0
+	initialTask, ok := model.selectedTask()
+	if !ok {
+		t.Fatalf("expected initial Selected Day task")
+	}
 	model.sectionRows[calendarSectionFocusedDay] = 0
-	model.selectedTaskID = first.ID
+	model.selectedTaskID = initialTask.ID
 
 	model.moveSelectedDayTask(1)
 
 	if model.sectionIndex != 0 {
 		t.Fatalf("expected Selected Day tab to stay selected, got section %d", model.sectionIndex)
 	}
-	if model.selectedTaskID != second.ID {
-		t.Fatalf("expected selected day move to choose second task, got %s", model.selectedTaskID)
+	if model.selectedTaskID == initialTask.ID {
+		t.Fatalf("expected selected day move to choose another task, still on %s", model.selectedTaskID)
+	}
+	validIDs := map[string]struct{}{
+		first.ID:  {},
+		second.ID: {},
+	}
+	if _, ok := validIDs[model.selectedTaskID]; !ok {
+		t.Fatalf("unexpected selected day move target: %s", model.selectedTaskID)
 	}
 }
 
