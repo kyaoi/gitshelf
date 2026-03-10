@@ -446,6 +446,40 @@ func (m calendarTUIModel) copyPresetPreviewLines(width int, maxLines int) []stri
 	return lines
 }
 
+func (m calendarTUIModel) quickCopyLegendLines(width int) []string {
+	type copyAction struct {
+		key   string
+		label string
+		count func() (int, error)
+	}
+	actions := []copyAction{
+		{key: "y", label: "titles", count: func() (int, error) { _, count, err := m.selectedTitleCopyText(); return count, err }},
+		{key: "Y", label: "subtrees", count: func() (int, error) { _, count, err := m.selectedSubtreeCopyText(); return count, err }},
+		{key: "P", label: "paths", count: func() (int, error) { _, count, err := m.selectedPathCopyText(); return count, err }},
+		{key: "O", label: "bodies", count: func() (int, error) { _, count, err := m.selectedBodyCopyText(); return count, err }},
+		{key: "M", label: "advanced preset preview", count: func() (int, error) {
+			_, count, err := m.renderCopyPresetPayload(m.activeCopyPreset())
+			return count, err
+		}},
+	}
+	lines := make([]string, 0, len(actions))
+	for _, action := range actions {
+		count, err := action.count()
+		suffix := ""
+		if err != nil {
+			suffix = " (unavailable)"
+		} else {
+			suffix = fmt.Sprintf(" (%d item", count)
+			if count != 1 {
+				suffix += "s"
+			}
+			suffix += ")"
+		}
+		lines = append(lines, trimLine(fmt.Sprintf("  %s  %s%s", action.key, action.label, suffix), width))
+	}
+	return lines
+}
+
 func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
@@ -455,6 +489,7 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 	header := []string{
 		titleStyle.Render("Advanced Copy"),
 		helpStyle.Render(popupControls("j/k: move", "Tab: focus", "Enter: copy", "Ctrl+S: save", "Esc/q: close")),
+		helpStyle.Render("Target: " + m.bulkActionPopupLabel()),
 		helpStyle.Render("template uses {{title}} {{path}} {{body}} {{subtree}}; enter \\n in fields for newlines"),
 	}
 
@@ -507,6 +542,10 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 	lines = append(lines, renderCopyPresetField("Subtree Style", subtreeStyleValue, m.copyPresetFocus == calendarCopyPresetFocusSubtreeStyle))
 	lines = append(lines, renderCopyPresetField("Template", templateValue, m.copyPresetFocus == calendarCopyPresetFocusTemplate))
 	lines = append(lines, renderCopyPresetField("Join With", joinValue, m.copyPresetFocus == calendarCopyPresetFocusJoinWith))
+
+	lines = append(lines, "")
+	lines = append(lines, labelStyle.Render("Quick Copy"))
+	lines = append(lines, m.quickCopyLegendLines(max(24, width-8))...)
 
 	lines = append(lines, "")
 	lines = append(lines, labelStyle.Render("Preview"))

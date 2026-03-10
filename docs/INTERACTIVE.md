@@ -98,6 +98,7 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
 - `O`: copy the selected task body, or marked task bodies
 - `M`: open advanced copy presets with preview and save-command help
+  - the popup also shows what `y`, `Y`, `P`, and `O` would copy for the current selection
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`
@@ -115,6 +116,7 @@ Inside advanced copy (`M`):
 
 - `j` / `k`: choose `Custom` or one saved preset
 - `Tab` / `Shift+Tab`: move focus between preset list and custom fields
+- the popup shows the current target and a quick-copy summary for `y` / `Y` / `P` / `O`
 - custom `template` / `join_with` fields use escaped text such as `\n`
 - `subtree style` switches `{{subtree}}` between plain indentation and ASCII tree rendering
 - `Enter`: copy the currently previewed payload
