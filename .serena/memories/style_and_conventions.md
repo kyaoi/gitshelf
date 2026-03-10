@@ -1,0 +1,1 @@
+Project uses Go. Keep changes small, reviewable, and documented. Respond to the user in Japanese by default, but keep code identifiers, code comments, and commit messages in English when appropriate. Update docs alongside behavior changes. Avoid unrelated refactors.

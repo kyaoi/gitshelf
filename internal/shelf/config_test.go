@@ -31,6 +31,15 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.Commands.Calendar.DefaultDays != 7 || cfg.Commands.Calendar.DefaultMonths != 6 || cfg.Commands.Calendar.DefaultYears != 2 {
 		t.Fatalf("unexpected calendar defaults: %+v", cfg)
 	}
+	if cfg.Commands.Cockpit.CopySeparator != "\n" {
+		t.Fatalf("unexpected cockpit copy separator: %q", cfg.Commands.Cockpit.CopySeparator)
+	}
+	if cfg.Commands.Cockpit.PostExitGitAction != "none" || cfg.Commands.Cockpit.CommitMessage == "" {
+		t.Fatalf("unexpected cockpit git defaults: %+v", cfg.Commands.Cockpit)
+	}
+	if len(cfg.LinkTypes.Names) != 2 || cfg.LinkTypes.Names[0] != "depends_on" || cfg.LinkTypes.Blocking != "depends_on" {
+		t.Fatalf("unexpected default link types: %+v", cfg.LinkTypes)
+	}
 }
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -43,7 +52,7 @@ func TestConfigRoundTrip(t *testing.T) {
 		t.Fatalf("parse failed: %v", err)
 	}
 
-	if len(parsed.Kinds) != len(cfg.Kinds) || len(parsed.Statuses) != len(cfg.Statuses) || len(parsed.LinkTypes) != len(cfg.LinkTypes) {
+	if len(parsed.Kinds) != len(cfg.Kinds) || len(parsed.Statuses) != len(cfg.Statuses) || len(parsed.LinkTypes.Names) != len(cfg.LinkTypes.Names) {
 		t.Fatalf("parsed config mismatch: %+v", parsed)
 	}
 	if len(parsed.Tags) != 2 || parsed.Tags[0] != "backend" || parsed.Tags[1] != "urgent" {
@@ -57,6 +66,35 @@ func TestConfigRoundTrip(t *testing.T) {
 		parsed.Commands.Calendar.DefaultMonths != cfg.Commands.Calendar.DefaultMonths ||
 		parsed.Commands.Calendar.DefaultYears != cfg.Commands.Calendar.DefaultYears {
 		t.Fatalf("parsed calendar defaults mismatch: %+v", parsed)
+	}
+	if parsed.Commands.Cockpit.CopySeparator != cfg.Commands.Cockpit.CopySeparator {
+		t.Fatalf("parsed cockpit defaults mismatch: %+v", parsed)
+	}
+	if parsed.Commands.Cockpit.PostExitGitAction != cfg.Commands.Cockpit.PostExitGitAction || parsed.Commands.Cockpit.CommitMessage != cfg.Commands.Cockpit.CommitMessage {
+		t.Fatalf("parsed cockpit git settings mismatch: %+v", parsed.Commands.Cockpit)
+	}
+	if parsed.LinkTypes.Blocking != cfg.LinkTypes.Blocking {
+		t.Fatalf("parsed blocking link type mismatch: %+v", parsed.LinkTypes)
+	}
+}
+
+func TestParseConfigSupportsLegacyLinkTypesArray(t *testing.T) {
+	data := []byte(`kinds = ["todo"]
+statuses = ["open", "done"]
+tags = []
+link_types = ["develop_first", "related"]
+default_kind = "todo"
+default_status = "open"
+`)
+	cfg, err := ParseConfigTOML(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(cfg.LinkTypes.Names) != 2 || cfg.LinkTypes.Names[0] != "develop_first" {
+		t.Fatalf("unexpected parsed link types: %+v", cfg.LinkTypes)
+	}
+	if cfg.LinkTypes.Blocking != "develop_first" {
+		t.Fatalf("expected first legacy link type to become blocking, got %+v", cfg.LinkTypes)
 	}
 }
 
@@ -74,9 +112,9 @@ func TestConfigValidationRejectsUnknownKindStatusLinkType(t *testing.T) {
 	}
 }
 
-func TestConfigValidationRejectsUnsupportedLinkTypeInConfig(t *testing.T) {
+func TestConfigValidationRejectsBlockingLinkTypeOutsideNames(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.LinkTypes = append(cfg.LinkTypes, "derived_from")
+	cfg.LinkTypes.Blocking = "derived_from"
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected validation error")
@@ -96,6 +134,14 @@ func TestConfigValidationRejectsInvalidCalendarDefaultUse(t *testing.T) {
 	cfg.Commands.Calendar.DefaultRangeUnit = "weeks"
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.calendar.default_range_unit") {
 		t.Fatalf("expected invalid calendar default use error, got: %v", err)
+	}
+}
+
+func TestConfigValidationRejectsInvalidCockpitGitAction(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.PostExitGitAction = "push_only"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "commands.cockpit.post_exit_git_action") {
+		t.Fatalf("expected invalid cockpit git action error, got: %v", err)
 	}
 }
 

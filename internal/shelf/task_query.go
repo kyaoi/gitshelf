@@ -159,12 +159,16 @@ func BuildTaskReadiness(rootDir string) (map[string]TaskReadiness, error) {
 	if err != nil {
 		return nil, err
 	}
+	cfg, err := LoadConfig(rootDir)
+	if err != nil {
+		return nil, err
+	}
 	byID := make(map[string]Task, len(tasks))
 	for _, task := range tasks {
 		byID[task.ID] = task
 	}
 
-	dependsOnByTask, err := loadDependsOnEdges(rootDir)
+	dependsOnByTask, err := loadDependsOnEdges(rootDir, cfg.BlockingLinkType())
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +199,7 @@ func isDependencyResolved(status Status) bool {
 	return status == Status("done") || status == Status("cancelled")
 }
 
-func loadDependsOnEdges(rootDir string) (map[string][]string, error) {
+func loadDependsOnEdges(rootDir string, blocking LinkType) (map[string][]string, error) {
 	result := map[string][]string{}
 	dir := EdgesDir(rootDir)
 	entries, err := os.ReadDir(dir)
@@ -220,7 +224,7 @@ func loadDependsOnEdges(rootDir string) (map[string][]string, error) {
 			return nil, err
 		}
 		for _, edge := range edges {
-			if edge.Type != LinkType("depends_on") {
+			if edge.Type != blocking {
 				continue
 			}
 			result[srcID] = append(result[srcID], edge.To)

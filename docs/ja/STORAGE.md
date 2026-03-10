@@ -24,6 +24,19 @@ Cockpit-first な現行ツールセットの保存形式です。
 - `default_kind`
 - `default_status`
 - `[commands.calendar]`
+- `[commands.cockpit]`
+
+link type 設定:
+
+```toml
+[link_types]
+names = ["depends_on", "related"]
+blocking = "depends_on"
+```
+
+- `names` に許可する link type 名を列挙する
+- `blocking` は readiness / cycle check に使う関係名
+- 既定の blocking relation は、子 task から祖先 task への link も禁止する
 
 calendar 設定:
 
@@ -33,6 +46,15 @@ default_range_unit = "days"
 default_days = 7
 default_months = 6
 default_years = 2
+```
+
+cockpit 設定:
+
+```toml
+[commands.cockpit]
+copy_separator = "\n"
+post_exit_git_action = "none"
+commit_message = "chore: update shelf data"
 ```
 
 ## Task File
@@ -69,10 +91,8 @@ to = "01..."
 type = "depends_on"
 ```
 
-対応 link type:
-
-- `depends_on`
-- `related`
+対応 link type は `config.toml` の `link_types.names` で決まります。
+既定値は `depends_on`, `related` です。
 
 ## 不変条件
 

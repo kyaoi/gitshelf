@@ -102,7 +102,7 @@ func nextWeekdayDateStrict(token string, now time.Time) time.Time {
 }
 
 func endOfWeekDate(now time.Time) time.Time {
-	delta := int(time.Sunday - now.Weekday())
+	delta := int(time.Saturday - now.Weekday())
 	if delta < 0 {
 		delta += 7
 	}

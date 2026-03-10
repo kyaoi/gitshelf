@@ -91,6 +91,11 @@ func normalizeEdges(edges []Edge) []Edge {
 }
 
 func ValidateLinkType(linkType LinkType, allowed []LinkType) error {
-	cfg := Config{LinkTypes: allowed}
-	return cfg.ValidateLinkType(linkType)
+	if strings.TrimSpace(string(linkType)) == "" {
+		return fmt.Errorf("link type is required")
+	}
+	if slices.Contains(allowed, linkType) {
+		return nil
+	}
+	return fmt.Errorf("unknown link type: %s", linkType)
 }

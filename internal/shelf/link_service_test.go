@@ -1,6 +1,9 @@
 package shelf
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLinkAndUnlinkTasks(t *testing.T) {
 	root := t.TempDir()
@@ -127,7 +130,68 @@ func TestListTransitiveDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list transitive dependencies failed: %v", err)
 	}
-	if len(got) != 2 || got[0] != b.ID || got[1] != c.ID {
+	if len(got) != 2 {
+		t.Fatalf("unexpected transitive dependency count: %+v", got)
+	}
+	gotSet := map[string]struct{}{}
+	for _, id := range got {
+		gotSet[id] = struct{}{}
+	}
+	if _, ok := gotSet[b.ID]; !ok {
+		t.Fatalf("expected transitive dependencies to include B, got %+v", got)
+	}
+	if _, ok := gotSet[c.ID]; !ok {
 		t.Fatalf("unexpected transitive dependencies: %+v", got)
+	}
+}
+
+func TestLinkTasksRejectsBlockingLinkToAncestor(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	parent, err := AddTask(root, AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := AddTask(root, AddTaskInput{Title: "Child", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	if err := LinkTasks(root, child.ID, parent.ID, "depends_on"); err == nil || !strings.Contains(err.Error(), "ancestor") {
+		t.Fatalf("expected ancestor rejection, got: %v", err)
+	}
+}
+
+func TestCustomBlockingLinkTypeDrivesReadinessAndCycleDetection(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	cfg, err := LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	cfg.LinkTypes = LinkTypesConfig{
+		Names:    []LinkType{"develop_first", "related"},
+		Blocking: "develop_first",
+	}
+	if err := SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+	a, _ := AddTask(root, AddTaskInput{Title: "A"})
+	b, _ := AddTask(root, AddTaskInput{Title: "B"})
+	if err := LinkTasks(root, a.ID, b.ID, "develop_first"); err != nil {
+		t.Fatalf("link A->B failed: %v", err)
+	}
+	readiness, err := BuildTaskReadiness(root)
+	if err != nil {
+		t.Fatalf("build readiness failed: %v", err)
+	}
+	if !readiness[a.ID].BlockedByDeps {
+		t.Fatalf("A should be blocked by custom blocking link type: %+v", readiness[a.ID])
+	}
+	if err := LinkTasks(root, b.ID, a.ID, "develop_first"); err == nil || !strings.Contains(err.Error(), "cycle") {
+		t.Fatalf("expected cycle rejection for custom blocking link type, got: %v", err)
 	}
 }

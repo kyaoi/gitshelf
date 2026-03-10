@@ -1,17 +1,19 @@
-# TESTING（テスト観点）
+# TESTING
 
-## 重要テスト
-- `init` の冪等性（2回実行しても壊れない）
-- `add` でタスクが作成され、front matter が正しい
-- `mv` で parent が更新され、循環を拒否する
-- `link` で edges が作られ、重複が抑止される
-- `unlink` で指定edgeが削除される
-- `links` で inbound が正しく逆引きされる
-- `doctor` が壊れたデータを検出する
+## Important checks
 
-## 安定差分
-- `edges` の順序が固定される（ソートが効く）
-- `tree` の順序が固定される
+- `init` is idempotent
+- `link` / `unlink` update edge files without duplicates
+- `links` resolves outbound and inbound relations correctly
+- Cockpit mode switches preserve selection where possible
+- sidebar `Calendar` and `Selected Day` stay synchronized with the main pane
+- inherited due dates appear consistently across calendar, tree, review, and now views
 
-## 競合に強い
-- タスク本文を編集しても、リンク操作は edges 側だけが変わる（衝突低減）
+## Stable diffs
+
+- edge ordering stays deterministic
+- tree ordering stays deterministic
+
+## Conflict resistance
+
+- editing task bodies and editing links stay split across task files and edge files

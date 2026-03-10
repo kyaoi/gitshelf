@@ -3,12 +3,11 @@
 ## 重要テスト
 
 - `init` の冪等性
-- `add` で task 作成と front matter 検証
-- `mv` で parent 更新と循環拒否
-- `link` で edge 作成と重複抑止
-- `unlink` で edge 削除
-- `links` で inbound 逆引き
-- `doctor` で壊れたデータ検出
+- `link` / `unlink` の edge 更新と重複抑止
+- `links` の outbound / inbound 逆引き
+- Cockpit の mode 切り替え時に selection が可能な限り維持されること
+- sidebar の `Calendar` と `Selected Day` が main pane と同期すること
+- 継承 due が calendar / tree / review / now で一貫表示されること
 
 ## 安定差分
 

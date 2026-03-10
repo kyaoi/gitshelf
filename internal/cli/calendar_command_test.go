@@ -13,7 +13,7 @@ import (
 func TestStartOfWeek(t *testing.T) {
 	value := time.Date(2026, 3, 11, 10, 0, 0, 0, time.Local)
 	got := startOfWeek(value)
-	if got.Format("2006-01-02") != "2026-03-09" {
+	if got.Format("2006-01-02") != "2026-03-08" {
 		t.Fatalf("unexpected start of week: %s", got.Format("2006-01-02"))
 	}
 }
@@ -52,7 +52,7 @@ func TestBuildCalendarMonthView(t *testing.T) {
 	}
 
 	first := month.Weeks[0][0]
-	if first.Date.Format("2006-01-02") != "2026-02-23" {
+	if first.Date.Format("2006-01-02") != "2026-03-01" {
 		t.Fatalf("unexpected grid start: %s", first.Date.Format("2006-01-02"))
 	}
 
@@ -282,11 +282,11 @@ func TestCalendarMainCellHeightScalesWithViewport(t *testing.T) {
 
 func TestNowTriptychKeepsColumnOrderWithEmptySection(t *testing.T) {
 	rendered := renderCalendarTriptychSections([]calendarSection{
-		{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+		{ID: calendarSectionFocusedDay, Title: "Selected Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
 		{ID: calendarSectionOverdue, Title: "Overdue"},
 		{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
-	}, 0, map[calendarSectionID]int{}, false, 96)
-	if !strings.Contains(rendered, "Focused Day 1") || !strings.Contains(rendered, "Overdue 0") || !strings.Contains(rendered, "Today 1") {
+	}, 0, map[calendarSectionID]int{}, false, 96, 12)
+	if !strings.Contains(rendered, "Selected Day 1") || !strings.Contains(rendered, "Overdue 0") || !strings.Contains(rendered, "Today 1") {
 		t.Fatalf("triptych should keep all column headers visible: %q", rendered)
 	}
 	if !strings.Contains(rendered, "│") {
@@ -299,7 +299,7 @@ func TestBoardPaneKeepsEmptyColumnsFixed(t *testing.T) {
 		{Status: "open", Tasks: []shelf.Task{{ID: "01A", Title: "Open", Kind: "todo", Status: "open"}}},
 		{Status: "blocked", Tasks: nil},
 		{Status: "done", Tasks: []shelf.Task{{ID: "01B", Title: "Done", Kind: "todo", Status: "done"}}},
-	}, 0, map[int]int{0: 0, 1: 0, 2: 0}, map[string]struct{}{}, false, 96)
+	}, 0, map[int]int{0: 0, 1: 0, 2: 0}, map[string]struct{}{}, false, 96, 12)
 	for _, want := range []string{"open 1", "blocked 0", "done 1", "(none)"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("board pane should keep fixed columns, missing %q in %q", want, rendered)
@@ -468,6 +468,399 @@ func TestCalendarCreateTaskOnFocusedDayKeepsFilteredTaskVisible(t *testing.T) {
 	}
 }
 
+func TestCalendarKindPickerUpdatesAddKind(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	model.beginAddMode(true)
+	model.beginKindMode(calendarKindTargetAdd)
+	for i, kind := range model.kindChoices {
+		if kind == "idea" {
+			model.kindIndex = i
+			break
+		}
+	}
+	updatedModel, _ := model.updateKindMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updatedModel.(calendarTUIModel)
+	if model.addKind != "idea" {
+		t.Fatalf("expected add kind idea, got %s", model.addKind)
+	}
+	if err := model.createTaskFromAddMode("Idea from add"); err != nil {
+		t.Fatalf("createTaskFromAddMode failed: %v", err)
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Kind != "idea" {
+		t.Fatalf("expected created kind idea, got %+v", created)
+	}
+}
+
+func TestCalendarApplySelectedTaskKind(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	if err := model.applySelectedTaskKind("idea"); err != nil {
+		t.Fatalf("applySelectedTaskKind failed: %v", err)
+	}
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if updated.Kind != "idea" {
+		t.Fatalf("expected updated kind idea, got %+v", updated)
+	}
+}
+
+func TestCalendarApplySelectedTaskTags(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Task",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+
+	if err := model.applySelectedTaskTags([]string{"backend", "urgent"}); err != nil {
+		t.Fatalf("applySelectedTaskTags failed: %v", err)
+	}
+	updated, err := shelf.EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if !strings.Contains(strings.Join(updated.Tags, ","), "backend") || !strings.Contains(strings.Join(updated.Tags, ","), "urgent") {
+		t.Fatalf("expected updated tags, got %+v", updated.Tags)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if !containsTag(cfg.Tags, "backend") || !containsTag(cfg.Tags, "urgent") {
+		t.Fatalf("expected config tags updated, got %+v", cfg.Tags)
+	}
+}
+
+func TestCalendarShowsDescendantsOfDueParent(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	grandchild, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Grandchild", Kind: "todo", Status: "open", Parent: child.ID})
+	if err != nil {
+		t.Fatalf("add grandchild failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	if len(model.days) == 0 || len(model.days[0].Tasks) != 3 {
+		t.Fatalf("expected parent and descendants on focused day, got %+v", model.days)
+	}
+	byID := map[string]shelf.Task{}
+	for _, task := range model.days[0].Tasks {
+		byID[task.ID] = task
+	}
+	for _, id := range []string{parent.ID, child.ID, grandchild.ID} {
+		if byID[id].DueOn != "2026-03-09" {
+			t.Fatalf("expected effective due for %s, got %+v", id, byID[id])
+		}
+	}
+}
+
+func TestReviewModeIncludesDescendantsOfDueParentInToday(t *testing.T) {
+	root := t.TempDir()
+	today := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Grandchild", Kind: "todo", Status: "open", Parent: child.ID}); err != nil {
+		t.Fatalf("add grandchild failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 7, []shelf.Status{"open", "in_progress", "blocked"}, calendarTUIOptions{
+		Mode:   calendarModeReview,
+		ShowID: false,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	found := 0
+	for _, section := range model.sections {
+		if section.ID != calendarSectionToday {
+			continue
+		}
+		found = len(section.Items)
+	}
+	if found != 3 {
+		t.Fatalf("expected today section to include descendants, got %d", found)
+	}
+}
+
+func TestSelectedTitleCopyTextUsesSelectedTask(t *testing.T) {
+	model := calendarTUIModel{
+		copySeparator: "\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First"},
+		},
+		sections: []calendarSection{{
+			ID:    calendarSectionFocusedDay,
+			Title: "Focused",
+			Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "First"}}},
+		}},
+		sectionRows: map[calendarSectionID]int{calendarSectionFocusedDay: 0},
+	}
+	text, count, err := model.selectedTitleCopyText()
+	if err != nil {
+		t.Fatalf("selectedTitleCopyText failed: %v", err)
+	}
+	if count != 1 || text != "First" {
+		t.Fatalf("unexpected copy payload: count=%d text=%q", count, text)
+	}
+}
+
+func TestSelectedTitleCopyTextUsesMarkedOrderAndSeparator(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeTree,
+		copySeparator: ", ",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First"},
+			"01B": {ID: "01B", Title: "Second"},
+		},
+		treeRows: []cockpitTreeRow{
+			{Task: shelf.Task{ID: "01A", Title: "First"}},
+			{Task: shelf.Task{ID: "01B", Title: "Second"}},
+		},
+		markedTaskIDs: map[string]struct{}{
+			"01A": {},
+			"01B": {},
+		},
+	}
+	text, count, err := model.selectedTitleCopyText()
+	if err != nil {
+		t.Fatalf("selectedTitleCopyText failed: %v", err)
+	}
+	if count != 2 || text != "First, Second" {
+		t.Fatalf("unexpected copy payload: count=%d text=%q", count, text)
+	}
+}
+
+func TestCalendarLinkModeAddsLink(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(from.ID)
+	model.beginLinkMode(calendarLinkActionAdd)
+	candidates := model.currentLinkCandidates()
+	for i, candidate := range candidates {
+		if candidate.TaskID == to.ID {
+			model.linkIndex = i
+			break
+		}
+	}
+	updatedModel, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updatedModel.(calendarTUIModel)
+	outbound, _, err := shelf.ListLinks(root, from.ID)
+	if err != nil {
+		t.Fatalf("ListLinks failed: %v", err)
+	}
+	if len(outbound) != 1 || outbound[0].To != to.ID {
+		t.Fatalf("expected outbound link to %s, got %+v", to.ID, outbound)
+	}
+}
+
+func TestCalendarLinkModeRemovesOutboundLink(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("LinkTasks failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(from.ID)
+	model.beginLinkMode(calendarLinkActionRemove)
+	updatedModel, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updatedModel.(calendarTUIModel)
+	outbound, _, err := shelf.ListLinks(root, from.ID)
+	if err != nil {
+		t.Fatalf("ListLinks failed: %v", err)
+	}
+	if len(outbound) != 0 {
+		t.Fatalf("expected outbound links removed, got %+v", outbound)
+	}
+}
+
+func TestCalendarLinkQueryModeTreatsKeysAsInput(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Target", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add target failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(from.ID)
+	model.beginLinkMode(calendarLinkActionAdd)
+
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = updated.(calendarTUIModel)
+	if !model.linkQueryMode {
+		t.Fatal("expected / to enter link query mode")
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != "q" {
+		t.Fatalf("expected q to be appended to query, got %q", model.linkQuery)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyEsc})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryMode {
+		t.Fatal("expected esc to exit query mode only")
+	}
+	if model.linkQuery != "q" {
+		t.Fatalf("expected esc to keep current query text, got %q", model.linkQuery)
+	}
+}
+
+func TestCalendarLinkModeUsesTabForTypeAndSupportsCollapse(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	source, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Source", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add source failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(source.ID)
+	model.beginLinkMode(calendarLinkActionAdd)
+
+	initialType := model.linkTypeIndex
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if len(model.linkTypes()) > 1 && model.linkTypeIndex == initialType {
+		t.Fatal("expected tab to advance link type")
+	}
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = updated.(calendarTUIModel)
+	if model.linkTypeIndex != initialType {
+		t.Fatalf("expected shift+tab to cycle back, got %d want %d", model.linkTypeIndex, initialType)
+	}
+
+	candidates := model.currentLinkCandidates()
+	parentIndex := -1
+	for i, candidate := range candidates {
+		if candidate.TaskID == parent.ID {
+			parentIndex = i
+			break
+		}
+	}
+	if parentIndex < 0 {
+		t.Fatal("expected parent candidate in link picker")
+	}
+	model.linkIndex = parentIndex
+	before := len(model.currentLinkCandidates())
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	model = updated.(calendarTUIModel)
+	after := len(model.currentLinkCandidates())
+	if after >= before {
+		t.Fatalf("expected h to collapse candidate subtree, before=%d after=%d", before, after)
+	}
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	model = updated.(calendarTUIModel)
+	if len(model.currentLinkCandidates()) != before {
+		t.Fatalf("expected l to expand candidate subtree, got %d want %d", len(model.currentLinkCandidates()), before)
+	}
+}
+
 func TestBuildCalendarSectionsReviewMode(t *testing.T) {
 	today := time.Now().Local().Format("2006-01-02")
 	overdue := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
@@ -488,7 +881,7 @@ func TestBuildCalendarSectionsReviewMode(t *testing.T) {
 	}
 	titles := map[string]string{"01OVER": "Overdue"}
 
-	sections := buildCalendarSections(calendarModeReview, focused, rootTasks, readiness, titles, 0)
+	sections := buildCalendarSections(calendarModeReview, focused, rootTasks, readiness, titles, "depends_on", 0)
 	if len(sections) != 6 {
 		t.Fatalf("unexpected section count: %d", len(sections))
 	}
@@ -521,7 +914,7 @@ func TestBuildCalendarSectionsTodayModeHonorsLimit(t *testing.T) {
 		{ID: "01C", Title: "C", Kind: "todo", Status: "open", DueOn: today},
 		{ID: "01D", Title: "D", Kind: "todo", Status: "open", DueOn: today},
 	}
-	sections := buildCalendarSections(calendarModeNow, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, 1)
+	sections := buildCalendarSections(calendarModeNow, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, "depends_on", 1)
 	if len(sections) != 3 {
 		t.Fatalf("unexpected section count: %d", len(sections))
 	}
@@ -576,7 +969,10 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 			},
 		},
 	}
-	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{})
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{}, map[string]string{
+		"01A": "2026-03-09",
+		"01B": "2026-03-09",
+	})
 	if len(rows) != 2 {
 		t.Fatalf("unexpected row count: %d", len(rows))
 	}
@@ -585,6 +981,9 @@ func TestFlattenCockpitTreeRows(t *testing.T) {
 	}
 	if !strings.Contains(rows[1].Label, "Child") || !strings.Contains(rows[1].Label, "└─") || rows[1].Meta != "memo/blocked" {
 		t.Fatalf("unexpected child row: %+v", rows[1])
+	}
+	if rows[1].DueOn != "2026-03-09" || !rows[1].DueInherited {
+		t.Fatalf("expected inherited due on child row, got %+v", rows[1])
 	}
 }
 
@@ -597,7 +996,7 @@ func TestFlattenCockpitTreeRowsSkipsCollapsedChildren(t *testing.T) {
 			},
 		},
 	}
-	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{"01A": {}})
+	rows := flattenCockpitTreeRows(nodes, "", true, false, map[string]struct{}{"01A": {}}, map[string]string{})
 	if len(rows) != 1 {
 		t.Fatalf("expected collapsed tree to hide children, got %d rows", len(rows))
 	}
@@ -606,6 +1005,210 @@ func TestFlattenCockpitTreeRowsSkipsCollapsedChildren(t *testing.T) {
 	}
 	if !strings.Contains(rows[0].Label, "[+]") {
 		t.Fatalf("expected collapsed marker in label, got %q", rows[0].Label)
+	}
+}
+
+func TestCreateTaskFromAddModeUsesSelectedTaskAsParent(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(false)
+	if err := model.createTaskFromAddMode("Child task"); err != nil {
+		t.Fatalf("createTaskFromAddMode failed: %v", err)
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Parent != parent.ID {
+		t.Fatalf("expected child task parent %s, got %+v", parent.ID, created)
+	}
+}
+
+func TestCreateTaskFromAddModeAtRootClearsParent(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(true)
+	if err := model.createTaskFromAddMode("Root task"); err != nil {
+		t.Fatalf("createTaskFromAddMode failed: %v", err)
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Parent != "" {
+		t.Fatalf("expected root task without parent, got %+v", created)
+	}
+}
+
+func TestUpdateAddModeUsesTabForFieldSwitchAndEnterForCreate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(parent.ID)
+	model.beginAddMode(false)
+	model.addTitle = "Created"
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldKind {
+		t.Fatalf("expected tab to move to kind field, got %v", model.addField)
+	}
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if model.addMode {
+		t.Fatal("expected enter to confirm add")
+	}
+	created := model.taskByID[model.selectedTaskID]
+	if created.Title != "Created" {
+		t.Fatalf("expected created task selected, got %+v", created)
+	}
+}
+
+func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
+	model := calendarTUIModel{
+		addMode:     true,
+		addField:    calendarAddFieldTitle,
+		defaultKind: "todo",
+		addKind:     "todo",
+	}
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != "q" {
+		t.Fatalf("expected q to be appended to title, got %q", model.addTitle)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldKind {
+		t.Fatalf("expected tab to move to kind, got %v", model.addField)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldTitle {
+		t.Fatalf("expected shift+tab to move back to title, got %v", model.addField)
+	}
+}
+
+func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:      true,
+		tagChoices:   []string{"alpha"},
+		tagSelection: []string{},
+		tagIndex:     1,
+	}
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if !model.tagInputMode {
+		t.Fatal("expected enter on add-new-tag row to enter input mode")
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.tagInputValue != "q" {
+		t.Fatalf("expected q to be recorded as tag input, got %q", model.tagInputValue)
+	}
+	if !model.tagMode {
+		t.Fatal("expected tag picker to stay open while typing")
+	}
+}
+
+func TestUpdateTagModeUsesSpaceForToggleAndCtrlSForSave(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(task.ID)
+	model.beginTagMode()
+	model.tagChoices = []string{"alpha"}
+	model.tagIndex = 2
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if len(model.tagSelection) != 0 {
+		t.Fatalf("expected enter on a tag row to not toggle, got %+v", model.tagSelection)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if len(model.tagSelection) != 1 || model.tagSelection[0] != "alpha" {
+		t.Fatalf("expected space to toggle tag selection, got %+v", model.tagSelection)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyCtrlS})
+	model = updated.(calendarTUIModel)
+	if model.tagMode {
+		t.Fatal("expected ctrl+s to save and close tag mode")
+	}
+	reloadedTask := model.taskByID[task.ID]
+	if len(reloadedTask.Tags) != 1 || reloadedTask.Tags[0] != "alpha" {
+		t.Fatalf("expected saved tag on task, got %+v", reloadedTask.Tags)
+	}
+}
+
+func TestSelectTaskByIDInTreeSyncsFocusedDateToTask(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Other", Kind: "todo", Status: "open", DueOn: "2026-03-09"}); err != nil {
+		t.Fatalf("add other task failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Due", Kind: "todo", Status: "open", DueOn: "2026-03-12"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open", "in_progress", "blocked"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(task.ID)
+	if model.focusedDayLabel() != "2026-03-12" {
+		t.Fatalf("expected focused day synced to task due date, got %s", model.focusedDayLabel())
+	}
+	section := model.focusedDaySection()
+	if section == nil || len(section.Items) != 1 {
+		t.Fatalf("expected selected day section rebuilt for synced date, got %+v", section)
+	}
+	if section.Items[0].Task.ID != task.ID {
+		t.Fatalf("expected selected day contents synced to selected task, got %+v", section.Items)
 	}
 }
 
@@ -681,8 +1284,9 @@ func TestCalendarBoardModeMovesAcrossColumns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
+	model.selectTaskByID(openTask.ID)
 	if task, ok := model.selectedTask(); !ok || task.ID != openTask.ID {
-		t.Fatalf("unexpected initial selected task: %+v ok=%t", task, ok)
+		t.Fatalf("expected open task selected before column move: %+v ok=%t", task, ok)
 	}
 	model.moveBoardColumn(1)
 	if task, ok := model.selectedTask(); !ok || task.ID != doneTask.ID {
@@ -791,20 +1395,16 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add first failed: %v", err)
 	}
-	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add second failed: %v", err)
 	}
-	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add third failed: %v", err)
 	}
-	target, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Target", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Target", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add target failed: %v", err)
 	}
 	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, calendarTUIOptions{
@@ -814,7 +1414,16 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
-	model.selectTaskByID(first.ID)
+	if len(model.treeRows) != 4 {
+		t.Fatalf("expected 4 tree rows, got %d", len(model.treeRows))
+	}
+	selectedIDs := []string{
+		model.treeRows[0].Task.ID,
+		model.treeRows[1].Task.ID,
+		model.treeRows[2].Task.ID,
+	}
+	targetID := model.treeRows[3].Task.ID
+	model.selectTaskByID(selectedIDs[0])
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel := updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -834,7 +1443,7 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	if treeModel.markedCount() != 3 {
 		t.Fatalf("expected marks frozen after move start, got %d", treeModel.markedCount())
 	}
-	if treeModel.isMarkedTask(target.ID) {
+	if treeModel.isMarkedTask(targetID) {
 		t.Fatal("expected move target not to be added to marked tasks after move start")
 	}
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -848,13 +1457,13 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	for _, task := range tasks {
 		byID[task.ID] = task
 	}
-	for _, movedID := range []string{first.ID, second.ID, third.ID} {
-		if byID[movedID].Parent != target.ID {
+	for _, movedID := range selectedIDs {
+		if byID[movedID].Parent != targetID {
 			t.Fatalf("expected %s moved under target, got parent=%q", movedID, byID[movedID].Parent)
 		}
 	}
-	if byID[target.ID].Parent != "" {
-		t.Fatalf("expected target to stay at root, got parent=%q", byID[target.ID].Parent)
+	if byID[targetID].Parent != "" {
+		t.Fatalf("expected target to stay at root, got parent=%q", byID[targetID].Parent)
 	}
 	if treeModel.moveMode {
 		t.Fatal("expected move mode finished after apply")
@@ -994,16 +1603,13 @@ func TestTreeModeRangeSelectPreservesExistingMarksWhenRestarted(t *testing.T) {
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add first failed: %v", err)
 	}
-	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add second failed: %v", err)
 	}
-	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add third failed: %v", err)
 	}
 	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "done"}, calendarTUIOptions{
@@ -1013,24 +1619,36 @@ func TestTreeModeRangeSelectPreservesExistingMarksWhenRestarted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
-	model.selectTaskByID(first.ID)
+	if len(model.treeRows) != 3 {
+		t.Fatalf("expected 3 tree rows, got %d", len(model.treeRows))
+	}
+	orderedIDs := []string{
+		model.treeRows[0].Task.ID,
+		model.treeRows[1].Task.ID,
+		model.treeRows[2].Task.ID,
+	}
+	model.selectTaskByID(orderedIDs[0])
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
 	treeModel := updatedModel.(calendarTUIModel)
-	treeModel.selectTaskByID(second.ID)
+	treeModel.selectTaskByID(orderedIDs[1])
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	if !treeModel.isMarkedTask(first.ID) || !treeModel.isMarkedTask(second.ID) || !treeModel.isMarkedTask(third.ID) {
-		t.Fatalf("expected existing marks preserved after finishing range select")
+	for _, taskID := range orderedIDs {
+		if !treeModel.isMarkedTask(taskID) {
+			t.Fatalf("expected existing marks preserved after finishing range select")
+		}
 	}
-	treeModel.selectTaskByID(third.ID)
+	treeModel.selectTaskByID(orderedIDs[2])
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	if !treeModel.isMarkedTask(first.ID) || !treeModel.isMarkedTask(second.ID) || !treeModel.isMarkedTask(third.ID) {
-		t.Fatalf("expected existing marks preserved when restarting range select")
+	for _, taskID := range orderedIDs {
+		if !treeModel.isMarkedTask(taskID) {
+			t.Fatalf("expected existing marks preserved when restarting range select")
+		}
 	}
 }
 
@@ -1245,7 +1863,7 @@ func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 			{ID: "01B", Title: "Today", Kind: "todo", Status: "open", DueOn: today},
 		},
 		sections: []calendarSection{
-			{ID: calendarSectionFocusedDay, Title: "Focused Day"},
+			{ID: calendarSectionFocusedDay, Title: "Selected Day"},
 			{ID: calendarSectionInbox, Title: "Inbox", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Inbox"}}}},
 			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
 		},
@@ -1279,15 +1897,16 @@ func TestCalendarViewUsesSidebarForFocusedDayTasks(t *testing.T) {
 		t.Fatalf("newCalendarTUIModel failed: %v", err)
 	}
 	model.width = 120
+	model.height = 24
 	rendered := model.View()
-	if !strings.Contains(rendered, "Focused Day") {
-		t.Fatalf("calendar view should render focused day sidebar: %q", rendered)
+	if !strings.Contains(rendered, "Selected Day: 2026-03-09") {
+		t.Fatalf("calendar view should render selected day sidebar: %q", rendered)
 	}
 	if !strings.Contains(rendered, "n/p: task switch") {
-		t.Fatalf("calendar view should show focused day switch hint: %q", rendered)
+		t.Fatalf("calendar view should show selected day switch hint: %q", rendered)
 	}
-	if strings.Index(rendered, "Focused Day") > strings.Index(rendered, "Inspector") {
-		t.Fatalf("focused day pane should be above inspector in calendar sidebar: %q", rendered)
+	if strings.Index(rendered, "Selected Day: 2026-03-09") > strings.Index(rendered, "Inspector") {
+		t.Fatalf("selected day pane should be above inspector in calendar sidebar: %q", rendered)
 	}
 }
 
@@ -1308,21 +1927,34 @@ func TestCalendarNPSwitchesFocusedDayTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModel failed: %v", err)
 	}
-	task, ok := model.selectedTask()
-	if !ok || task.ID != first.ID {
-		t.Fatalf("unexpected initial selected task: %+v ok=%t", task, ok)
+	initialTask, ok := model.selectedTask()
+	if !ok {
+		t.Fatalf("expected an initial selected task, got %+v ok=%t", initialTask, ok)
 	}
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	calendarModel := updatedModel.(calendarTUIModel)
-	task, ok = calendarModel.selectedTask()
-	if !ok || task.ID != second.ID {
-		t.Fatalf("expected n to select second focused-day task, got %+v ok=%t", task, ok)
+	nextTask, ok := calendarModel.selectedTask()
+	if !ok {
+		t.Fatalf("expected n to select another focused-day task, got %+v ok=%t", nextTask, ok)
+	}
+	if nextTask.ID == initialTask.ID {
+		t.Fatalf("expected n to move selection to a different task, still on %+v", nextTask)
 	}
 	updatedModel, _ = calendarModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	calendarModel = updatedModel.(calendarTUIModel)
-	task, ok = calendarModel.selectedTask()
-	if !ok || task.ID != first.ID {
-		t.Fatalf("expected p to select first focused-day task, got %+v ok=%t", task, ok)
+	task, ok := calendarModel.selectedTask()
+	if !ok || task.ID != initialTask.ID {
+		t.Fatalf("expected p to return to the initial focused-day task, got %+v ok=%t", task, ok)
+	}
+	taskIDs := map[string]struct{}{
+		first.ID:  {},
+		second.ID: {},
+	}
+	if _, ok := taskIDs[initialTask.ID]; !ok {
+		t.Fatalf("unexpected initial selected task ID: %s", initialTask.ID)
+	}
+	if _, ok := taskIDs[nextTask.ID]; !ok {
+		t.Fatalf("unexpected next selected task ID: %s", nextTask.ID)
 	}
 }
 
@@ -1348,12 +1980,16 @@ func TestReviewViewUsesSidebarCalendar(t *testing.T) {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
 	model.width = 120
+	model.height = 24
 	rendered := model.View()
 	if !strings.Contains(rendered, "Calendar") {
 		t.Fatalf("non-calendar mode should render sidebar calendar: %q", rendered)
 	}
-	if !strings.Contains(rendered, "Tab then h/j/k/l/[ ]: date move") {
-		t.Fatalf("sidebar calendar should show navigation hint: %q", rendered)
+	if !strings.Contains(rendered, "Sun") {
+		t.Fatalf("non-calendar sidebar calendar should render the month grid: %q", rendered)
+	}
+	if !strings.Contains(rendered, "selection synced") {
+		t.Fatalf("sidebar calendar should show synced hint: %q", rendered)
 	}
 }
 
@@ -1388,6 +2024,235 @@ func TestSidebarCalendarNavigationMovesFocusedDate(t *testing.T) {
 	reviewModel = updatedModel.(calendarTUIModel)
 	if reviewModel.focusedDayLabel() == original {
 		t.Fatalf("expected sidebar calendar navigation to move focused day, still %s", reviewModel.focusedDayLabel())
+	}
+}
+
+func TestSidebarCalendarNavigationSyncsMainSelection(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "First day",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+	})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Second day",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-10",
+	})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode:   calendarModeReview,
+		ShowID: false,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.pane = calendarPaneInspector
+	model.moveSidebarFocusByDays(1)
+	if model.focusedDayLabel() != "2026-03-10" {
+		t.Fatalf("expected focused day to move to 2026-03-10, got %s", model.focusedDayLabel())
+	}
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected main selection to follow sidebar date change, got %s", model.selectedTaskID)
+	}
+}
+
+func TestReviewSelectTaskPrefersOperationalSectionAndSyncsSidebarDate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Today", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Tomorrow", Kind: "todo", Status: "open", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	if model.sectionIndex == 0 {
+		t.Fatalf("expected review selection to prefer operational sections over Selected Day")
+	}
+	model.selectTaskByID(second.ID)
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected main review move to select second task, got %s", model.selectedTaskID)
+	}
+	if model.sectionIndex == 0 {
+		t.Fatalf("expected selected task to stay in an operational section, got section %d", model.sectionIndex)
+	}
+	if model.focusedDayLabel() != tomorrow {
+		t.Fatalf("expected sidebar date to sync to tomorrow, got %s", model.focusedDayLabel())
+	}
+}
+
+func TestReviewMoveWithinBlockedSectionKeepsCurrentTab(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	tomorrow := time.Now().Local().AddDate(0, 0, 1).Format("2006-01-02")
+	todayBlocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Today blocked", Kind: "todo", Status: "blocked", DueOn: today})
+	if err != nil {
+		t.Fatalf("add today blocked failed: %v", err)
+	}
+	tomorrowBlocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Tomorrow blocked", Kind: "todo", Status: "blocked", DueOn: tomorrow})
+	if err != nil {
+		t.Fatalf("add tomorrow blocked failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"blocked"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	blockedIndex := -1
+	for i, section := range model.sections {
+		if section.ID == calendarSectionBlocked {
+			blockedIndex = i
+			break
+		}
+	}
+	if blockedIndex < 0 {
+		t.Fatal("expected blocked section")
+	}
+	model.sectionIndex = blockedIndex
+	model.sectionRows[calendarSectionBlocked] = 1
+	model.selectedTaskID = tomorrowBlocked.ID
+
+	model.moveSectionRow(-1)
+
+	if model.sectionIndex != blockedIndex {
+		t.Fatalf("expected blocked tab to stay selected, got section %d", model.sectionIndex)
+	}
+	if model.selectedTaskID != todayBlocked.ID {
+		t.Fatalf("expected blocked selection to move to today task, got %s", model.selectedTaskID)
+	}
+}
+
+func TestNowSelectedDayNavigationKeepsSelectedDayTab(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	today := time.Now().Local().Format("2006-01-02")
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Now().Local(), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeNow,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.sectionIndex = 0
+	initialTask, ok := model.selectedTask()
+	if !ok {
+		t.Fatalf("expected initial Selected Day task")
+	}
+	model.sectionRows[calendarSectionFocusedDay] = 0
+	model.selectedTaskID = initialTask.ID
+
+	model.moveSelectedDayTask(1)
+
+	if model.sectionIndex != 0 {
+		t.Fatalf("expected Selected Day tab to stay selected, got section %d", model.sectionIndex)
+	}
+	if model.selectedTaskID == initialTask.ID {
+		t.Fatalf("expected selected day move to choose another task, still on %s", model.selectedTaskID)
+	}
+	validIDs := map[string]struct{}{
+		first.ID:  {},
+		second.ID: {},
+	}
+	if _, ok := validIDs[model.selectedTaskID]; !ok {
+		t.Fatalf("unexpected selected day move target: %s", model.selectedTaskID)
+	}
+}
+
+func TestBoardSelectionSyncsSidebarDate(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-10"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeBoard,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.moveBoardRow(1)
+	if model.selectedTaskID != second.ID {
+		t.Fatalf("expected board row move to select second task, got %s", model.selectedTaskID)
+	}
+	if model.focusedDayLabel() != "2026-03-10" {
+		t.Fatalf("expected sidebar date to sync to 2026-03-10, got %s", model.focusedDayLabel())
+	}
+}
+
+func TestTreeModeSelectedDayContentsRefreshWhenFocusedDateChanges(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-10"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeTree,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.pane = calendarPaneInspector
+	model.moveSidebarFocusByDays(1)
+
+	section := model.focusedDaySection()
+	if section == nil || len(section.Items) != 1 {
+		t.Fatalf("expected selected day section to rebuild for new date, got %+v", section)
+	}
+	if section.Items[0].Task.ID != second.ID {
+		t.Fatalf("expected selected day contents to switch to second task, got %+v", section.Items)
 	}
 }
 
@@ -1472,7 +2337,7 @@ func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 		mode: calendarModeNow,
 		days: []calendarDay{{Date: today}},
 		sections: []calendarSection{
-			{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+			{ID: calendarSectionFocusedDay, Title: "Selected Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
 			{ID: calendarSectionOverdue, Title: "Overdue", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Late"}}}},
 			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01C", Title: "Today"}}}},
 		},
@@ -1481,12 +2346,12 @@ func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 	}
 	month := calendarMonthView{Label: "March 2026"}
 	rendered := renderCalendarMainPane(model, month, 120, 18, true)
-	for _, want := range []string{"Focused Day 1", "Overdue 1", "Today 1"} {
+	for _, want := range []string{"Selected Day 1", "Overdue 1", "Today 1"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("now pane should render all three sections, missing %q in %q", want, rendered)
 		}
 	}
-	if strings.Contains(rendered, "Focused Day 1  Overdue 1") {
+	if strings.Contains(rendered, "Selected Day 1  Overdue 1") {
 		t.Fatalf("now pane should render separate columns, got %q", rendered)
 	}
 }

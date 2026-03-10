@@ -18,6 +18,24 @@ type GlobalConfig struct {
 	DefaultRoot string `toml:"default_root"`
 }
 
+func ExpandUserPath(path string) (string, error) {
+	value := strings.TrimSpace(path)
+	switch {
+	case value == "":
+		return "", nil
+	case value == "~":
+		return os.UserHomeDir()
+	case strings.HasPrefix(value, "~/"), strings.HasPrefix(value, "~\\"):
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve user home dir: %w", err)
+		}
+		return filepath.Join(home, value[2:]), nil
+	default:
+		return value, nil
+	}
+}
+
 func GlobalConfigPath() (string, error) {
 	cfgDir, err := os.UserConfigDir()
 	if err != nil {
@@ -75,6 +93,10 @@ func LoadGlobalConfig() (GlobalConfig, error) {
 	if cfg.DefaultRoot == "" {
 		return GlobalConfig{}, fmt.Errorf("%s: default_root is required", path)
 	}
+	cfg.DefaultRoot, err = ExpandUserPath(cfg.DefaultRoot)
+	if err != nil {
+		return GlobalConfig{}, fmt.Errorf("%s: failed to expand default_root: %w", path, err)
+	}
 	if !filepath.IsAbs(cfg.DefaultRoot) {
 		abs, err := filepath.Abs(cfg.DefaultRoot)
 		if err != nil {
@@ -93,6 +115,10 @@ func SaveGlobalConfig(cfg GlobalConfig) error {
 	cfg.DefaultRoot = strings.TrimSpace(cfg.DefaultRoot)
 	if cfg.DefaultRoot == "" {
 		return fmt.Errorf("default_root is required")
+	}
+	cfg.DefaultRoot, err = ExpandUserPath(cfg.DefaultRoot)
+	if err != nil {
+		return fmt.Errorf("failed to expand default_root: %w", err)
 	}
 	if !filepath.IsAbs(cfg.DefaultRoot) {
 		abs, err := filepath.Abs(cfg.DefaultRoot)

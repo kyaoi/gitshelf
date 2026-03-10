@@ -70,17 +70,29 @@ func runDefaultCockpit(ctx *commandContext) error {
 	if !dailyCockpitIsTTY() {
 		return nil
 	}
-	startDate, dayCount, err := resolveDailyCockpitRange(ctx.rootDir)
+	cfg, err := shelf.LoadConfig(ctx.rootDir)
+	if err != nil {
+		return err
+	}
+	start := startOfWeek(time.Now().Local())
+	startDate, dayCount, err := resolveCalendarRange(start, 0, 0, 0, cfg.Commands.Calendar, false, false, false)
 	if err != nil {
 		return err
 	}
 	statuses := activeStatusFilter()
-	return runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, statuses, calendarTUIOptions{
+	if err := runCalendarModeTUIFn(ctx.rootDir, startDate, dayCount, statuses, calendarTUIOptions{
 		Mode:   calendarModeCalendar,
 		ShowID: ctx.showID,
 		Filter: shelf.TaskFilter{
 			Statuses: statuses,
 			Limit:    0,
 		},
-	})
+	}); err != nil {
+		return err
+	}
+	settings, err := resolvePostExitGitSettings(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	return runPostExitGitAction(ctx.rootDir, settings)
 }
