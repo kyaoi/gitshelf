@@ -14,6 +14,7 @@
 - Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 - Output contract: [`docs/OUTPUTS.md`](docs/OUTPUTS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
+- Testing and quality gates: [`docs/TESTING.md`](docs/TESTING.md)
 - Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
 - Default config example: [`docs/default_config.toml`](docs/default_config.toml)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
@@ -232,4 +233,11 @@ go test ./...
 bash scripts/check_coverage_ratchet.sh
 go test -race ./...
 go vet ./...
+bash scripts/check_public_contract_docs.sh
+```
+
+For the same full local suite used by `pre-push`, run:
+
+```bash
+bash scripts/run_heavy_checks.sh
 ```

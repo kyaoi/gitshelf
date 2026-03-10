@@ -14,6 +14,7 @@
 * ワークフローガイド: [`../WORKFLOWS.md`](../WORKFLOWS.md)
 * Output contract: [`OUTPUTS.md`](OUTPUTS.md)
 * 対話動作: [`../INTERACTIVE.md`](../INTERACTIVE.md)
+* テストと品質ゲート: [`TESTING.md`](TESTING.md)
 * 保存形式: [`../STORAGE.md`](../STORAGE.md)
 * default config 例: [`../default_config.toml`](../default_config.toml)
 * 日本語ユーザードキュメント: [`README.md`](README.md)
@@ -229,4 +230,11 @@ go test ./...
 bash scripts/check_coverage_ratchet.sh
 go test -race ./...
 go vet ./...
+bash scripts/check_public_contract_docs.sh
+```
+
+`pre-push` と同じ full local suite を回す場合は次を使います。
+
+```bash
+bash scripts/run_heavy_checks.sh
 ```
