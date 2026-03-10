@@ -29,7 +29,7 @@
 - `Tab` / `Shift+Tab`: non-calendar mode で pane 切り替え
 - `?`: help overlay 切り替え
 - `q`: help を閉じる、または終了
-- `Esc`: 終了または一時状態から離脱
+- `Esc`: 一時状態から離脱、または help を閉じる
 - `Ctrl+[` : popup や入力 mode を抜けて normal に戻る
 
 transient picker / composer は中央 popup で表示します。
@@ -80,6 +80,10 @@ calendar main view では pane focus 切り替えは使いません。
 - `K`: 選択 task の kind を編集
 - `#`: 選択 task の tag を編集
 - `y`: 選択 title、または mark 済み title 群を config の区切り文字でコピー
+- `Y`: 選択 task の subtree、または mark 済み subtree 群をインデント付き title tree としてコピー
+- `P`: 選択 task file path、または mark 済み file path 群を絶対パスでコピー
+- `O`: 選択 task の本文、または mark 済み task 群の本文をコピー
+- `M`: preview と保存用コマンド表示付きの advanced copy popup を開く
 - `o`: `open`
 - `i`: `in_progress`
 - `b`: `blocked`
@@ -92,6 +96,17 @@ calendar main view では pane focus 切り替えは使いません。
 - `U`: 選択 task の outbound link を1つ削除
 - `Enter`: compact / detailed inspector 切り替え
 - `r`: reload
+
+advanced copy (`M`) 内:
+
+- `j` / `k`: `Custom` または保存済み preset を選ぶ
+- `Tab` / `Shift+Tab`: preset list と custom field の間を移動
+- custom の `template` / `join_with` は `\n` のような escaped text で入力する
+- `subtree style` で `{{subtree}}` を空白インデントか ASCII tree かで切り替える
+- `Enter`: preview 中の payload をコピー
+- `Ctrl+S`: 現在の preset を `.shelf/config.toml` に保存する
+- 生成された `shelf config copy-preset set ...` コマンドは popup 下部に表示する
+- `Esc` / `q`: popup を閉じる
 
 link selector は tree 風ラベルを使い、件数が多いときはスクロールします。
 ID は `--show-id` を有効にしたときだけ表示します。
@@ -107,6 +122,7 @@ ID は `--show-id` を有効にしたときだけ表示します。
 - board では selected column の status を default にする
 - add composer は title と kind を同じ box 内で編集する
 - `Tab` / `Shift+Tab` で title / kind を循環する
+- title フィールド中は `Left` / `Right` でカーソル移動できる
 - kind フィールド中は `j` / `k` だけで kind を切り替える
 - `Enter` で作成を確定する
 - `Esc` / `Ctrl+[` で add をキャンセルする
@@ -124,7 +140,7 @@ ID は `--show-id` を有効にしたときだけ表示します。
 - `Enter` on `Done`: 保存して閉じる
 - `Enter` on `+ Add new tag`: 入力 mode に入る
 - `Ctrl+S`: tag 編集中のどこからでも保存して閉じる
-- 新規 tag 入力中は移動系 keybind ではなく通常の文字入力になります
+- 新規 tag 入力中は `Left` / `Right` でカーソル移動でき、文字はその位置に挿入されます
 
 ## Non-Calendar Sidebar
 
@@ -152,6 +168,6 @@ body の scroll:
 - hierarchy が重要な場面では tree 形式ラベルを使います
 - 必要な場面では `(root)` を明示的に選べます
 - 通常の selector では `q`, `Esc` でキャンセルできます
-- Link は `/` で query 入力 mode に入り、入力中は移動系 keybind を発火させません
+- Link は `/` で query 入力 mode に入り、入力中は `Left` / `Right` でカーソル移動でき、文字はその位置に挿入されます
 - 旧 focused day panel 名は `Selected Day` に統一され、main selection と同期します
 - `Selected Day` は sidebar の calendar で日付を変えたときも追従します

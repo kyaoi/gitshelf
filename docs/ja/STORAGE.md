@@ -4,6 +4,8 @@ Cockpit-first な現行ツールセットの保存形式です。
 
 ## ディレクトリ構成
 
+既定レイアウト:
+
 ```text
 .shelf/
   config.toml
@@ -13,6 +15,24 @@ Cockpit-first な現行ツールセットの保存形式です。
     <src_id>.toml
 ```
 
+config は常に `.shelf/config.toml` に置かれます。
+task データは `storage_root` 配下に置かれ、既定値は `.shelf` です。
+
+root 直下に置く例:
+
+```toml
+storage_root = "."
+```
+
+```text
+.shelf/
+  config.toml
+tasks/
+  <id>.md
+edges/
+  <src_id>.toml
+```
+
 ## Config
 
 現在の config に保存するもの:
@@ -20,6 +40,7 @@ Cockpit-first な現行ツールセットの保存形式です。
 - `kinds`
 - `statuses`
 - `tags`
+- `storage_root`
 - `link_types`
 - `default_kind`
 - `default_status`
@@ -55,11 +76,35 @@ cockpit 設定:
 copy_separator = "\n"
 post_exit_git_action = "none"
 commit_message = "chore: update shelf data"
+
+[[commands.cockpit.copy_presets]]
+name = "subtree_path"
+scope = "subtree"
+subtree_style = "indented"
+template = "{{path}}\n{{subtree}}"
+join_with = "\n\n"
 ```
+
+- `copy_separator`
+- `copy_presets[].name`
+- `copy_presets[].scope`: `task` または `subtree`
+- `copy_presets[].subtree_style`: `indented` または `tree`
+- `copy_presets[].template`: `{{title}}`, `{{path}}`, `{{body}}`, `{{subtree}}` を使えます
+- `copy_presets[].join_with`: 省略時は `copy_separator` を使います
+
+保存先設定:
+
+```toml
+storage_root = ".shelf"
+```
+
+- `storage_root` は `tasks/` と `edges/` の共通親ディレクトリです
+- 相対パスは project root 起点で解決します
+- `.` を指定すると `tasks/` と `edges/` を root 直下に置きます
 
 ## Task File
 
-各 task は `.shelf/tasks/<id>.md` に保存されます。
+各 task は `<storage_root>/tasks/<id>.md` に保存されます。
 
 現在の front matter:
 
@@ -81,7 +126,7 @@ commit_message = "chore: update shelf data"
 
 各 task は outbound edge file を1つ持てます。
 
-- `.shelf/edges/<src_id>.toml`
+- `<storage_root>/edges/<src_id>.toml`
 
 形式:
 

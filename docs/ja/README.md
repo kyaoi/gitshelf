@@ -10,12 +10,12 @@
 
 ## ドキュメント
 
-* CLI 仕様: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-* ワークフローガイド: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
-* 対話動作: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
-* 保存形式: [`docs/STORAGE.md`](docs/STORAGE.md)
-* default config 例: [`docs/default_config.toml`](docs/default_config.toml)
-* 日本語ユーザードキュメント: [`docs/ja/README.md`](docs/ja/README.md)
+* CLI 仕様: [`../COMMANDS.md`](../COMMANDS.md)
+* ワークフローガイド: [`../WORKFLOWS.md`](../WORKFLOWS.md)
+* 対話動作: [`../INTERACTIVE.md`](../INTERACTIVE.md)
+* 保存形式: [`../STORAGE.md`](../STORAGE.md)
+* default config 例: [`../default_config.toml`](../default_config.toml)
+* 日本語ユーザードキュメント: [`README.md`](README.md)
 
 ## Install
 
@@ -132,7 +132,7 @@ shelf next
 * main pane と sidebar は双方向に選択同期する
 * script から直接使うのは主に `ls`, `next`, `link`, `unlink`, `links`
 
-詳細な keybind は [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md) に集約しています。
+詳細な keybind は [`../INTERACTIVE.md`](../INTERACTIVE.md) に集約しています。
 
 推奨される開始地点:
 

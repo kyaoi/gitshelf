@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kyaoi/gitshelf/internal/shelf"
 	"github.com/spf13/cobra"
 )
 
@@ -259,9 +260,12 @@ func captureSnapshot(rootDir string, action string) (snapshotMeta, error) {
 		return snapshotMeta{}, err
 	}
 
-	shelfDir := filepath.Join(rootDir, ".shelf")
-	for _, rel := range []string{"config.toml", "tasks", "edges"} {
-		src := filepath.Join(shelfDir, rel)
+	items := map[string]string{
+		"config.toml": shelf.ConfigPath(rootDir),
+		"tasks":       shelf.TasksDir(rootDir),
+		"edges":       shelf.EdgesDir(rootDir),
+	}
+	for rel, src := range items {
 		dst := filepath.Join(snapshot, rel)
 		info, err := os.Stat(src)
 		if err != nil {
@@ -296,16 +300,19 @@ func restoreSnapshot(rootDir string, snapshotID string) error {
 		return err
 	}
 
-	shelfDir := filepath.Join(rootDir, ".shelf")
-	for _, rel := range []string{"tasks", "edges"} {
-		if err := os.RemoveAll(filepath.Join(shelfDir, rel)); err != nil {
+	for _, dir := range []string{shelf.TasksDir(rootDir), shelf.EdgesDir(rootDir)} {
+		if err := os.RemoveAll(dir); err != nil {
 			return err
 		}
 	}
 
-	for _, rel := range []string{"config.toml", "tasks", "edges"} {
+	items := map[string]string{
+		"config.toml": shelf.ConfigPath(rootDir),
+		"tasks":       shelf.TasksDir(rootDir),
+		"edges":       shelf.EdgesDir(rootDir),
+	}
+	for rel, dst := range items {
 		src := filepath.Join(snapshot, rel)
-		dst := filepath.Join(shelfDir, rel)
 		info, err := os.Stat(src)
 		if err != nil {
 			if os.IsNotExist(err) {

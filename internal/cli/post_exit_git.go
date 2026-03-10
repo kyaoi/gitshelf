@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -49,17 +51,23 @@ func runPostExitGitAction(rootDir string, settings postExitGitSettings) error {
 	if settings.Action == postExitGitNone {
 		return nil
 	}
-	changed, err := gitPathHasChanges(rootDir, ".shelf")
+	paths, err := managedGitPaths(rootDir)
 	if err != nil {
 		return err
 	}
-	if !changed {
-		return nil
-	}
-	if _, err := runGitCommand(rootDir, "add", ".shelf"); err != nil {
+	changedPaths, err := gitChangedPaths(rootDir, paths)
+	if err != nil {
 		return err
 	}
-	if _, err := runGitCommand(rootDir, "commit", "--only", "-m", settings.CommitMessage, "--", ".shelf"); err != nil {
+	if len(changedPaths) == 0 {
+		return nil
+	}
+	if _, err := runGitCommand(rootDir, append([]string{"add"}, changedPaths...)...); err != nil {
+		return err
+	}
+	args := []string{"commit", "--only", "-m", settings.CommitMessage, "--"}
+	args = append(args, changedPaths...)
+	if _, err := runGitCommand(rootDir, args...); err != nil {
 		return err
 	}
 	if settings.Action == postExitGitCommitPush {
@@ -70,12 +78,47 @@ func runPostExitGitAction(rootDir string, settings postExitGitSettings) error {
 	return nil
 }
 
-func gitPathHasChanges(rootDir, path string) (bool, error) {
-	output, err := runGitCommand(rootDir, "status", "--porcelain", "--", path)
+func gitChangedPaths(rootDir string, paths []string) ([]string, error) {
+	args := []string{"status", "--porcelain", "--"}
+	args = append(args, paths...)
+	output, err := runGitCommand(rootDir, args...)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return strings.TrimSpace(output) != "", nil
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	changed := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || len(line) < 4 {
+			continue
+		}
+		path := strings.TrimSpace(line[3:])
+		if path == "" {
+			continue
+		}
+		if !slices.Contains(changed, path) {
+			changed = append(changed, path)
+		}
+	}
+	return changed, nil
+}
+
+func managedGitPaths(rootDir string) ([]string, error) {
+	paths := []string{filepath.ToSlash(filepath.Join(shelf.ShelfDirName, "config.toml"))}
+	for _, abs := range []string{shelf.TasksDir(rootDir), shelf.EdgesDir(rootDir)} {
+		rel, err := filepath.Rel(rootDir, abs)
+		if err != nil {
+			return nil, err
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			continue
+		}
+		if !slices.Contains(paths, rel) {
+			paths = append(paths, rel)
+		}
+	}
+	return paths, nil
 }
 
 func runGitCommand(rootDir string, args ...string) (string, error) {

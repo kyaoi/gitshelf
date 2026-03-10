@@ -19,6 +19,8 @@ const (
 	keyKindBackspace
 	keyKindUp
 	keyKindDown
+	keyKindLeft
+	keyKindRight
 )
 
 type keyEvent struct {
@@ -70,6 +72,12 @@ func readCSIKeyEvent(reader *bufio.Reader) (bool, keyEvent, error) {
 	case len(seq) >= 2 && seq[1] == 'B':
 		_, _ = reader.Discard(2)
 		return true, keyEvent{Kind: keyKindDown}, nil
+	case len(seq) >= 2 && seq[1] == 'C':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindRight}, nil
+	case len(seq) >= 2 && seq[1] == 'D':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindLeft}, nil
 	}
 
 	for _, pattern := range []string{"[13;5u", "[13;5~", "[27;5;13~"} {

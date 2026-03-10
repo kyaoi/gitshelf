@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/kyaoi/gitshelf/internal/interactive"
 	"github.com/kyaoi/gitshelf/internal/shelf"
 )
 
@@ -156,6 +157,7 @@ type calendarTUIModel struct {
 	linkChoices   []shelf.LinkType
 	blockingLink  shelf.LinkType
 	copySeparator string
+	copyPresets   []shelf.CopyPreset
 	showID        bool
 
 	visibleTasks  []shelf.Task
@@ -167,61 +169,76 @@ type calendarTUIModel struct {
 	outboundCount map[string]int
 	inboundCount  map[string]int
 
-	days              []calendarDay
-	dayIndex          int
-	sections          []calendarSection
-	sectionIndex      int
-	sectionRows       map[calendarSectionID]int
-	treeRows          []cockpitTreeRow
-	treeRowIndex      int
-	collapsedTree     map[string]struct{}
-	boardColumns      []boardColumn
-	boardColumnIdx    int
-	boardRowIndex     map[int]int
-	selectedTaskID    string
-	markedTaskIDs     map[string]struct{}
-	rangeMarkMode     bool
-	rangeAnchorID     string
-	rangeBaseIDs      map[string]struct{}
-	moveMode          bool
-	moveSourceIDs     []string
-	pane              calendarPane
-	width             int
-	height            int
-	bodyScroll        int
-	message           string
-	showHelp          bool
-	showTaskBody      bool
-	snoozeMode        bool
-	snoozeIndex       int
-	linkMode          bool
-	linkAction        calendarLinkAction
-	linkIndex         int
-	linkQuery         string
-	linkQueryMode     bool
-	linkTypeIndex     int
-	linkCollapsedTree map[string]struct{}
-	filterMode        bool
-	filterSection     calendarFilterSection
-	filterIndex       int
-	filterSnapshot    shelf.TaskFilter
-	kindMode          bool
-	kindIndex         int
-	kindTarget        calendarKindTarget
-	tagMode           bool
-	tagIndex          int
-	tagSelection      []string
-	tagInputMode      bool
-	tagInputValue     string
-	textPromptMode    bool
-	textPromptTitle   string
-	textPromptValue   string
-	textPromptPurpose calendarTextPromptPurpose
-	addMode           bool
-	addTitle          string
-	addKind           shelf.Kind
-	addField          calendarAddField
-	addAtRoot         bool
+	days                     []calendarDay
+	dayIndex                 int
+	sections                 []calendarSection
+	sectionIndex             int
+	sectionRows              map[calendarSectionID]int
+	treeRows                 []cockpitTreeRow
+	treeRowIndex             int
+	collapsedTree            map[string]struct{}
+	boardColumns             []boardColumn
+	boardColumnIdx           int
+	boardRowIndex            map[int]int
+	selectedTaskID           string
+	markedTaskIDs            map[string]struct{}
+	rangeMarkMode            bool
+	rangeAnchorID            string
+	rangeBaseIDs             map[string]struct{}
+	moveMode                 bool
+	moveSourceIDs            []string
+	pane                     calendarPane
+	width                    int
+	height                   int
+	bodyScroll               int
+	message                  string
+	showHelp                 bool
+	showTaskBody             bool
+	snoozeMode               bool
+	snoozeIndex              int
+	linkMode                 bool
+	linkAction               calendarLinkAction
+	linkIndex                int
+	linkQuery                string
+	linkQueryCursor          int
+	linkQueryMode            bool
+	linkTypeIndex            int
+	linkCollapsedTree        map[string]struct{}
+	copyPresetMode           bool
+	copyPresetIndex          int
+	copyPresetFocus          calendarCopyPresetFocus
+	copyPresetName           string
+	copyPresetNameCursor     int
+	copyPresetScope          shelf.CopyPresetScope
+	copyPresetSubtreeStyle   shelf.CopySubtreeStyle
+	copyPresetTemplate       string
+	copyPresetTemplateCursor int
+	copyPresetJoinWith       string
+	copyPresetJoinWithCursor int
+	filterMode               bool
+	filterSection            calendarFilterSection
+	filterIndex              int
+	filterSnapshot           shelf.TaskFilter
+	kindMode                 bool
+	kindIndex                int
+	kindTarget               calendarKindTarget
+	tagMode                  bool
+	tagIndex                 int
+	tagSelection             []string
+	tagInputMode             bool
+	tagInputValue            string
+	tagInputCursor           int
+	textPromptMode           bool
+	textPromptTitle          string
+	textPromptValue          string
+	textPromptCursor         int
+	textPromptPurpose        calendarTextPromptPurpose
+	addMode                  bool
+	addTitle                 string
+	addTitleCursor           int
+	addKind                  shelf.Kind
+	addField                 calendarAddField
+	addAtRoot                bool
 }
 
 func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) error {
@@ -270,6 +287,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		linkChoices:       append([]shelf.LinkType{}, cfg.LinkTypes.Names...),
 		blockingLink:      cfg.BlockingLinkType(),
 		copySeparator:     cfg.Commands.Cockpit.CopySeparator,
+		copyPresets:       append([]shelf.CopyPreset{}, cfg.Commands.Cockpit.CopyPresets...),
 		showID:            opts.ShowID,
 		pane:              calendarPaneMain,
 		sectionRows:       map[calendarSectionID]int{},
@@ -320,14 +338,11 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = "task updated"
 		return m, nil
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+[" {
-			if m.leaveToNormalMode() {
-				return m, nil
-			}
-			return m, nil
-		}
 		if m.linkMode {
 			return m.updateLinkMode(msg)
+		}
+		if m.copyPresetMode {
+			return m.updateCopyPresetMode(msg)
 		}
 		if m.filterMode {
 			return m.updateFilterMode(msg)
@@ -346,7 +361,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.moveMode {
 			switch msg.String() {
-			case "esc", "q", "m":
+			case "esc", "q", "m", "ctrl+[":
 				m.moveMode = false
 				m.moveSourceIDs = nil
 				m.message = "move をキャンセルしました"
@@ -355,12 +370,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.applyMoveSelection()
 			}
 		}
-		if m.showHelp && msg.String() == "q" {
+		if m.showHelp && (msg.String() == "q" || msg.String() == "esc" || msg.String() == "ctrl+[") {
 			m.showHelp = false
 			return m, nil
 		}
 		switch msg.String() {
-		case "q", "esc":
+		case "q":
 			return m, tea.Quit
 		case "tab":
 			if m.mode != calendarModeCalendar {
@@ -570,6 +585,24 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = err.Error()
 			}
 			return m, nil
+		case "Y":
+			if err := m.copySelectedTaskSubtrees(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
+		case "P":
+			if err := m.copySelectedTaskPaths(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
+		case "O":
+			if err := m.copySelectedTaskBodies(); err != nil {
+				m.message = err.Error()
+			}
+			return m, nil
+		case "M":
+			m.beginCopyPresetMode()
+			return m, nil
 		case "L":
 			m.beginLinkMode(calendarLinkActionAdd)
 			return m, nil
@@ -675,13 +708,29 @@ func (m calendarTUIModel) activePopup() string {
 	case m.snoozeMode:
 		return renderCalendarSnoozePicker(m.snoozeIndex, popupWidth, popupHeight)
 	case m.linkMode:
-		return renderCalendarLinkPicker(m.linkAction, m.linkTypeLabel(), m.linkQuery, m.linkQueryMode, m.selectedTaskPopupLabel(), m.currentLinkCandidates(), m.linkIndex, popupWidth, popupHeight)
+		query := m.linkQuery
+		if m.linkQueryMode {
+			query = interactive.RenderTextCursor(query, m.linkQueryCursor)
+		}
+		return renderCalendarLinkPicker(m.linkAction, m.linkTypeLabel(), query, m.linkQueryMode, m.selectedTaskPopupLabel(), m.currentLinkCandidates(), m.linkIndex, popupWidth, popupHeight)
+	case m.copyPresetMode:
+		return renderCalendarCopyPresetPopup(m, popupWidth, popupHeight)
 	case m.kindMode:
 		return renderCalendarKindPicker(m.selectedTaskPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
 	case m.tagMode:
-		return renderCalendarTagPicker(m.selectedTaskPopupLabel(), m.tagChoices, m.tagSelection, m.tagIndex, m.tagInputMode, m.tagInputValue, popupWidth, popupHeight)
+		inputValue := m.tagInputValue
+		if m.tagInputMode {
+			inputValue = interactive.RenderTextCursor(inputValue, m.tagInputCursor)
+		}
+		return renderCalendarTagPicker(m.selectedTaskPopupLabel(), m.tagChoices, m.tagSelection, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
+	case m.textPromptMode:
+		return renderCalendarTextPrompt(m.textPromptTitle, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
 	case m.addMode:
-		return renderCalendarAddComposer(m.focusedDayLabel(), m.addKind, m.defaultStatus, m.addTitle, m.addField, m.addTargetLabel(), m.addAtRoot, popupWidth, popupHeight)
+		title := m.addTitle
+		if m.addField == calendarAddFieldTitle {
+			title = interactive.RenderTextCursor(title, m.addTitleCursor)
+		}
+		return renderCalendarAddComposer(m.focusedDayLabel(), m.addKind, m.defaultStatus, title, m.addField, m.addTargetLabel(), m.addAtRoot, popupWidth, popupHeight)
 	default:
 		return ""
 	}
@@ -768,6 +817,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 	if m.addMode {
 		m.addMode = false
 		m.addTitle = ""
+		m.addTitleCursor = 0
 		m.addKind = m.defaultKind
 		m.addField = calendarAddFieldTitle
 		m.addAtRoot = false
@@ -780,7 +830,22 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 	if m.linkMode {
 		m.linkMode = false
 		m.linkQuery = ""
+		m.linkQueryCursor = 0
 		m.linkQueryMode = false
+		changed = true
+	}
+	if m.copyPresetMode {
+		m.copyPresetMode = false
+		m.copyPresetIndex = 0
+		m.copyPresetFocus = calendarCopyPresetFocusPresets
+		m.copyPresetName = ""
+		m.copyPresetNameCursor = 0
+		m.copyPresetScope = ""
+		m.copyPresetSubtreeStyle = ""
+		m.copyPresetTemplate = ""
+		m.copyPresetTemplateCursor = 0
+		m.copyPresetJoinWith = ""
+		m.copyPresetJoinWithCursor = 0
 		changed = true
 	}
 	if m.filterMode {
@@ -796,12 +861,14 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		m.tagSelection = nil
 		m.tagInputMode = false
 		m.tagInputValue = ""
+		m.tagInputCursor = 0
 		changed = true
 	}
 	if m.textPromptMode {
 		m.textPromptMode = false
 		m.textPromptTitle = ""
 		m.textPromptValue = ""
+		m.textPromptCursor = 0
 		m.textPromptPurpose = calendarTextPromptNone
 		changed = true
 	}
@@ -822,6 +889,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 	}
 	if changed {
 		m.addTitle = ""
+		m.addTitleCursor = 0
 		m.message = "normal mode"
 	}
 	return changed
@@ -844,7 +912,7 @@ func (m calendarTUIModel) paneLabel() string {
 func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	options := calendarSnoozeOptions()
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.snoozeMode = false
 		m.message = "期限変更をキャンセルしました"
 		return m, nil
@@ -883,7 +951,7 @@ func (m *calendarTUIModel) beginFilterMode() {
 
 func (m calendarTUIModel) updateFilterMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.filter = cloneTaskFilter(m.filterSnapshot)
 		m.statuses = deriveActiveStatuses(m.statusChoices, m.filter)
 		m.filterMode = false
@@ -1018,9 +1086,10 @@ func toggleKindFilter(values []shelf.Kind, target shelf.Kind) []shelf.Kind {
 
 func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc":
+	case "esc", "ctrl+[":
 		m.addMode = false
 		m.addTitle = ""
+		m.addTitleCursor = 0
 		m.addKind = m.defaultKind
 		m.addField = calendarAddFieldTitle
 		m.addAtRoot = false
@@ -1052,6 +1121,7 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.addMode = false
 		m.addTitle = ""
+		m.addTitleCursor = 0
 		m.addKind = m.defaultKind
 		m.addField = calendarAddFieldTitle
 		m.addAtRoot = false
@@ -1067,9 +1137,18 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "backspace":
-		if m.addField == calendarAddFieldTitle && len(m.addTitle) > 0 {
-			runes := []rune(m.addTitle)
-			m.addTitle = string(runes[:len(runes)-1])
+		if m.addField == calendarAddFieldTitle {
+			m.addTitle, m.addTitleCursor = interactive.DeleteRuneBeforeCursor(m.addTitle, m.addTitleCursor)
+		}
+		return m, nil
+	case "left":
+		if m.addField == calendarAddFieldTitle {
+			m.addTitleCursor = interactive.MoveTextCursorLeft(m.addTitle, m.addTitleCursor)
+		}
+		return m, nil
+	case "right":
+		if m.addField == calendarAddFieldTitle {
+			m.addTitleCursor = interactive.MoveTextCursorRight(m.addTitle, m.addTitleCursor)
 		}
 		return m, nil
 	default:
@@ -1085,7 +1164,9 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if m.addField == calendarAddFieldTitle {
-				m.addTitle += msg.String()
+				for _, r := range msg.Runes {
+					m.addTitle, m.addTitleCursor = interactive.InsertRuneAtCursor(m.addTitle, m.addTitleCursor, r)
+				}
 				return m, nil
 			}
 		}
@@ -1180,7 +1261,7 @@ func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 
 func (m calendarTUIModel) updateKindMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.kindMode = false
 		m.message = "kind 変更をキャンセルしました"
 		return m, nil
@@ -1236,15 +1317,17 @@ func (m *calendarTUIModel) beginTagMode() {
 	m.tagMode = true
 	m.tagInputMode = false
 	m.tagInputValue = ""
+	m.tagInputCursor = 0
 	m.message = "tag を編集"
 }
 
 func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.tagInputMode {
 		switch msg.String() {
-		case "esc":
+		case "esc", "ctrl+[":
 			m.tagInputMode = false
 			m.tagInputValue = ""
+			m.tagInputCursor = 0
 			m.message = "tag 入力をキャンセルしました"
 			return m, nil
 		case "enter":
@@ -1270,17 +1353,23 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.tagInputMode = false
 			m.tagInputValue = ""
+			m.tagInputCursor = 0
 			m.message = fmt.Sprintf("tag %s を追加", value)
 			return m, nil
 		case "backspace":
-			if len(m.tagInputValue) > 0 {
-				runes := []rune(m.tagInputValue)
-				m.tagInputValue = string(runes[:len(runes)-1])
-			}
+			m.tagInputValue, m.tagInputCursor = interactive.DeleteRuneBeforeCursor(m.tagInputValue, m.tagInputCursor)
+			return m, nil
+		case "left":
+			m.tagInputCursor = interactive.MoveTextCursorLeft(m.tagInputValue, m.tagInputCursor)
+			return m, nil
+		case "right":
+			m.tagInputCursor = interactive.MoveTextCursorRight(m.tagInputValue, m.tagInputCursor)
 			return m, nil
 		default:
 			if msg.Type == tea.KeyRunes {
-				m.tagInputValue += msg.String()
+				for _, r := range msg.Runes {
+					m.tagInputValue, m.tagInputCursor = interactive.InsertRuneAtCursor(m.tagInputValue, m.tagInputCursor, r)
+				}
 				return m, nil
 			}
 		}
@@ -1298,11 +1387,12 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.tagMode = false
 		m.tagSelection = nil
 		return m, nil
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.tagMode = false
 		m.tagSelection = nil
 		m.tagInputMode = false
 		m.tagInputValue = ""
+		m.tagInputCursor = 0
 		m.message = "tag 変更をキャンセルしました"
 		return m, nil
 	case "up", "k":
@@ -1341,6 +1431,7 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case m.tagIndex == 1:
 			m.tagInputMode = true
 			m.tagInputValue = ""
+			m.tagInputCursor = 0
 			m.message = "新しい tag を入力"
 			return m, nil
 		}
@@ -1350,10 +1441,11 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.textPromptMode = false
 		m.textPromptTitle = ""
 		m.textPromptValue = ""
+		m.textPromptCursor = 0
 		m.textPromptPurpose = calendarTextPromptNone
 		m.message = "入力をキャンセルしました"
 		return m, nil
@@ -1385,17 +1477,23 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 		m.textPromptMode = false
 		m.textPromptTitle = ""
 		m.textPromptValue = ""
+		m.textPromptCursor = 0
 		m.textPromptPurpose = calendarTextPromptNone
 		return m, nil
 	case "backspace":
-		if len(m.textPromptValue) > 0 {
-			runes := []rune(m.textPromptValue)
-			m.textPromptValue = string(runes[:len(runes)-1])
-		}
+		m.textPromptValue, m.textPromptCursor = interactive.DeleteRuneBeforeCursor(m.textPromptValue, m.textPromptCursor)
+		return m, nil
+	case "left":
+		m.textPromptCursor = interactive.MoveTextCursorLeft(m.textPromptValue, m.textPromptCursor)
+		return m, nil
+	case "right":
+		m.textPromptCursor = interactive.MoveTextCursorRight(m.textPromptValue, m.textPromptCursor)
 		return m, nil
 	default:
 		if msg.Type == tea.KeyRunes {
-			m.textPromptValue += msg.String()
+			for _, r := range msg.Runes {
+				m.textPromptValue, m.textPromptCursor = interactive.InsertRuneAtCursor(m.textPromptValue, m.textPromptCursor, r)
+			}
 			return m, nil
 		}
 	}
@@ -1416,6 +1514,7 @@ func (m *calendarTUIModel) reload() error {
 	m.linkChoices = append([]shelf.LinkType{}, cfg.LinkTypes.Names...)
 	m.blockingLink = cfg.BlockingLinkType()
 	m.copySeparator = cfg.Commands.Cockpit.CopySeparator
+	m.copyPresets = append([]shelf.CopyPreset{}, cfg.Commands.Cockpit.CopyPresets...)
 	m.statuses = deriveActiveStatuses(m.statusChoices, m.filter)
 	filter := m.filter
 	filter.Limit = 0
@@ -1597,6 +1696,37 @@ func (m calendarTUIModel) activeTaskIDs() []string {
 		return nil
 	}
 	return []string{task.ID}
+}
+
+func (m calendarTUIModel) copySubtreeRootIDs() []string {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) <= 1 {
+		return taskIDs
+	}
+	roots := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			continue
+		}
+		include := true
+		parentID := task.Parent
+		for parentID != "" {
+			if slices.Contains(taskIDs, parentID) {
+				include = false
+				break
+			}
+			parent, ok := m.taskByID[parentID]
+			if !ok {
+				break
+			}
+			parentID = parent.Parent
+		}
+		if include {
+			roots = append(roots, taskID)
+		}
+	}
+	return roots
 }
 
 func (m calendarTUIModel) orderedMarkedTaskIDs() []string {
@@ -2712,6 +2842,7 @@ func (m calendarTUIModel) openEditorForSelectedTaskEdges() (tea.Model, tea.Cmd) 
 func (m *calendarTUIModel) beginAddMode(atRoot bool) {
 	m.addMode = true
 	m.addTitle = ""
+	m.addTitleCursor = 0
 	m.addKind = m.defaultKind
 	m.addField = calendarAddFieldTitle
 	m.addAtRoot = atRoot
@@ -2840,14 +2971,7 @@ func (m *calendarTUIModel) applySelectedTaskTags(tags []string) error {
 }
 
 func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
-	taskIDs := m.orderedMarkedTaskIDs()
-	if len(taskIDs) == 0 {
-		task, ok := m.selectedTask()
-		if !ok {
-			return "", 0, fmt.Errorf("選択中の task がありません")
-		}
-		taskIDs = []string{task.ID}
-	}
+	taskIDs := m.activeTaskIDs()
 	titles := make([]string, 0, len(taskIDs))
 	for _, taskID := range taskIDs {
 		task, ok := m.taskByID[taskID]
@@ -2862,20 +2986,103 @@ func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
 	return strings.Join(titles, m.copySeparator), len(titles), nil
 }
 
+func (m calendarTUIModel) selectedPathCopyText() (string, int, error) {
+	taskIDs := m.activeTaskIDs()
+	paths := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		if _, ok := m.taskByID[taskID]; !ok {
+			continue
+		}
+		paths = append(paths, filepath.Join(shelf.TasksDir(m.rootDir), taskID+".md"))
+	}
+	if len(paths) == 0 {
+		return "", 0, fmt.Errorf("コピー対象の path がありません")
+	}
+	return strings.Join(paths, m.copySeparator), len(paths), nil
+}
+
+func (m calendarTUIModel) selectedBodyCopyText() (string, int, error) {
+	taskIDs := m.activeTaskIDs()
+	bodies := make([]string, 0, len(taskIDs))
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok || strings.TrimSpace(task.Body) == "" {
+			continue
+		}
+		bodies = append(bodies, task.Body)
+	}
+	if len(bodies) == 0 {
+		return "", 0, fmt.Errorf("コピー対象の本文がありません")
+	}
+	return strings.Join(bodies, m.copySeparator), len(bodies), nil
+}
+
+func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
+	rootIDs := m.copySubtreeRootIDs()
+	if len(rootIDs) == 0 {
+		return "", 0, fmt.Errorf("選択中の task がありません")
+	}
+	lines := make([]string, 0, len(rootIDs))
+	count := 0
+	for i, rootID := range rootIDs {
+		subtreeText, subtreeCount := m.renderTaskSubtreeText(rootID, shelf.CopySubtreeStyleIndented)
+		if strings.TrimSpace(subtreeText) == "" {
+			continue
+		}
+		if i > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, subtreeText)
+		count += subtreeCount
+	}
+	if count == 0 {
+		return "", 0, fmt.Errorf("コピー対象の subtree がありません")
+	}
+	return strings.Join(lines, "\n"), count, nil
+}
+
+func (m *calendarTUIModel) copyClipboardPayload(text string, count int, singular string, plural string) error {
+	if err := copyTextToClipboard(text); err != nil {
+		return err
+	}
+	if count == 1 {
+		m.message = "Copied " + singular
+		return nil
+	}
+	m.message = fmt.Sprintf("Copied %d %s", count, plural)
+	return nil
+}
+
 func (m *calendarTUIModel) copySelectedTaskTitles() error {
 	text, count, err := m.selectedTitleCopyText()
 	if err != nil {
 		return err
 	}
-	if err := copyTextToClipboard(text); err != nil {
+	return m.copyClipboardPayload(text, count, "title", "titles")
+}
+
+func (m *calendarTUIModel) copySelectedTaskPaths() error {
+	text, count, err := m.selectedPathCopyText()
+	if err != nil {
 		return err
 	}
-	if count == 1 {
-		m.message = "Copied title"
-		return nil
+	return m.copyClipboardPayload(text, count, "path", "paths")
+}
+
+func (m *calendarTUIModel) copySelectedTaskBodies() error {
+	text, count, err := m.selectedBodyCopyText()
+	if err != nil {
+		return err
 	}
-	m.message = fmt.Sprintf("Copied %d titles", count)
-	return nil
+	return m.copyClipboardPayload(text, count, "body", "bodies")
+}
+
+func (m *calendarTUIModel) copySelectedTaskSubtrees() error {
+	text, count, err := m.selectedSubtreeCopyText()
+	if err != nil {
+		return err
+	}
+	return m.copyClipboardPayload(text, count, "subtree", "subtrees")
 }
 
 func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
@@ -2887,6 +3094,7 @@ func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
 	m.linkAction = action
 	m.linkIndex = 0
 	m.linkQuery = ""
+	m.linkQueryCursor = 0
 	m.linkQueryMode = false
 	m.linkTypeIndex = 0
 	m.linkCollapsedTree = map[string]struct{}{}
@@ -2905,12 +3113,13 @@ func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
 func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.linkQueryMode && msg.Type == tea.KeyRunes && string(msg.Runes) == "/" {
 		m.linkQueryMode = true
+		m.linkQueryCursor = len([]rune(m.linkQuery))
 		m.message = "query を入力"
 		return m, nil
 	}
 	if m.linkQueryMode {
 		switch msg.String() {
-		case "esc":
+		case "esc", "ctrl+[":
 			m.linkQueryMode = false
 			m.message = "query 入力を終了"
 			return m, nil
@@ -2919,15 +3128,20 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.message = "query を適用"
 			return m, nil
 		case "backspace":
-			if len(m.linkQuery) > 0 {
-				runes := []rune(m.linkQuery)
-				m.linkQuery = string(runes[:len(runes)-1])
-				m.linkIndex = 0
-			}
+			m.linkQuery, m.linkQueryCursor = interactive.DeleteRuneBeforeCursor(m.linkQuery, m.linkQueryCursor)
+			m.linkIndex = 0
+			return m, nil
+		case "left":
+			m.linkQueryCursor = interactive.MoveTextCursorLeft(m.linkQuery, m.linkQueryCursor)
+			return m, nil
+		case "right":
+			m.linkQueryCursor = interactive.MoveTextCursorRight(m.linkQuery, m.linkQueryCursor)
 			return m, nil
 		default:
 			if msg.Type == tea.KeyRunes {
-				m.linkQuery += msg.String()
+				for _, r := range msg.Runes {
+					m.linkQuery, m.linkQueryCursor = interactive.InsertRuneAtCursor(m.linkQuery, m.linkQueryCursor, r)
+				}
 				m.linkIndex = 0
 				return m, nil
 			}
@@ -2935,9 +3149,10 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.linkMode = false
 		m.linkQuery = ""
+		m.linkQueryCursor = 0
 		m.linkQueryMode = false
 		m.message = "link 操作をキャンセルしました"
 		return m, nil
@@ -2988,6 +3203,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.linkMode = false
 		m.linkQuery = ""
+		m.linkQueryCursor = 0
 		m.linkQueryMode = false
 		return m, nil
 	}
@@ -3888,8 +4104,8 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y: copy title  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
-		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
+		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
+		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
 }
@@ -4632,10 +4848,10 @@ func renderCalendarLinkPicker(action calendarLinkAction, linkType string, query 
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	title := "Add Link"
-	help := "/: query  j/k: move  h/l: collapse-expand  Tab/Shift+Tab: type  Enter: apply  Esc/q: close"
+	help := "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Tab/Shift+Tab: type  Enter: apply  Esc/q: close"
 	if action == calendarLinkActionRemove {
 		title = "Remove Link"
-		help = "/: query  j/k: move  h/l: collapse-expand  Enter: remove  Esc/q: close"
+		help = "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Enter: remove  Esc/q: close"
 	}
 	header := []string{titleStyle.Render(title), helpStyle.Render(help), helpStyle.Render("Selected: " + selectedTask)}
 	if action == calendarLinkActionAdd {
@@ -4789,10 +5005,10 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	header := []string{
 		titleStyle.Render("Tags"),
 		helpStyle.Render("Selected: " + selectedTask),
-		helpStyle.Render("j/k: move  Space: toggle  Enter: Done/Add  Ctrl+S: save  Esc/q: close"),
+		helpStyle.Render("j/k: move  Space: toggle  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"),
 	}
 	if inputMode {
-		header = append(header, helpStyle.Render("Add new tag: "+inputValue+"_"))
+		header = append(header, helpStyle.Render("Add new tag: "+inputValue))
 	}
 	options := []string{"Done", "+ Add new tag"}
 	for _, tag := range tags {
@@ -4821,8 +5037,8 @@ func renderCalendarTextPrompt(title string, value string) string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	lines := []string{
 		titleStyle.Render(title),
-		helpStyle.Render("入力して Enter で確定  Esc/q でキャンセル"),
-		"Value: " + value + "_",
+		helpStyle.Render("入力して Enter で確定  Left/Right で移動  Esc/q でキャンセル"),
+		"Value: " + value,
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
@@ -4835,7 +5051,7 @@ func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatu
 	if atRoot {
 		targetMode = "root"
 	}
-	titleLine := "Title: " + title + "_"
+	titleLine := "Title: " + title
 	kindLine := "Kind: " + string(defaultKind)
 	if field == calendarAddFieldTitle {
 		titleLine = activeStyle.Render("> " + titleLine)
@@ -4849,7 +5065,7 @@ func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatu
 	}
 	header := []string{
 		titleStyle.Render("Add Task"),
-		helpStyle.Render("Tab/Shift+Tab: switch  Enter: create  j/k: kind  Esc: cancel"),
+		helpStyle.Render("Tab/Shift+Tab: switch  Left/Right: cursor  Enter: create  j/k: kind  Esc: cancel"),
 		fmt.Sprintf("due=%s  status=%s  target=%s", date, defaultStatus, targetMode),
 		fmt.Sprintf("parent=%s", trimLine(targetLabel, 42)),
 	}

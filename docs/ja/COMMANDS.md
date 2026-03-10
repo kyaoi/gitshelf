@@ -14,6 +14,7 @@
 - `--show-id`, `-i` で text 出力や selector に ID を表示します
 - `--git-on-exit <none|commit|commit_push>` で Cockpit 終了後の git 動作を上書きできます
 - `--git-message <text>` で `--git-on-exit` が使う commit message を上書きできます
+- task data の保存先は `.shelf/config.toml` の `storage_root` で制御します
 
 ## `shelf`
 
@@ -27,8 +28,8 @@
 作成・維持するもの:
 
 - `.shelf/config.toml`
-- `.shelf/tasks/`
-- `.shelf/edges/`
+- `<storage_root>/tasks/`
+- `<storage_root>/edges/`
 
 フラグ:
 
@@ -70,6 +71,29 @@ TTY 必須。
 - `--not-kind <kind>`（複数可）
 - `--not-status <status>`（複数可）
 - `--not-tag <tag>`（複数可）
+
+## `shelf config`
+
+user-facing config を永続化します。
+
+### `shelf config copy-preset set`
+
+Cockpit の `M` で使う advanced copy preset を追加または更新します。
+
+フラグ:
+
+- `--name <preset-name>`
+- `--scope <task|subtree>`
+- `--subtree-style <indented|tree>` 省略可。`{{subtree}}` の描画方式
+- `--template <text>`
+- `--join-with <text>` 省略時は `commands.cockpit.copy_separator`
+
+使える placeholder:
+
+- `{{title}}`
+- `{{path}}`
+- `{{body}}`
+- `{{subtree}}`
 
 ## launcher 群
 

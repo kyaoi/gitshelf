@@ -34,8 +34,14 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.Commands.Cockpit.CopySeparator != "\n" {
 		t.Fatalf("unexpected cockpit copy separator: %q", cfg.Commands.Cockpit.CopySeparator)
 	}
+	if len(cfg.Commands.Cockpit.CopyPresets) != 0 {
+		t.Fatalf("unexpected default copy presets: %+v", cfg.Commands.Cockpit.CopyPresets)
+	}
 	if cfg.Commands.Cockpit.PostExitGitAction != "none" || cfg.Commands.Cockpit.CommitMessage == "" {
 		t.Fatalf("unexpected cockpit git defaults: %+v", cfg.Commands.Cockpit)
+	}
+	if cfg.StorageRoot != ".shelf" {
+		t.Fatalf("unexpected storage root: %q", cfg.StorageRoot)
 	}
 	if len(cfg.LinkTypes.Names) != 2 || cfg.LinkTypes.Names[0] != "depends_on" || cfg.LinkTypes.Blocking != "depends_on" {
 		t.Fatalf("unexpected default link types: %+v", cfg.LinkTypes)
@@ -45,6 +51,13 @@ func TestDefaultConfigIsValid(t *testing.T) {
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Tags = []string{"backend", "urgent"}
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleTree,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
+	}}
 	data := FormatConfigTOML(cfg)
 
 	parsed, err := ParseConfigTOML(data)
@@ -70,8 +83,17 @@ func TestConfigRoundTrip(t *testing.T) {
 	if parsed.Commands.Cockpit.CopySeparator != cfg.Commands.Cockpit.CopySeparator {
 		t.Fatalf("parsed cockpit defaults mismatch: %+v", parsed)
 	}
+	if len(parsed.Commands.Cockpit.CopyPresets) != 1 {
+		t.Fatalf("parsed copy presets mismatch: %+v", parsed.Commands.Cockpit.CopyPresets)
+	}
+	if parsed.Commands.Cockpit.CopyPresets[0] != cfg.Commands.Cockpit.CopyPresets[0] {
+		t.Fatalf("parsed copy preset mismatch: %+v", parsed.Commands.Cockpit.CopyPresets[0])
+	}
 	if parsed.Commands.Cockpit.PostExitGitAction != cfg.Commands.Cockpit.PostExitGitAction || parsed.Commands.Cockpit.CommitMessage != cfg.Commands.Cockpit.CommitMessage {
 		t.Fatalf("parsed cockpit git settings mismatch: %+v", parsed.Commands.Cockpit)
+	}
+	if parsed.StorageRoot != cfg.StorageRoot {
+		t.Fatalf("parsed storage root mismatch: %q", parsed.StorageRoot)
 	}
 	if parsed.LinkTypes.Blocking != cfg.LinkTypes.Blocking {
 		t.Fatalf("parsed blocking link type mismatch: %+v", parsed.LinkTypes)
@@ -121,6 +143,14 @@ func TestConfigValidationRejectsBlockingLinkTypeOutsideNames(t *testing.T) {
 	}
 }
 
+func TestConfigValidationRejectsEmptyStorageRoot(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StorageRoot = "  "
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "storage_root") {
+		t.Fatalf("expected storage_root validation error, got: %v", err)
+	}
+}
+
 func TestConfigValidationRejectsInvalidCalendarDefaultDays(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Commands.Calendar.DefaultDays = 0
@@ -145,6 +175,75 @@ func TestConfigValidationRejectsInvalidCockpitGitAction(t *testing.T) {
 	}
 }
 
+func TestConfigValidationRejectsDuplicateCopyPresetNames(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{
+		{Name: "subtree-path", Scope: CopyPresetScopeSubtree, Template: "{{path}}\n{{subtree}}"},
+		{Name: "subtree-path", Scope: CopyPresetScopeTask, Template: "{{title}}"},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "duplicate name") {
+		t.Fatalf("expected duplicate copy preset error, got: %v", err)
+	}
+}
+
+func TestConfigValidationRejectsUnsupportedCopyTemplatePlaceholder(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{
+		Name:     "bad",
+		Scope:    CopyPresetScopeTask,
+		Template: "{{unknown}}",
+	}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unsupported copy template placeholder") {
+		t.Fatalf("expected invalid placeholder error, got: %v", err)
+	}
+}
+
+func TestConfigUpsertCopyPreset(t *testing.T) {
+	cfg := DefaultConfig()
+	updated, err := cfg.UpsertCopyPreset(CopyPreset{
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleIndented,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
+	})
+	if err != nil {
+		t.Fatalf("upsert failed: %v", err)
+	}
+	if updated {
+		t.Fatal("expected first upsert to append")
+	}
+	updated, err = cfg.UpsertCopyPreset(CopyPreset{
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleTree,
+		Template:     "{{subtree}}\n{{path}}",
+		JoinWith:     "\n\n",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if !updated {
+		t.Fatal("expected second upsert to update")
+	}
+	if len(cfg.Commands.Cockpit.CopyPresets) != 1 || cfg.Commands.Cockpit.CopyPresets[0].Template != "{{subtree}}\n{{path}}" || cfg.Commands.Cockpit.CopyPresets[0].SubtreeStyle != CopySubtreeStyleTree {
+		t.Fatalf("unexpected copy presets: %+v", cfg.Commands.Cockpit.CopyPresets)
+	}
+}
+
+func TestConfigValidationRejectsInvalidCopyPresetSubtreeStyle(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{
+		Name:         "bad-style",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: "diagonal",
+		Template:     "{{subtree}}",
+	}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "subtree style") {
+		t.Fatalf("expected invalid subtree style error, got: %v", err)
+	}
+}
+
 func TestConfigAppendMissingTags(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Tags = []string{"backend"}
@@ -157,5 +256,12 @@ func TestConfigAppendMissingTags(t *testing.T) {
 	}
 	if cfg.AppendMissingTags([]string{"backend"}) {
 		t.Fatal("expected no change for existing tags")
+	}
+}
+
+func TestResolveStorageRootDirRejectsPathOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	if _, err := ResolveStorageRootDir(root, "../outside"); err == nil {
+		t.Fatal("expected error")
 	}
 }
