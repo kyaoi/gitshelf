@@ -14,6 +14,7 @@ Hook policy:
 
 - `pre-commit`: fast local guardrails only
 - `pre-push`: the same heavy suite used before merge
+- `pre-commit` also checks that public docs do not drift back to removed CLI schema terms
 
 ## Required checks
 
@@ -24,6 +25,7 @@ Run all of these before merging:
 - `bash scripts/check_coverage_ratchet.sh`
 - `go test -race ./...`
 - `go vet ./...`
+- `bash scripts/check_public_contract_docs.sh`
 
 You can run the same heavy suite locally with:
 

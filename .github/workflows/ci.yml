@@ -38,6 +38,16 @@ jobs:
             exit 1
           fi
 
+  docs-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check public contract docs
+        run: bash scripts/check_public_contract_docs.sh
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
