@@ -86,13 +86,23 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newLinksCommand(ctx *commandContext) *cobra.Command {
-	var asJSON bool
+	var (
+		asJSON bool
+		format string
+		fields string
+	)
 	cmd := &cobra.Command{
 		Use:     "links <task-id>",
 		Short:   "Show outbound and inbound links for a task",
 		Args:    cobra.ExactArgs(1),
-		Example: "  shelf links 01AAA\n  shelf links 01AAA --json",
+		Example: "  shelf links 01AAA\n  shelf links 01AAA --json\n  shelf links 01AAA --format tsv --fields direction,type,other_path",
 		RunE: func(_ *cobra.Command, args []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" {
+				return fmt.Errorf("--fields requires --format tsv")
+			}
 			taskID := strings.TrimSpace(args[0])
 			outbound, inbound, err := shelf.ListLinks(ctx.rootDir, taskID)
 			if err != nil {
@@ -142,12 +152,31 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLinksTSVFields(), allowedLinksTSVFields())
+				if err != nil {
+					return err
+				}
+				taskRef := buildLinkTaskRef(ctx.rootDir, taskID, byID)
+				for _, edge := range outbound {
+					other := buildLinkTaskRef(ctx.rootDir, edge.To, byID)
+					fmt.Println(joinTSVFields(selectedFields, buildLinksTSVRow("outbound", string(edge.Type), taskRef, other)))
+				}
+				for _, edge := range inbound {
+					other := buildLinkTaskRef(ctx.rootDir, edge.From, byID)
+					fmt.Println(joinTSVFields(selectedFields, buildLinksTSVRow("inbound", string(edge.Type), taskRef, other)))
+				}
+				return nil
+			}
+
 			printLinkSection("Outbound", taskID, outbound, byID, ctx.showID)
 			printInboundLinkSection("Inbound", taskID, inbound, byID, ctx.showID)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	return cmd
 }
 
@@ -211,4 +240,30 @@ func buildLinkTaskRef(rootDir, taskID string, byID map[string]shelf.Task) linkTa
 		ref.Path = buildTaskPath(task, byID)
 	}
 	return ref
+}
+
+func buildLinksTSVRow(direction string, linkType string, task linkTaskRef, other linkTaskRef) map[string]string {
+	return map[string]string{
+		"direction":   direction,
+		"type":        linkType,
+		"task_id":     task.ID,
+		"task_title":  task.Title,
+		"task_path":   task.Path,
+		"task_file":   task.File,
+		"other_id":    other.ID,
+		"other_title": other.Title,
+		"other_path":  other.Path,
+		"other_file":  other.File,
+	}
+}
+
+func defaultLinksTSVFields() []string {
+	return []string{"direction", "type", "task_id", "task_path", "other_id", "other_path", "other_file"}
+}
+
+func allowedLinksTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"direction": {}, "type": {}, "task_id": {}, "task_title": {}, "task_path": {}, "task_file": {},
+		"other_id": {}, "other_title": {}, "other_path": {}, "other_file": {},
+	}
 }

@@ -10,14 +10,24 @@ import (
 )
 
 func newShowCommand(ctx *commandContext) *cobra.Command {
-	var asJSON bool
+	var (
+		asJSON bool
+		format string
+		fields string
+	)
 
 	cmd := &cobra.Command{
 		Use:     "show <task-id>",
 		Short:   "Show one task with inspector-style details",
 		Args:    cobra.ExactArgs(1),
-		Example: "  shelf show 01AAA\n  shelf show 01AAA --json",
+		Example: "  shelf show 01AAA\n  shelf show 01AAA --json\n  shelf show 01AAA --format tsv --fields id,title,file",
 		RunE: func(_ *cobra.Command, args []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" {
+				return fmt.Errorf("--fields requires --format tsv")
+			}
 			taskID := strings.TrimSpace(args[0])
 			store := shelf.NewTaskStore(ctx.rootDir)
 			task, err := store.Get(taskID)
@@ -46,11 +56,41 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(), allowedShowTSVFields())
+				if err != nil {
+					return err
+				}
+				row := map[string]string{
+					"id":             task.ID,
+					"title":          task.Title,
+					"path":           buildTaskPath(task, byID),
+					"kind":           string(task.Kind),
+					"status":         string(task.Status),
+					"tags":           strings.Join(task.Tags, ","),
+					"due_on":         task.DueOn,
+					"repeat_every":   task.RepeatEvery,
+					"archived_at":    task.ArchivedAt,
+					"parent":         task.Parent,
+					"parent_path":    buildShowParentPath(task, byID),
+					"file":           taskFilePath(ctx.rootDir, task.ID),
+					"created_at":     task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+					"updated_at":     task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+					"body":           task.Body,
+					"outbound_count": fmt.Sprintf("%d", len(outbound)),
+					"inbound_count":  fmt.Sprintf("%d", len(inbound)),
+				}
+				fmt.Println(joinTSVFields(selectedFields, row))
+				return nil
+			}
+
 			printTaskDetails(task, byID, outbound, inbound, ctx.showID)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	return cmd
 }
 
@@ -166,4 +206,27 @@ func blankAsDash(value string) string {
 		return "-"
 	}
 	return value
+}
+
+func buildShowParentPath(task shelf.Task, byID map[string]shelf.Task) string {
+	if task.Parent == "" {
+		return ""
+	}
+	parent, ok := byID[task.Parent]
+	if !ok {
+		return ""
+	}
+	return buildTaskPath(parent, byID)
+}
+
+func defaultShowTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file", "body"}
+}
+
+func allowedShowTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "tags": {}, "due_on": {},
+		"repeat_every": {}, "archived_at": {}, "parent": {}, "parent_path": {}, "file": {},
+		"created_at": {}, "updated_at": {}, "body": {}, "outbound_count": {}, "inbound_count": {},
+	}
 }

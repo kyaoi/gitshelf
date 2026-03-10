@@ -133,6 +133,33 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	}
 }
 
+func TestCLIShowTSVFieldsIncludeBodyAndFile(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title: "Task",
+		Body:  "first line\nsecond line",
+		Tags:  []string{"focus"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "tsv", "--fields", "id,title,body,file,tags")
+	if err != nil {
+		t.Fatalf("show --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 5 {
+		t.Fatalf("expected 5 columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Task" || fields[2] != "first line second line" || fields[3] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || fields[4] != "focus" {
+		t.Fatalf("unexpected show tsv fields: %#v", fields)
+	}
+}
+
 func TestCLILauncherHelpMatchesCockpitOnlySurface(t *testing.T) {
 	for _, args := range [][]string{
 		{"calendar", "--help"},
@@ -275,6 +302,46 @@ func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
 	}
 	if first["path"] != "root > To" || first["file"] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
 		t.Fatalf("unexpected outbound item: %#v", first)
+	}
+}
+
+func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("add outbound link failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, from.ID, "related"); err != nil {
+		t.Fatalf("add inbound link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "direction,type,other_id,other_path")
+	if err != nil {
+		t.Fatalf("links --format tsv failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 tsv rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != strings.Join([]string{"outbound", "depends_on", to.ID, "root > To"}, "\t") {
+		t.Fatalf("unexpected outbound row: %q", lines[0])
+	}
+	if lines[1] != strings.Join([]string{"inbound", "related", peer.ID, "root > Peer"}, "\t") {
+		t.Fatalf("unexpected inbound row: %q", lines[1])
 	}
 }
 
