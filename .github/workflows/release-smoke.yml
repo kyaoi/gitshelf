@@ -1,0 +1,77 @@
+name: release-smoke
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "module version to smoke test (for example v1.3.0 or latest)"
+        required: true
+        default: latest
+
+concurrency:
+  group: release-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve target version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "value=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Smoke test go install
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          export GOBIN="${RUNNER_TEMP}/go-bin"
+          mkdir -p "${GOBIN}"
+          export PATH="${GOBIN}:${PATH}"
+
+          go install "github.com/kyaoi/gitshelf/cmd/shelf@${TARGET_VERSION}"
+          installed_version="$(shelf --version)"
+          echo "go install reported version: ${installed_version}"
+
+          if [[ "${TARGET_VERSION}" == "latest" ]]; then
+            [[ "${installed_version}" != "dev" ]]
+          else
+            [[ "${installed_version}" == "${TARGET_VERSION}" ]]
+          fi
+
+      - name: Install mise
+        shell: bash
+        run: |
+          curl https://mise.run | sh
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+          echo "${HOME}/.local/share/mise/shims" >> "${GITHUB_PATH}"
+
+      - name: Smoke test mise latest install
+        shell: bash
+        run: |
+          mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest
+          installed_version="$(shelf --version)"
+          echo "mise latest reported version: ${installed_version}"
+          [[ "${installed_version}" != "dev" ]]

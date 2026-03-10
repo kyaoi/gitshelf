@@ -78,3 +78,6 @@ For a tagged release such as `v1.3`:
 2. `shelf --version` prints `v1.3`
 3. `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
 4. `shelf --version` prints the latest tag, not `dev`
+
+GitHub Actions also runs [`release-smoke.yml`](../.github/workflows/release-smoke.yml)
+for tag pushes and manual release smoke checks.
