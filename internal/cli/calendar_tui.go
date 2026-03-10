@@ -3844,6 +3844,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 	lines := []string{
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
+		mutedStyle.Render(calendarModeHelpSummary(mode)),
 		"Tab: pane (non-calendar only)  C/T/B/R/N: mode  ?: close",
 		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: Selected Day task switch",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
@@ -3853,6 +3854,23 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
+}
+
+func calendarModeHelpSummary(mode calendarMode) string {
+	switch mode {
+	case calendarModeCalendar:
+		return "calendar: t today  h/l day  j/k week  [/] month  a child  A root"
+	case calendarModeTree:
+		return "tree: h/l collapse-expand  j/k rows  m move  v/V mark range"
+	case calendarModeBoard:
+		return "board: h/l columns  j/k rows  a child  A root  v/V mark range"
+	case calendarModeReview:
+		return "review: inbox / overdue / blocked / ready  j/k rows  h/l tabs"
+	case calendarModeNow:
+		return "now: today-focused worklist  j/k rows  n/p Selected Day sync"
+	default:
+		return "Cockpit: mode-specific task workspace"
+	}
 }
 
 func renderCalendarLegend() string {
