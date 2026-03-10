@@ -4024,12 +4024,12 @@ func renderCalendarMiniSidebar(m calendarTUIModel, width int, height int, active
 	contentHeight = max(1, contentHeight)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	metaStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	lines := []string{
+	header := []string{
 		titleStyle.Render("Calendar"),
 		metaStyle.Render("selection synced"),
-		renderCalendarMonth(month, m.focusedDayLabel(), max(28, contentWidth), true, 2),
 	}
-	return boxStyle.Render(renderFixedBlock(lines, contentWidth, contentHeight, -1))
+	body := strings.Split(renderCalendarMonth(month, m.focusedDayLabel(), max(28, contentWidth), true, 2), "\n")
+	return boxStyle.Render(renderFixedBlockWithHeader(header, body, contentWidth, contentHeight, -1))
 }
 
 func renderSelectedDayPane(m calendarTUIModel, width int, height int) string {

@@ -1947,6 +1947,9 @@ func TestReviewViewUsesSidebarCalendar(t *testing.T) {
 	if !strings.Contains(rendered, "Calendar") {
 		t.Fatalf("non-calendar mode should render sidebar calendar: %q", rendered)
 	}
+	if !strings.Contains(rendered, "Sun") {
+		t.Fatalf("non-calendar sidebar calendar should render the month grid: %q", rendered)
+	}
 	if !strings.Contains(rendered, "selection synced") {
 		t.Fatalf("sidebar calendar should show synced hint: %q", rendered)
 	}
