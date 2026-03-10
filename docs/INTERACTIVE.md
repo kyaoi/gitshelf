@@ -2,6 +2,8 @@
 
 Current interactive behavior for the Cockpit-first `shelf` tool.
 
+This is the single detailed keybinding reference for Cockpit.
+
 ## Main Rule
 
 Interactive daily work happens inside `Cockpit`.
@@ -30,7 +32,7 @@ All of those open the same TUI workspace with different starting modes.
 - `?`: toggle help overlay
 - `q`: close help first, otherwise quit
 - `Esc`: quit or leave transient state
-- `Ctrl+[` : return to normal state from transient overlays
+- `Ctrl+[` : leave popup or input mode and return to normal state
 
 Transient pickers and composers are shown as centered popups.
 Scrollable lists keep a fixed box height; overflow is handled by scrolling instead of resizing the layout.

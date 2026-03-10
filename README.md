@@ -11,10 +11,10 @@
 ## Documentation
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-- Command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
 - Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 - Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
+- Default config example: [`docs/default_config.toml`](docs/default_config.toml)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
 
 ## Install
@@ -132,6 +132,8 @@ Most daily editing still happens inside Cockpit, but link management is also ava
 - non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
 - the sidebar and main pane synchronize selection in both directions
 - direct scripting is mainly `ls`, `next`, `link`, `unlink`, and `links`
+
+Detailed keybindings live in [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md).
 
 Recommended starting point:
 

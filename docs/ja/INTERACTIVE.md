@@ -2,6 +2,8 @@
 
 現在の `shelf` は Cockpit-first です。日常的な interactive 操作は基本的に Cockpit 内で行います。
 
+詳細な keybind はこのファイルに集約します。
+
 ## 主入口
 
 通常は次のどれかから入ります。
@@ -28,7 +30,7 @@
 - `?`: help overlay 切り替え
 - `q`: help を閉じる、または終了
 - `Esc`: 終了または一時状態から離脱
-- `Ctrl+[` : transient overlay から normal に戻る
+- `Ctrl+[` : popup や入力 mode を抜けて normal に戻る
 
 transient picker / composer は中央 popup で表示します。
 件数の多い一覧は box の高さを変えず、内部スクロールで閲覧します。

@@ -11,10 +11,10 @@
 ## ドキュメント
 
 * CLI 仕様: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-* コマンドガイド: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
 * ワークフローガイド: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 * 対話動作: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 * 保存形式: [`docs/STORAGE.md`](docs/STORAGE.md)
+* default config 例: [`docs/default_config.toml`](docs/default_config.toml)
 * 日本語ユーザードキュメント: [`docs/ja/README.md`](docs/ja/README.md)
 
 ## Install
@@ -131,6 +131,8 @@ shelf next
 * non-calendar mode の右ペインは `Calendar / Selected Day / Inspector`
 * main pane と sidebar は双方向に選択同期する
 * script から直接使うのは主に `ls`, `next`, `link`, `unlink`, `links`
+
+詳細な keybind は [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md) に集約しています。
 
 推奨される開始地点:
 

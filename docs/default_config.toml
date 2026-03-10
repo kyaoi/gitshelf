@@ -1,20 +1,35 @@
 # gitshelf config
+
+# Available task kinds shown across Cockpit and read-only commands.
 kinds = ["todo", "idea", "memo", "inbox"]
+
+# Available workflow statuses.
 statuses = ["open", "in_progress", "blocked", "done", "cancelled"]
+
+# Defaults used when a new task is created from Cockpit.
 default_kind = "todo"
 default_status = "open"
 
 [link_types]
+# All allowed link type names.
 names = ["depends_on", "related"]
+
+# The blocking relation used for readiness checks and ancestor restrictions.
 blocking = "depends_on"
 
 [commands.calendar]
+# Default range used when Cockpit starts in calendar mode.
 default_range_unit = "days"
 default_days = 7
 default_months = 6
 default_years = 2
 
 [commands.cockpit]
+# Separator used when copying one or more selected titles.
 copy_separator = "\n"
+
+# Optional git action when leaving Cockpit.
 post_exit_git_action = "none"
+
+# Commit message used when post_exit_git_action performs a commit.
 commit_message = "chore: update shelf data"

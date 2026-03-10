@@ -9,6 +9,9 @@ Use this as the default mental model:
 - start with `shelf`
 - stay inside `Cockpit`
 - use `ls` or `next` only when you need a direct textual answer or JSON
+- use `link` / `unlink` / `links` only when you need direct scripting for relations
+
+Detailed keybindings live only in [`INTERACTIVE.md`](INTERACTIVE.md).
 
 ## Main Entry Points
 
@@ -35,62 +38,29 @@ Use this as the default mental model:
 shelf
 ```
 
-### 2. Move between modes
+### 2. Plan and inspect in Cockpit
 
-Inside Cockpit:
+- start in `calendar` for date-first planning
+- switch to `tree` when you need hierarchy or moves
+- use `board` for status-oriented work
+- use `review` for inbox / overdue / blocked / ready scanning
+- use `now` for today-focused execution
 
-- `C`: calendar
-- `T`: tree
-- `B`: board
-- `R`: review
-- `N`: now
-- `Ctrl+H` / `Ctrl+L`: previous / next mode
+In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchronized with the main selection.
 
-### 3. Use calendar as the default planning view
+### 3. Edit inside the TUI
 
-Useful keys:
+- create tasks from the current context
+- change status, kind, tags, due dates, and links in place
+- use centered popups for add, link, tag, filter, and other transient editors
 
-- `t`: jump to today
-- `h/l`: previous/next day
-- `j/k`: previous/next week
-- `[` / `]`: previous/next month
-- `n/p`: cycle tasks on the selected day
-- `a`: create as a child of the selected task, or at root when nothing is selected
-- `A`: create at root
-
-In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchronized with the main selection, and sidebar navigation can move the main selection back.
-
-### 4. Change task state in place
-
-Useful keys:
-
-- `o`: open
-- `i`: in progress
-- `b`: blocked
-- `d`: done
-- `c`: cancelled
-- `x`: archive toggle
-- `z`: snooze
-
-### 5. Reorganize structure in tree mode
-
-Useful keys:
-
-- `h/l`: collapse / expand
-- `m`: move selected task or marked tasks
-- `v`: toggle mark for the current task
-- `V`: start or stop range marking
-- `u`: clear all marks
-
-### 6. Use ls / next only for direct answers
-
-Examples:
+### 4. Use direct commands only for scripting or quick answers
 
 ```bash
 shelf ls --status open --json
-shelf ls --kind todo --not-status done --not-status cancelled
-shelf next
 shelf next --json
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 ```
 
 ## When to Use Which Mode
