@@ -75,3 +75,31 @@ func TestInitializeRejectsPathInsideShelf(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestInitializeCreatesConfiguredStorageDirs(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("first initialize failed: %v", err)
+	}
+
+	cfg, err := LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	cfg.StorageRoot = "."
+	if err := SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("second initialize failed: %v", err)
+	}
+	for _, p := range []string{
+		filepath.Join(root, "tasks"),
+		filepath.Join(root, "edges"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("path does not exist: %s (%v)", p, err)
+		}
+	}
+}

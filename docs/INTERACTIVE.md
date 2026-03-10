@@ -31,7 +31,7 @@ All of those open the same TUI workspace with different starting modes.
 - `Tab` / `Shift+Tab`: move focus between panes in non-calendar modes
 - `?`: toggle help overlay
 - `q`: close help first, otherwise quit
-- `Esc`: quit or leave transient state
+- `Esc`: leave transient state, or close help if it is open
 - `Ctrl+[` : leave popup or input mode and return to normal state
 
 Transient pickers and composers are shown as centered popups.
@@ -90,6 +90,10 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `K`: edit kind on the selected task
 - `#`: edit tags for the selected task
 - `y`: copy the selected title, or marked titles joined by the configured separator
+- `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
+- `P`: copy the selected task file path, or marked file paths, as absolute paths
+- `O`: copy the selected task body, or marked task bodies
+- `M`: open advanced copy presets with preview and save-command help
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`
@@ -102,6 +106,17 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `U`: remove one outbound link from the selected task
 - `Enter`: toggle compact / detailed inspector
 - `r`: reload
+
+Inside advanced copy (`M`):
+
+- `j` / `k`: choose `Custom` or one saved preset
+- `Tab` / `Shift+Tab`: move focus between preset list and custom fields
+- custom `template` / `join_with` fields use escaped text such as `\n`
+- `subtree style` switches `{{subtree}}` between plain indentation and ASCII tree rendering
+- `Enter`: copy the currently previewed payload
+- `Ctrl+S`: save the current preset into `.shelf/config.toml`
+- the generated `shelf config copy-preset set ...` command is shown in the popup footer
+- `Esc` / `q`: close the popup
 
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.
@@ -117,6 +132,7 @@ IDs are hidden there unless `--show-id` is enabled.
 - board keeps using the selected column status as the status default
 - the add composer now includes a title field and kind field
 - `Tab` / `Shift+Tab` cycle between title and kind
+- `Left` / `Right` move the cursor inside the title field
 - `j` / `k` cycle kinds while the kind field is active
 - `Enter` confirms creation
 - `Esc` / `Ctrl+[` cancel add mode
@@ -134,7 +150,7 @@ IDs are hidden there unless `--show-id` is enabled.
 - `Enter` on `Done`: save and close
 - `Enter` on `+ Add new tag`: enter text input mode
 - `Ctrl+S`: save and close from anywhere in tag editing
-- while typing a new tag, movement keys are treated as text input
+- while typing a new tag, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
 
 ## Non-Calendar Sidebar
 
@@ -160,6 +176,6 @@ Long task selectors scroll automatically.
 - tree-style labels are used where hierarchy matters
 - `(root)` appears as an explicit move target where relevant
 - `q` and `Esc` cancel plain selectors
-- Link uses `/` to enter query input mode; while typing, movement keys are treated as text
+- Link uses `/` to enter query input mode; while typing, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
 - `Selected Day` replaces the old focused-day panel name and stays synced with the main selection
 - `Selected Day` also syncs when the sidebar calendar changes the selected date

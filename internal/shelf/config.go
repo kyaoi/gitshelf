@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -14,6 +15,7 @@ type Config struct {
 	Kinds         []Kind
 	Statuses      []Status
 	Tags          []string
+	StorageRoot   string
 	LinkTypes     LinkTypesConfig
 	DefaultKind   Kind
 	DefaultStatus Status
@@ -39,6 +41,7 @@ type CalendarCommandConfig struct {
 
 type CockpitCommandConfig struct {
 	CopySeparator     string
+	CopyPresets       []CopyPreset
 	PostExitGitAction string
 	CommitMessage     string
 }
@@ -47,6 +50,7 @@ type configFile struct {
 	Kinds         []string       `toml:"kinds"`
 	Statuses      []string       `toml:"statuses"`
 	Tags          []string       `toml:"tags"`
+	StorageRoot   string         `toml:"storage_root"`
 	LinkTypes     toml.Primitive `toml:"link_types"`
 	DefaultKind   string         `toml:"default_kind"`
 	DefaultStatus string         `toml:"default_status"`
@@ -71,16 +75,26 @@ type configCalendarCommand struct {
 }
 
 type configCockpitCommand struct {
-	CopySeparator     string `toml:"copy_separator"`
-	PostExitGitAction string `toml:"post_exit_git_action"`
-	CommitMessage     string `toml:"commit_message"`
+	CopySeparator     string             `toml:"copy_separator"`
+	CopyPresets       []configCopyPreset `toml:"copy_presets"`
+	PostExitGitAction string             `toml:"post_exit_git_action"`
+	CommitMessage     string             `toml:"commit_message"`
+}
+
+type configCopyPreset struct {
+	Name         string `toml:"name"`
+	Scope        string `toml:"scope"`
+	SubtreeStyle string `toml:"subtree_style"`
+	Template     string `toml:"template"`
+	JoinWith     string `toml:"join_with"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:    []Kind{"todo", "idea", "memo", "inbox"},
-		Statuses: []Status{"open", "in_progress", "blocked", "done", "cancelled"},
-		Tags:     []string{},
+		Kinds:       []Kind{"todo", "idea", "memo", "inbox"},
+		Statuses:    []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:        []string{},
+		StorageRoot: ".shelf",
 		LinkTypes: LinkTypesConfig{
 			Names:    []LinkType{"depends_on", "related"},
 			Blocking: "depends_on",
@@ -96,6 +110,7 @@ func DefaultConfig() Config {
 			},
 			Cockpit: CockpitCommandConfig{
 				CopySeparator:     "\n",
+				CopyPresets:       nil,
 				PostExitGitAction: "none",
 				CommitMessage:     "chore: update shelf data",
 			},
@@ -113,11 +128,17 @@ func LoadConfig(rootDir string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
+	if _, err := ResolveStorageRootDir(rootDir, cfg.StorageRoot); err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
 	return cfg, nil
 }
 
 func SaveConfig(rootDir string, cfg Config) error {
 	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if _, err := ResolveStorageRootDir(rootDir, cfg.StorageRoot); err != nil {
 		return err
 	}
 	path := ConfigPath(rootDir)
@@ -136,6 +157,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		Kinds:         make([]Kind, len(f.Kinds)),
 		Statuses:      make([]Status, len(f.Statuses)),
 		Tags:          make([]string, len(f.Tags)),
+		StorageRoot:   strings.TrimSpace(f.StorageRoot),
 		LinkTypes:     defaults.LinkTypes,
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(strings.TrimSpace(f.DefaultStatus)),
@@ -148,6 +170,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 			},
 			Cockpit: CockpitCommandConfig{
 				CopySeparator:     f.Commands.Cockpit.CopySeparator,
+				CopyPresets:       make([]CopyPreset, len(f.Commands.Cockpit.CopyPresets)),
 				PostExitGitAction: strings.TrimSpace(f.Commands.Cockpit.PostExitGitAction),
 				CommitMessage:     strings.TrimSpace(f.Commands.Cockpit.CommitMessage),
 			},
@@ -173,6 +196,18 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	if cfg.Commands.Cockpit.CommitMessage == "" {
 		cfg.Commands.Cockpit.CommitMessage = defaults.Commands.Cockpit.CommitMessage
+	}
+	for i, preset := range f.Commands.Cockpit.CopyPresets {
+		cfg.Commands.Cockpit.CopyPresets[i] = CopyPreset{
+			Name:         strings.TrimSpace(preset.Name),
+			Scope:        CopyPresetScope(strings.TrimSpace(preset.Scope)),
+			SubtreeStyle: CopySubtreeStyle(strings.TrimSpace(preset.SubtreeStyle)),
+			Template:     preset.Template,
+			JoinWith:     preset.JoinWith,
+		}
+	}
+	if cfg.StorageRoot == "" {
+		cfg.StorageRoot = defaults.StorageRoot
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -262,6 +297,7 @@ func FormatConfigTOML(cfg Config) []byte {
 		buf.WriteString(fmt.Sprintf("%q", tag))
 	}
 	buf.WriteString("]\n")
+	buf.WriteString(fmt.Sprintf("storage_root = %q\n", cfg.StorageRoot))
 	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
 	buf.WriteString(fmt.Sprintf("default_status = %q\n\n", cfg.DefaultStatus))
 
@@ -284,6 +320,16 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString(fmt.Sprintf("copy_separator = %q\n", cfg.Commands.Cockpit.CopySeparator))
 	buf.WriteString(fmt.Sprintf("post_exit_git_action = %q\n", cfg.Commands.Cockpit.PostExitGitAction))
 	buf.WriteString(fmt.Sprintf("commit_message = %q\n", cfg.Commands.Cockpit.CommitMessage))
+	for _, preset := range cfg.Commands.Cockpit.CopyPresets {
+		buf.WriteString("\n[[commands.cockpit.copy_presets]]\n")
+		buf.WriteString(fmt.Sprintf("name = %q\n", preset.Name))
+		buf.WriteString(fmt.Sprintf("scope = %q\n", preset.Scope))
+		buf.WriteString(fmt.Sprintf("subtree_style = %q\n", preset.EffectiveSubtreeStyle()))
+		buf.WriteString(fmt.Sprintf("template = %q\n", preset.Template))
+		if preset.JoinWith != "" {
+			buf.WriteString(fmt.Sprintf("join_with = %q\n", preset.JoinWith))
+		}
+	}
 
 	return buf.Bytes()
 }
@@ -297,6 +343,9 @@ func (c Config) Validate() error {
 	}
 	if len(c.LinkTypes.Names) == 0 {
 		return fmt.Errorf("config link_types is empty")
+	}
+	if strings.TrimSpace(c.StorageRoot) == "" {
+		return fmt.Errorf("storage_root must not be empty")
 	}
 	if err := validateUniqueKinds(c.Kinds); err != nil {
 		return err
@@ -338,7 +387,47 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.Commands.Cockpit.CommitMessage) == "" {
 		return fmt.Errorf("commands.cockpit.commit_message must not be empty")
 	}
+	if err := validateCopyPresets(c.Commands.Cockpit.CopyPresets); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateCopyPresets(presets []CopyPreset) error {
+	names := make(map[string]struct{}, len(presets))
+	for _, preset := range presets {
+		if err := ValidateCopyPreset(preset); err != nil {
+			return err
+		}
+		if _, exists := names[preset.Name]; exists {
+			return fmt.Errorf("commands.cockpit.copy_presets contains duplicate name: %s", preset.Name)
+		}
+		names[preset.Name] = struct{}{}
+	}
+	return nil
+}
+
+func ResolveStorageRootDir(rootDir string, storageRoot string) (string, error) {
+	rootDir = filepath.Clean(rootDir)
+	if strings.TrimSpace(rootDir) == "" {
+		return "", fmt.Errorf("rootDir is required")
+	}
+	if strings.TrimSpace(storageRoot) == "" {
+		storageRoot = DefaultConfig().StorageRoot
+	}
+	resolved := storageRoot
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(rootDir, resolved)
+	}
+	resolved = filepath.Clean(resolved)
+	rel, err := filepath.Rel(rootDir, resolved)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve storage_root: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("storage_root must stay inside the shelf root: %s", storageRoot)
+	}
+	return resolved, nil
 }
 
 func (c Config) ValidateKind(kind Kind) error {

@@ -14,6 +14,7 @@ Current public CLI surface for `shelf`.
 - `--show-id`, `-i` enables task IDs in text output and task selectors
 - `--git-on-exit <none|commit|commit_push>` overrides the post-Cockpit git action
 - `--git-message <text>` overrides the commit message used by `--git-on-exit`
+- task data location is controlled by `storage_root` in `.shelf/config.toml`
 
 ## shelf
 
@@ -27,8 +28,8 @@ Initialize or refresh the current shelf.
 Creates and keeps only:
 
 - `.shelf/config.toml`
-- `.shelf/tasks/`
-- `.shelf/edges/`
+- `<storage_root>/tasks/`
+- `<storage_root>/edges/`
 
 Flags:
 
@@ -70,6 +71,29 @@ Flags:
 - `--not-kind <kind>` (repeatable)
 - `--not-status <status>` (repeatable)
 - `--not-tag <tag>` (repeatable)
+
+## shelf config
+
+Persist user-facing config values.
+
+### shelf config copy-preset set
+
+Create or update one saved advanced copy preset used by Cockpit `M`.
+
+Flags:
+
+- `--name <preset-name>`
+- `--scope <task|subtree>`
+- `--subtree-style <indented|tree>` optional, controls `{{subtree}}` rendering
+- `--template <text>`
+- `--join-with <text>` optional, defaults to `commands.cockpit.copy_separator`
+
+Supported template placeholders:
+
+- `{{title}}`
+- `{{path}}`
+- `{{body}}`
+- `{{subtree}}`
 
 ## Launcher Commands
 

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -688,6 +689,81 @@ func TestSelectedTitleCopyTextUsesMarkedOrderAndSeparator(t *testing.T) {
 	}
 }
 
+func TestSelectedPathCopyTextUsesMarkedAbsolutePaths(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	model := calendarTUIModel{
+		rootDir:       root,
+		copySeparator: "\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First"},
+		},
+		markedTaskIDs: map[string]struct{}{"01A": {}},
+	}
+	text, count, err := model.selectedPathCopyText()
+	if err != nil {
+		t.Fatalf("selectedPathCopyText failed: %v", err)
+	}
+	want := filepath.Join(shelf.TasksDir(root), "01A.md")
+	if count != 1 || text != want {
+		t.Fatalf("unexpected path payload: count=%d text=%q want=%q", count, text, want)
+	}
+}
+
+func TestSelectedBodyCopyTextUsesMarkedOrderAndSeparator(t *testing.T) {
+	model := calendarTUIModel{
+		mode:          calendarModeTree,
+		copySeparator: "\n---\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First", Body: "alpha"},
+			"01B": {ID: "01B", Title: "Second", Body: "beta"},
+		},
+		treeRows: []cockpitTreeRow{
+			{Task: shelf.Task{ID: "01A", Title: "First"}},
+			{Task: shelf.Task{ID: "01B", Title: "Second"}},
+		},
+		markedTaskIDs: map[string]struct{}{
+			"01A": {},
+			"01B": {},
+		},
+	}
+	text, count, err := model.selectedBodyCopyText()
+	if err != nil {
+		t.Fatalf("selectedBodyCopyText failed: %v", err)
+	}
+	if count != 2 || text != "alpha\n---\nbeta" {
+		t.Fatalf("unexpected body payload: count=%d text=%q", count, text)
+	}
+}
+
+func TestSelectedSubtreeCopyTextUsesIndentedTreeAndDedupesMarkedDescendants(t *testing.T) {
+	parent := shelf.Task{ID: "01A", Title: "Parent"}
+	child := shelf.Task{ID: "01B", Title: "Child", Parent: "01A"}
+	grandchild := shelf.Task{ID: "01C", Title: "Grandchild", Parent: "01B"}
+	model := calendarTUIModel{
+		taskByID: map[string]shelf.Task{
+			parent.ID:     parent,
+			child.ID:      child,
+			grandchild.ID: grandchild,
+		},
+		allTasks: []shelf.Task{parent, child, grandchild},
+		markedTaskIDs: map[string]struct{}{
+			parent.ID: {},
+			child.ID:  {},
+		},
+	}
+	text, count, err := model.selectedSubtreeCopyText()
+	if err != nil {
+		t.Fatalf("selectedSubtreeCopyText failed: %v", err)
+	}
+	want := "Parent\n  Child\n    Grandchild"
+	if count != 3 || text != want {
+		t.Fatalf("unexpected subtree payload: count=%d text=%q want=%q", count, text, want)
+	}
+}
+
 func TestCalendarLinkModeAddsLink(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
@@ -796,6 +872,27 @@ func TestCalendarLinkQueryModeTreatsKeysAsInput(t *testing.T) {
 	}
 	if model.linkQuery != "q" {
 		t.Fatalf("expected esc to keep current query text, got %q", model.linkQuery)
+	}
+}
+
+func TestCalendarLinkQueryModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		linkMode:        true,
+		linkQueryMode:   true,
+		linkQuery:       "ab",
+		linkQueryCursor: 2,
+	}
+
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.linkQueryCursor)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != "aXb" || model.linkQueryCursor != 2 {
+		t.Fatalf("unexpected query edit: value=%q cursor=%d", model.linkQuery, model.linkQueryCursor)
 	}
 }
 
@@ -1093,10 +1190,11 @@ func TestUpdateAddModeUsesTabForFieldSwitchAndEnterForCreate(t *testing.T) {
 
 func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
 	model := calendarTUIModel{
-		addMode:     true,
-		addField:    calendarAddFieldTitle,
-		defaultKind: "todo",
-		addKind:     "todo",
+		addMode:        true,
+		addField:       calendarAddFieldTitle,
+		defaultKind:    "todo",
+		addKind:        "todo",
+		addTitleCursor: 0,
 	}
 	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	model = updated.(calendarTUIModel)
@@ -1114,6 +1212,29 @@ func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
 	model = updated.(calendarTUIModel)
 	if model.addField != calendarAddFieldTitle {
 		t.Fatalf("expected shift+tab to move back to title, got %v", model.addField)
+	}
+}
+
+func TestUpdateAddModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		addMode:        true,
+		addField:       calendarAddFieldTitle,
+		addTitle:       "ab",
+		addTitleCursor: 2,
+		defaultKind:    "todo",
+		addKind:        "todo",
+	}
+
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.addTitleCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.addTitleCursor)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != "aXb" || model.addTitleCursor != 2 {
+		t.Fatalf("unexpected title edit: value=%q cursor=%d", model.addTitle, model.addTitleCursor)
 	}
 }
 
@@ -1137,6 +1258,27 @@ func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
 	}
 	if !model.tagMode {
 		t.Fatal("expected tag picker to stay open while typing")
+	}
+}
+
+func TestUpdateTagModeSupportsMidStringEditing(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:        true,
+		tagInputMode:   true,
+		tagInputValue:  "ab",
+		tagInputCursor: 2,
+	}
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyLeft})
+	model = updated.(calendarTUIModel)
+	if model.tagInputCursor != 1 {
+		t.Fatalf("expected cursor to move left, got %d", model.tagInputCursor)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = updated.(calendarTUIModel)
+	if model.tagInputValue != "aXb" || model.tagInputCursor != 2 {
+		t.Fatalf("unexpected tag input edit: value=%q cursor=%d", model.tagInputValue, model.tagInputCursor)
 	}
 }
 
@@ -1814,6 +1956,30 @@ func TestCalendarQClosesHelpBeforeQuit(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Fatal("expected q on help to close help without quitting")
+	}
+}
+
+func TestCalendarEscDoesNotQuit(t *testing.T) {
+	model := calendarTUIModel{}
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	toggled := updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected esc in normal mode to leave help closed")
+	}
+	if cmd != nil {
+		t.Fatal("expected esc in normal mode to not quit")
+	}
+}
+
+func TestCalendarEscClosesHelpWithoutQuit(t *testing.T) {
+	model := calendarTUIModel{showHelp: true}
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	toggled := updatedModel.(calendarTUIModel)
+	if toggled.showHelp {
+		t.Fatal("expected esc to close help when help is visible")
+	}
+	if cmd != nil {
+		t.Fatal("expected esc on help to close help without quitting")
 	}
 }
 

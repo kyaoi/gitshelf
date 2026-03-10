@@ -18,7 +18,7 @@ func TestReadKeyEventUnicodeRune(t *testing.T) {
 }
 
 func TestReadKeyEventArrowKeys(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader("\x1b[A\x1b[B"))
+	reader := bufio.NewReader(strings.NewReader("\x1b[A\x1b[B\x1b[C\x1b[D"))
 
 	up, err := readKeyEvent(reader)
 	if err != nil {
@@ -34,6 +34,22 @@ func TestReadKeyEventArrowKeys(t *testing.T) {
 	}
 	if down.Kind != keyKindDown {
 		t.Fatalf("expected down, got %+v", down)
+	}
+
+	right, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent right failed: %v", err)
+	}
+	if right.Kind != keyKindRight {
+		t.Fatalf("expected right, got %+v", right)
+	}
+
+	left, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent left failed: %v", err)
+	}
+	if left.Kind != keyKindLeft {
+		t.Fatalf("expected left, got %+v", left)
 	}
 }
 
