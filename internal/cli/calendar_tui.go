@@ -2918,26 +2918,37 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 }
 
 func (m *calendarTUIModel) applySelectedTaskKind(kind shelf.Kind) error {
-	task, ok := m.selectedTask()
-	if !ok {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
 		return fmt.Errorf("選択中の task がありません")
 	}
+	updatedCount := 0
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-kind"); err != nil {
 			return err
 		}
-		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{
-			Kind: &kind,
-		})
-		return err
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{
+				Kind: &kind,
+			}); err != nil {
+				return err
+			}
+			updatedCount++
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 	if err := m.reload(); err != nil {
 		return err
 	}
-	m.selectTaskByID(task.ID)
-	m.message = fmt.Sprintf("Updated kind to %s", kind)
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if updatedCount == 1 {
+		m.message = fmt.Sprintf("Updated kind to %s", kind)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated kind to %s for %d tasks", kind, updatedCount)
 	return nil
 }
 

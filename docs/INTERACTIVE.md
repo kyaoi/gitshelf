@@ -87,7 +87,7 @@ These are compact operational views inside the same workspace.
 
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
-- `K`: edit kind on the selected task
+- `K`: edit kind on the selected task, or on marked tasks when multi-select is active
 - `#`: edit tags for the selected task
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
