@@ -4589,17 +4589,25 @@ func calendarMainCellHeight(totalHeight int) int {
 func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	lines := []string{
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		mutedStyle.Render(calendarModeHelpSummary(mode)),
+		"",
+		sectionStyle.Render("Views"),
 		"Tab: pane (non-calendar only)  C/T/B/R/N: mode  ?: close",
+		sectionStyle.Render("Navigate"),
 		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: Selected Day task switch",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
+		sectionStyle.Render("Select / Move"),
 		"v: mark  u: clear marks  V: range mark  m: move via tree target picker (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  D: due  W: repeat  J: note  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
-		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
+		sectionStyle.Render("Edit / Copy"),
+		"o/i/b/d/c: status  a/A: add  D/W/J: due repeat note  e: editor  K/#: kind tags  z: snooze",
+		"y/Y/P/O: quick copy  M: advanced copy  L/U: links  f: filter  r: reload",
+		sectionStyle.Render("Close / Apply"),
+		"Enter: details or apply in popups  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
 }

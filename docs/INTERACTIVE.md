@@ -188,6 +188,11 @@ IDs are hidden there unless `--show-id` is enabled.
 - `Left` / `Right` always mean cursor movement inside editable text fields
 - add mode keeps `q` as normal text input and uses `Esc` for cancel
 
+## Help Overlay
+
+- `?` opens an in-TUI help overlay grouped by `Views`, `Navigate`, `Select / Move`, `Edit / Copy`, and `Close / Apply`
+- the overlay stays mode-aware via the top summary line, but the action list is shared across Cockpit modes
+
 ## Non-Calendar Sidebar
 
 - the right pane is split into `Calendar / Selected Day / Inspector`

@@ -970,6 +970,15 @@ func TestPopupControlsJoinsLabelsConsistently(t *testing.T) {
 	}
 }
 
+func TestRenderCockpitHelpOverlayUsesGroupedSections(t *testing.T) {
+	rendered := renderCockpitHelpOverlay(calendarModeReview, 100, 24)
+	for _, want := range []string{"Views", "Navigate", "Select / Move", "Edit / Copy", "Close / Apply", "y/Y/P/O: quick copy"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("expected help overlay to contain %q, got:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestCalendarShowsDescendantsOfDueParent(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
