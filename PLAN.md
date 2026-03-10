@@ -16,6 +16,53 @@ Child tasks discovered under `~/DailyTodo/.shelf/tasks/`:
 8. `01KK88T87QWB6DYWAACB5CF28C` `タイトルをコピーできるようにする`
 9. `01KK8CKV8NJASBZQC4F3G66Z4W` `edgeファイルの必要性について調べる（もし機能が消えていたらタスクごとの関係性をつけられるようにする）`
 
+## Current Refinement Wave
+
+This follow-up plan captures the next Cockpit/TUI refinement pass requested after the first implementation wave.
+
+### Layout invariants
+
+- Keep panel heights fixed regardless of item count.
+- When content exceeds the available height, keep the box size stable and reveal overflow through scrolling/selection-following windows.
+- Avoid border corruption by using ANSI-aware width trimming/padding for colored strings.
+
+### Popup behavior
+
+- Use large centered popups for Add / Link / Tag / Kind / Filter / Snooze / Help.
+- Keep popup headers pinned and scroll only the selectable body content.
+- Show the currently selected task in Link and Tag popups.
+
+### Add workflow
+
+- `Tab` / `Shift+Tab` cycle between title and kind.
+- `Enter` confirms creation.
+- `Esc` / `Ctrl+[` cancel add mode.
+- `q` must be accepted as normal title input.
+- `j/k` are the only kind cycling keys inside the add popup.
+- `a` creates a child when a task is selected, otherwise it falls back to root creation.
+- `A` always creates at root.
+
+### Link and Tag input modes
+
+- Link enters query input mode with `/`.
+- While typing a link query, navigation keys are treated as text and must not trigger picker actions.
+- Tag enters text input mode from `+ Add new tag`.
+- While typing a new tag, navigation keys are treated as text and the in-progress input is visible in the same popup.
+
+### Sidebar / Selected Day
+
+- Rename `Focused Day` to `Selected Day`.
+- Calendar mode no longer needs pane focus switching.
+- In non-calendar modes, `n/p` moves through `Selected Day` tasks and the main view follows the same task.
+- Keep the right sidebar split at `60% calendar area / 38% inspector / 2% gap`.
+- Split the calendar area into a mini calendar and `Selected Day`.
+- Synchronize main selection with the sidebar calendar and `Selected Day`.
+
+### Review / tabs
+
+- Keep review tabs visible from first render.
+- If width is insufficient, use a sliding tab window that always keeps the active tab visible.
+
 ## Current State Summary
 
 - The project is a Go CLI/TUI task manager centered on `shelf cockpit`.

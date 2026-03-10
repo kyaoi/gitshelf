@@ -24,7 +24,7 @@
 - `R`: review
 - `N`: now
 - `Ctrl+H` / `Ctrl+L`: 前 / 次の mode
-- `Tab` / `Shift+Tab`: pane 切り替え
+- `Tab` / `Shift+Tab`: non-calendar mode で pane 切り替え
 - `?`: help overlay 切り替え
 - `q`: help を閉じる、または終了
 - `Esc`: 終了または一時状態から離脱
@@ -40,8 +40,8 @@
 - `h` / `l`: 日移動
 - `j` / `k`: 週移動
 - `[` / `]`: 月移動
-- `n` / `p`: focused day の task 切り替え
-- `a`: 選択 task の子として作成
+- `n` / `p`: selected day の task 切り替え
+- `a`: 選択 task の子として作成。未選択時は root に作成
 - `A`: root に作成
 
 ## Tree Mode
@@ -93,15 +93,16 @@ transient picker / composer は中央 popup で表示します。
 ## 作成
 
 - `a`: 現在 mode の文脈で、選択 task の子として作成
+- 未選択時は `a` でも root 作成になる
 - `A`: 現在 mode の文脈で、root に作成
 - calendar / review / now では focused day を due default にする
 - board では selected column の status を default にする
 - add composer は title と kind を同じ box 内で編集する
-- `Tab` で title / kind を切り替える
-- `Shift+Tab` で title に戻る
-- kind フィールド中は `h` / `j` / `k` / `l` で kind を切り替える
-- `Ctrl+K` で kind フィールドへ移動する
+- `Tab` / `Shift+Tab` で title / kind を循環する
+- kind フィールド中は `j` / `k` だけで kind を切り替える
 - `Enter` で作成を確定する
+- `Esc` / `Ctrl+[` で add をキャンセルする
+- title 入力中の `q` は通常文字として入力できる
 
 ## Filter
 
@@ -126,3 +127,6 @@ body の scroll:
 - hierarchy が重要な場面では tree 形式ラベルを使います
 - 必要な場面では `(root)` を明示的に選べます
 - 通常の selector では `q`, `Esc` でキャンセルできます
+- Link は `/` で query 入力 mode に入り、入力中は移動系 keybind を発火させません
+- Tag は `+ Add new tag` から入力 mode に入り、入力中は移動系 keybind を発火させません
+- 旧 focused day panel 名は `Selected Day` に統一され、main selection と同期します
