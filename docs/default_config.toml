@@ -37,6 +37,7 @@ copy_separator = "\n"
 # [[commands.cockpit.copy_presets]]
 # name = "subtree_path"
 # scope = "subtree"
+# subtree_style = "indented"
 # template = "{{path}}\n{{subtree}}"
 # join_with = "\n\n"
 

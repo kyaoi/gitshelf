@@ -112,8 +112,10 @@ Inside advanced copy (`M`):
 - `j` / `k`: choose `Custom` or one saved preset
 - `Tab` / `Shift+Tab`: move focus between preset list and custom fields
 - custom `template` / `join_with` fields use escaped text such as `\n`
+- `subtree style` switches `{{subtree}}` between plain indentation and ASCII tree rendering
 - `Enter`: copy the currently previewed payload
-- `Ctrl+S`: copy the generated `shelf config copy-preset set ...` command
+- `Ctrl+S`: save the current preset into `.shelf/config.toml`
+- the generated `shelf config copy-preset set ...` command is shown in the popup footer
 - `Esc` / `q`: close the popup
 
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.

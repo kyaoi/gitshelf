@@ -14,11 +14,19 @@ const (
 	CopyPresetScopeSubtree CopyPresetScope = "subtree"
 )
 
+type CopySubtreeStyle string
+
+const (
+	CopySubtreeStyleIndented CopySubtreeStyle = "indented"
+	CopySubtreeStyleTree     CopySubtreeStyle = "tree"
+)
+
 type CopyPreset struct {
-	Name     string
-	Scope    CopyPresetScope
-	Template string
-	JoinWith string
+	Name         string
+	Scope        CopyPresetScope
+	SubtreeStyle CopySubtreeStyle
+	Template     string
+	JoinWith     string
 }
 
 var (
@@ -38,6 +46,11 @@ func ValidateCopyPreset(preset CopyPreset) error {
 	case CopyPresetScopeTask, CopyPresetScopeSubtree:
 	default:
 		return fmt.Errorf("copy preset %q scope must be one of task/subtree", preset.Name)
+	}
+	switch preset.EffectiveSubtreeStyle() {
+	case CopySubtreeStyleIndented, CopySubtreeStyleTree:
+	default:
+		return fmt.Errorf("copy preset %q subtree style must be one of indented/tree", preset.Name)
 	}
 	if err := ValidateCopyTemplate(preset.Template); err != nil {
 		return fmt.Errorf("copy preset %q: %w", preset.Name, err)
@@ -63,6 +76,13 @@ func (preset CopyPreset) EffectiveJoinWith(defaultSeparator string) string {
 		return preset.JoinWith
 	}
 	return defaultSeparator
+}
+
+func (preset CopyPreset) EffectiveSubtreeStyle() CopySubtreeStyle {
+	if preset.SubtreeStyle != "" {
+		return preset.SubtreeStyle
+	}
+	return CopySubtreeStyleIndented
 }
 
 func (c *Config) UpsertCopyPreset(preset CopyPreset) (bool, error) {

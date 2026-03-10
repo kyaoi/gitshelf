@@ -19,6 +19,7 @@ func TestConfigCopyPresetSetCommandPersistsPreset(t *testing.T) {
 		"config", "copy-preset", "set",
 		"--name", "subtree-path",
 		"--scope", "subtree",
+		"--subtree-style", "tree",
 		"--template", "{{path}}\n{{subtree}}",
 		"--join-with", "\n\n",
 	)
@@ -37,7 +38,7 @@ func TestConfigCopyPresetSetCommandPersistsPreset(t *testing.T) {
 		t.Fatalf("unexpected copy presets: %+v", cfg.Commands.Cockpit.CopyPresets)
 	}
 	got := cfg.Commands.Cockpit.CopyPresets[0]
-	if got.Name != "subtree-path" || got.Scope != shelf.CopyPresetScopeSubtree || got.Template != "{{path}}\n{{subtree}}" || got.JoinWith != "\n\n" {
+	if got.Name != "subtree-path" || got.Scope != shelf.CopyPresetScopeSubtree || got.SubtreeStyle != shelf.CopySubtreeStyleTree || got.Template != "{{path}}\n{{subtree}}" || got.JoinWith != "\n\n" {
 		t.Fatalf("unexpected persisted preset: %+v", got)
 	}
 }
@@ -52,10 +53,11 @@ func TestConfigCopyPresetSetCommandUpdatesExistingPreset(t *testing.T) {
 		t.Fatalf("load config failed: %v", err)
 	}
 	if _, err := cfg.UpsertCopyPreset(shelf.CopyPreset{
-		Name:     "subtree-path",
-		Scope:    shelf.CopyPresetScopeSubtree,
-		Template: "{{path}}\n{{subtree}}",
-		JoinWith: "\n\n",
+		Name:         "subtree-path",
+		Scope:        shelf.CopyPresetScopeSubtree,
+		SubtreeStyle: shelf.CopySubtreeStyleIndented,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
 	}); err != nil {
 		t.Fatalf("seed preset failed: %v", err)
 	}
@@ -69,6 +71,7 @@ func TestConfigCopyPresetSetCommandUpdatesExistingPreset(t *testing.T) {
 		"config", "copy-preset", "set",
 		"--name", "subtree-path",
 		"--scope", "task",
+		"--subtree-style", "tree",
 		"--template", "{{title}}",
 	)
 	if err != nil {
@@ -86,7 +89,7 @@ func TestConfigCopyPresetSetCommandUpdatesExistingPreset(t *testing.T) {
 		t.Fatalf("unexpected copy preset count: %+v", updated.Commands.Cockpit.CopyPresets)
 	}
 	got := updated.Commands.Cockpit.CopyPresets[0]
-	if got.Scope != shelf.CopyPresetScopeTask || got.Template != "{{title}}" || got.JoinWith != "" {
+	if got.Scope != shelf.CopyPresetScopeTask || got.SubtreeStyle != shelf.CopySubtreeStyleTree || got.Template != "{{title}}" || got.JoinWith != "" {
 		t.Fatalf("unexpected updated preset: %+v", got)
 	}
 }

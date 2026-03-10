@@ -28,10 +28,11 @@ func newConfigCopyPresetCommand(ctx *commandContext) *cobra.Command {
 
 func newConfigCopyPresetSetCommand(ctx *commandContext) *cobra.Command {
 	var (
-		name     string
-		scope    string
-		template string
-		joinWith string
+		name         string
+		scope        string
+		subtreeStyle string
+		template     string
+		joinWith     string
 	)
 
 	cmd := &cobra.Command{
@@ -43,10 +44,11 @@ func newConfigCopyPresetSetCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			preset := shelf.CopyPreset{
-				Name:     strings.TrimSpace(name),
-				Scope:    shelf.CopyPresetScope(strings.TrimSpace(scope)),
-				Template: template,
-				JoinWith: joinWith,
+				Name:         strings.TrimSpace(name),
+				Scope:        shelf.CopyPresetScope(strings.TrimSpace(scope)),
+				SubtreeStyle: shelf.CopySubtreeStyle(strings.TrimSpace(subtreeStyle)),
+				Template:     template,
+				JoinWith:     joinWith,
 			}
 			updated, err := cfg.UpsertCopyPreset(preset)
 			if err != nil {
@@ -66,6 +68,7 @@ func newConfigCopyPresetSetCommand(ctx *commandContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Preset name")
 	cmd.Flags().StringVar(&scope, "scope", "", "Preset scope: task|subtree")
+	cmd.Flags().StringVar(&subtreeStyle, "subtree-style", string(shelf.CopySubtreeStyleIndented), "Subtree rendering style: indented|tree")
 	cmd.Flags().StringVar(&template, "template", "", "Per-item copy template")
 	cmd.Flags().StringVar(&joinWith, "join-with", "", "Join separator for multiple rendered items")
 	_ = cmd.MarkFlagRequired("name")

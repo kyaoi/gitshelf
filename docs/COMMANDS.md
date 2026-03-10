@@ -84,6 +84,7 @@ Flags:
 
 - `--name <preset-name>`
 - `--scope <task|subtree>`
+- `--subtree-style <indented|tree>` optional, controls `{{subtree}}` rendering
 - `--template <text>`
 - `--join-with <text>` optional, defaults to `commands.cockpit.copy_separator`
 

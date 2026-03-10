@@ -84,6 +84,7 @@ Cockpit の `M` で使う advanced copy preset を追加または更新します
 
 - `--name <preset-name>`
 - `--scope <task|subtree>`
+- `--subtree-style <indented|tree>` 省略可。`{{subtree}}` の描画方式
 - `--template <text>`
 - `--join-with <text>` 省略時は `commands.cockpit.copy_separator`
 

@@ -82,10 +82,11 @@ type configCockpitCommand struct {
 }
 
 type configCopyPreset struct {
-	Name     string `toml:"name"`
-	Scope    string `toml:"scope"`
-	Template string `toml:"template"`
-	JoinWith string `toml:"join_with"`
+	Name         string `toml:"name"`
+	Scope        string `toml:"scope"`
+	SubtreeStyle string `toml:"subtree_style"`
+	Template     string `toml:"template"`
+	JoinWith     string `toml:"join_with"`
 }
 
 func DefaultConfig() Config {
@@ -198,10 +199,11 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	for i, preset := range f.Commands.Cockpit.CopyPresets {
 		cfg.Commands.Cockpit.CopyPresets[i] = CopyPreset{
-			Name:     strings.TrimSpace(preset.Name),
-			Scope:    CopyPresetScope(strings.TrimSpace(preset.Scope)),
-			Template: preset.Template,
-			JoinWith: preset.JoinWith,
+			Name:         strings.TrimSpace(preset.Name),
+			Scope:        CopyPresetScope(strings.TrimSpace(preset.Scope)),
+			SubtreeStyle: CopySubtreeStyle(strings.TrimSpace(preset.SubtreeStyle)),
+			Template:     preset.Template,
+			JoinWith:     preset.JoinWith,
 		}
 	}
 	if cfg.StorageRoot == "" {
@@ -322,6 +324,7 @@ func FormatConfigTOML(cfg Config) []byte {
 		buf.WriteString("\n[[commands.cockpit.copy_presets]]\n")
 		buf.WriteString(fmt.Sprintf("name = %q\n", preset.Name))
 		buf.WriteString(fmt.Sprintf("scope = %q\n", preset.Scope))
+		buf.WriteString(fmt.Sprintf("subtree_style = %q\n", preset.EffectiveSubtreeStyle()))
 		buf.WriteString(fmt.Sprintf("template = %q\n", preset.Template))
 		if preset.JoinWith != "" {
 			buf.WriteString(fmt.Sprintf("join_with = %q\n", preset.JoinWith))

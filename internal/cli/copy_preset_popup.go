@@ -18,16 +18,18 @@ const (
 	calendarCopyPresetFocusPresets calendarCopyPresetFocus = iota
 	calendarCopyPresetFocusName
 	calendarCopyPresetFocusScope
+	calendarCopyPresetFocusSubtreeStyle
 	calendarCopyPresetFocusTemplate
 	calendarCopyPresetFocusJoinWith
 )
 
 func defaultCustomCopyPreset() shelf.CopyPreset {
 	return shelf.CopyPreset{
-		Name:     "subtree-path",
-		Scope:    shelf.CopyPresetScopeSubtree,
-		Template: "{{path}}\n{{subtree}}",
-		JoinWith: "\n\n",
+		Name:         "subtree-path",
+		Scope:        shelf.CopyPresetScopeSubtree,
+		SubtreeStyle: shelf.CopySubtreeStyleIndented,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
 	}
 }
 
@@ -98,6 +100,7 @@ func (m *calendarTUIModel) resetCopyPresetDraft() {
 	m.copyPresetName = preset.Name
 	m.copyPresetNameCursor = len([]rune(m.copyPresetName))
 	m.copyPresetScope = preset.Scope
+	m.copyPresetSubtreeStyle = preset.EffectiveSubtreeStyle()
 	m.copyPresetTemplate = encodeCopyPresetEscapes(preset.Template)
 	m.copyPresetTemplateCursor = len([]rune(m.copyPresetTemplate))
 	m.copyPresetJoinWith = encodeCopyPresetEscapes(preset.JoinWith)
@@ -121,10 +124,11 @@ func (m *calendarTUIModel) activeCopyPreset() shelf.CopyPreset {
 
 func (m calendarTUIModel) customCopyPreset() shelf.CopyPreset {
 	return shelf.CopyPreset{
-		Name:     strings.TrimSpace(m.copyPresetName),
-		Scope:    m.copyPresetScope,
-		Template: decodeCopyPresetEscapes(m.copyPresetTemplate),
-		JoinWith: decodeCopyPresetEscapes(m.copyPresetJoinWith),
+		Name:         strings.TrimSpace(m.copyPresetName),
+		Scope:        m.copyPresetScope,
+		SubtreeStyle: m.copyPresetSubtreeStyle,
+		Template:     decodeCopyPresetEscapes(m.copyPresetTemplate),
+		JoinWith:     decodeCopyPresetEscapes(m.copyPresetJoinWith),
 	}
 }
 
@@ -136,6 +140,7 @@ func (m *calendarTUIModel) ensureCustomCopyPresetSelected() {
 	m.copyPresetName = selected.Name
 	m.copyPresetNameCursor = len([]rune(m.copyPresetName))
 	m.copyPresetScope = selected.Scope
+	m.copyPresetSubtreeStyle = selected.EffectiveSubtreeStyle()
 	m.copyPresetTemplate = encodeCopyPresetEscapes(selected.Template)
 	m.copyPresetTemplateCursor = len([]rune(m.copyPresetTemplate))
 	m.copyPresetJoinWith = encodeCopyPresetEscapes(selected.JoinWith)
@@ -163,7 +168,7 @@ func (m *calendarTUIModel) moveCopyPresetSelection(delta int) {
 
 func (m calendarTUIModel) updateCopyPresetMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.copyPresetMode = false
 		m.message = "advanced copy をキャンセルしました"
 		return m, nil
@@ -173,16 +178,8 @@ func (m calendarTUIModel) updateCopyPresetMode(msg tea.KeyMsg) (tea.Model, tea.C
 		}
 		return m, nil
 	case "ctrl+s":
-		preset := m.activeCopyPreset()
-		if err := shelf.ValidateCopyPreset(preset); err != nil {
+		if err := m.saveActiveCopyPreset(); err != nil {
 			m.message = err.Error()
-			return m, nil
-		}
-		command := m.copyPresetSaveCommand(preset)
-		if err := copyTextToClipboard(command); err != nil {
-			m.message = err.Error()
-		} else {
-			m.message = "Copied save command"
 		}
 		return m, nil
 	case "tab":
@@ -211,6 +208,17 @@ func (m calendarTUIModel) updateCopyPresetMode(msg tea.KeyMsg) (tea.Model, tea.C
 				m.copyPresetScope = shelf.CopyPresetScopeTask
 			} else {
 				m.copyPresetScope = shelf.CopyPresetScopeSubtree
+			}
+			return m, nil
+		}
+	case calendarCopyPresetFocusSubtreeStyle:
+		switch msg.String() {
+		case "left", "h", "up", "k", "right", "l", "down", "j", " ":
+			m.ensureCustomCopyPresetSelected()
+			if m.copyPresetSubtreeStyle == shelf.CopySubtreeStyleTree {
+				m.copyPresetSubtreeStyle = shelf.CopySubtreeStyleIndented
+			} else {
+				m.copyPresetSubtreeStyle = shelf.CopySubtreeStyleTree
 			}
 			return m, nil
 		}
@@ -251,6 +259,37 @@ func (m *calendarTUIModel) copySelectedWithPreset(preset shelf.CopyPreset) error
 	return m.copyClipboardPayload(text, count, "item", "items")
 }
 
+func (m *calendarTUIModel) saveActiveCopyPreset() error {
+	preset := m.activeCopyPreset()
+	if err := shelf.ValidateCopyPreset(preset); err != nil {
+		return err
+	}
+	cfg, err := shelf.LoadConfig(m.rootDir)
+	if err != nil {
+		return err
+	}
+	updated, err := cfg.UpsertCopyPreset(preset)
+	if err != nil {
+		return err
+	}
+	if err := shelf.SaveConfig(m.rootDir, cfg); err != nil {
+		return err
+	}
+	m.copyPresets = append([]shelf.CopyPreset{}, cfg.Commands.Cockpit.CopyPresets...)
+	for i, candidate := range m.copyPresets {
+		if candidate.Name == preset.Name {
+			m.copyPresetIndex = i + 1
+			break
+		}
+	}
+	if updated {
+		m.message = fmt.Sprintf("copy preset を更新しました: %s", preset.Name)
+	} else {
+		m.message = fmt.Sprintf("copy preset を保存しました: %s", preset.Name)
+	}
+	return nil
+}
+
 func (m calendarTUIModel) renderCopyPresetPayload(preset shelf.CopyPreset) (string, int, error) {
 	if err := shelf.ValidateCopyPreset(preset); err != nil {
 		return "", 0, err
@@ -268,7 +307,7 @@ func (m calendarTUIModel) renderCopyPresetPayload(preset shelf.CopyPreset) (stri
 		if !ok {
 			continue
 		}
-		subtreeText, _ := m.renderTaskSubtreeText(taskID)
+		subtreeText, _ := m.renderTaskSubtreeText(taskID, preset.EffectiveSubtreeStyle())
 		rendered := preset.Template
 		replacements := map[string]string{
 			"{{title}}":   task.Title,
@@ -290,7 +329,7 @@ func (m calendarTUIModel) renderCopyPresetPayload(preset shelf.CopyPreset) (stri
 	return strings.Join(items, preset.EffectiveJoinWith(m.copySeparator)), len(items), nil
 }
 
-func (m calendarTUIModel) renderTaskSubtreeText(rootID string) (string, int) {
+func (m calendarTUIModel) renderTaskSubtreeText(rootID string, style shelf.CopySubtreeStyle) (string, int) {
 	if strings.TrimSpace(rootID) == "" {
 		return "", 0
 	}
@@ -306,8 +345,8 @@ func (m calendarTUIModel) renderTaskSubtreeText(rootID string) (string, int) {
 
 	lines := []string{}
 	count := 0
-	var appendSubtree func(taskID string, depth int)
-	appendSubtree = func(taskID string, depth int) {
+	var appendIndented func(taskID string, depth int)
+	appendIndented = func(taskID string, depth int) {
 		task, ok := m.taskByID[taskID]
 		if !ok {
 			return
@@ -315,10 +354,43 @@ func (m calendarTUIModel) renderTaskSubtreeText(rootID string) (string, int) {
 		lines = append(lines, strings.Repeat("  ", depth)+task.Title)
 		count++
 		for _, child := range byParent[taskID] {
-			appendSubtree(child.ID, depth+1)
+			appendIndented(child.ID, depth+1)
 		}
 	}
-	appendSubtree(rootID, 0)
+	var appendTree func(taskID string, prefix string, isLast bool, isRoot bool)
+	appendTree = func(taskID string, prefix string, isLast bool, isRoot bool) {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			return
+		}
+		label := task.Title
+		if !isRoot {
+			connector := "|- "
+			if isLast {
+				connector = "`- "
+			}
+			label = prefix + connector + task.Title
+		}
+		lines = append(lines, label)
+		count++
+		children := byParent[taskID]
+		nextPrefix := prefix
+		if !isRoot {
+			if isLast {
+				nextPrefix += "   "
+			} else {
+				nextPrefix += "|  "
+			}
+		}
+		for i, child := range children {
+			appendTree(child.ID, nextPrefix, i == len(children)-1, false)
+		}
+	}
+	if style == shelf.CopySubtreeStyleTree {
+		appendTree(rootID, "", true, true)
+	} else {
+		appendIndented(rootID, 0)
+	}
 	return strings.Join(lines, "\n"), count
 }
 
@@ -348,6 +420,7 @@ func (m calendarTUIModel) copyPresetSaveCommand(preset shelf.CopyPreset) string 
 		"set",
 		"--name", shellQuoteANSI(preset.Name),
 		"--scope", shellQuoteANSI(string(preset.Scope)),
+		"--subtree-style", shellQuoteANSI(string(preset.EffectiveSubtreeStyle())),
 		"--template", shellQuoteANSI(preset.Template),
 	}
 	if preset.JoinWith != "" {
@@ -381,7 +454,7 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 
 	header := []string{
 		titleStyle.Render("Advanced Copy"),
-		helpStyle.Render("j/k: preset  Tab: focus  Enter: copy payload  Ctrl+S: copy save command  Esc/q: close"),
+		helpStyle.Render("j/k: preset  Tab: focus  Enter: copy payload  Ctrl+S: save preset  Esc/q: close"),
 		helpStyle.Render("template uses {{title}} {{path}} {{body}} {{subtree}}; enter \\n in fields for newlines"),
 	}
 
@@ -390,6 +463,7 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 	joinValue := encodeCopyPresetEscapes(active.JoinWith)
 	nameValue := active.Name
 	scopeValue := string(active.Scope)
+	subtreeStyleValue := string(active.EffectiveSubtreeStyle())
 	if m.copyPresetIndex == 0 {
 		if m.copyPresetFocus == calendarCopyPresetFocusName {
 			nameValue = interactive.RenderTextCursor(m.copyPresetName, m.copyPresetNameCursor)
@@ -399,6 +473,9 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 		}
 		if m.copyPresetFocus == calendarCopyPresetFocusJoinWith {
 			joinValue = interactive.RenderTextCursor(m.copyPresetJoinWith, m.copyPresetJoinWithCursor)
+		}
+		if m.copyPresetFocus == calendarCopyPresetFocusSubtreeStyle {
+			subtreeStyleValue = string(m.copyPresetSubtreeStyle)
 		}
 	}
 
@@ -427,6 +504,7 @@ func renderCalendarCopyPresetPopup(m calendarTUIModel, width int, height int) st
 		scopeLine = string(shelf.CopyPresetScopeSubtree)
 	}
 	lines = append(lines, renderCopyPresetField("Scope", scopeLine, m.copyPresetFocus == calendarCopyPresetFocusScope))
+	lines = append(lines, renderCopyPresetField("Subtree Style", subtreeStyleValue, m.copyPresetFocus == calendarCopyPresetFocusSubtreeStyle))
 	lines = append(lines, renderCopyPresetField("Template", templateValue, m.copyPresetFocus == calendarCopyPresetFocusTemplate))
 	lines = append(lines, renderCopyPresetField("Join With", joinValue, m.copyPresetFocus == calendarCopyPresetFocusJoinWith))
 

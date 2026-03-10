@@ -210,6 +210,7 @@ type calendarTUIModel struct {
 	copyPresetName           string
 	copyPresetNameCursor     int
 	copyPresetScope          shelf.CopyPresetScope
+	copyPresetSubtreeStyle   shelf.CopySubtreeStyle
 	copyPresetTemplate       string
 	copyPresetTemplateCursor int
 	copyPresetJoinWith       string
@@ -337,12 +338,6 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = "task updated"
 		return m, nil
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+[" {
-			if m.leaveToNormalMode() {
-				return m, nil
-			}
-			return m, nil
-		}
 		if m.linkMode {
 			return m.updateLinkMode(msg)
 		}
@@ -366,7 +361,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.moveMode {
 			switch msg.String() {
-			case "esc", "q", "m":
+			case "esc", "q", "m", "ctrl+[":
 				m.moveMode = false
 				m.moveSourceIDs = nil
 				m.message = "move をキャンセルしました"
@@ -375,7 +370,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.applyMoveSelection()
 			}
 		}
-		if m.showHelp && msg.String() == "q" {
+		if m.showHelp && (msg.String() == "q" || msg.String() == "ctrl+[") {
 			m.showHelp = false
 			return m, nil
 		}
@@ -846,6 +841,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		m.copyPresetName = ""
 		m.copyPresetNameCursor = 0
 		m.copyPresetScope = ""
+		m.copyPresetSubtreeStyle = ""
 		m.copyPresetTemplate = ""
 		m.copyPresetTemplateCursor = 0
 		m.copyPresetJoinWith = ""
@@ -916,7 +912,7 @@ func (m calendarTUIModel) paneLabel() string {
 func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	options := calendarSnoozeOptions()
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.snoozeMode = false
 		m.message = "期限変更をキャンセルしました"
 		return m, nil
@@ -955,7 +951,7 @@ func (m *calendarTUIModel) beginFilterMode() {
 
 func (m calendarTUIModel) updateFilterMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.filter = cloneTaskFilter(m.filterSnapshot)
 		m.statuses = deriveActiveStatuses(m.statusChoices, m.filter)
 		m.filterMode = false
@@ -1090,7 +1086,7 @@ func toggleKindFilter(values []shelf.Kind, target shelf.Kind) []shelf.Kind {
 
 func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc":
+	case "esc", "ctrl+[":
 		m.addMode = false
 		m.addTitle = ""
 		m.addTitleCursor = 0
@@ -1265,7 +1261,7 @@ func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 
 func (m calendarTUIModel) updateKindMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.kindMode = false
 		m.message = "kind 変更をキャンセルしました"
 		return m, nil
@@ -1328,7 +1324,7 @@ func (m *calendarTUIModel) beginTagMode() {
 func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.tagInputMode {
 		switch msg.String() {
-		case "esc":
+		case "esc", "ctrl+[":
 			m.tagInputMode = false
 			m.tagInputValue = ""
 			m.tagInputCursor = 0
@@ -1391,7 +1387,7 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.tagMode = false
 		m.tagSelection = nil
 		return m, nil
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.tagMode = false
 		m.tagSelection = nil
 		m.tagInputMode = false
@@ -1445,7 +1441,7 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.textPromptMode = false
 		m.textPromptTitle = ""
 		m.textPromptValue = ""
@@ -3029,7 +3025,7 @@ func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
 	lines := make([]string, 0, len(rootIDs))
 	count := 0
 	for i, rootID := range rootIDs {
-		subtreeText, subtreeCount := m.renderTaskSubtreeText(rootID)
+		subtreeText, subtreeCount := m.renderTaskSubtreeText(rootID, shelf.CopySubtreeStyleIndented)
 		if strings.TrimSpace(subtreeText) == "" {
 			continue
 		}
@@ -3123,7 +3119,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.linkQueryMode {
 		switch msg.String() {
-		case "esc":
+		case "esc", "ctrl+[":
 			m.linkQueryMode = false
 			m.message = "query 入力を終了"
 			return m, nil
@@ -3153,7 +3149,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+[":
 		m.linkMode = false
 		m.linkQuery = ""
 		m.linkQueryCursor = 0

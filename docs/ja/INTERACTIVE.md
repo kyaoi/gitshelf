@@ -102,8 +102,10 @@ advanced copy (`M`) 内:
 - `j` / `k`: `Custom` または保存済み preset を選ぶ
 - `Tab` / `Shift+Tab`: preset list と custom field の間を移動
 - custom の `template` / `join_with` は `\n` のような escaped text で入力する
+- `subtree style` で `{{subtree}}` を空白インデントか ASCII tree かで切り替える
 - `Enter`: preview 中の payload をコピー
-- `Ctrl+S`: 生成された `shelf config copy-preset set ...` コマンドをコピー
+- `Ctrl+S`: 現在の preset を `.shelf/config.toml` に保存する
+- 生成された `shelf config copy-preset set ...` コマンドは popup 下部に表示する
 - `Esc` / `q`: popup を閉じる
 
 link selector は tree 風ラベルを使い、件数が多いときはスクロールします。

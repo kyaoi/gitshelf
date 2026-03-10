@@ -80,6 +80,7 @@ commit_message = "chore: update shelf data"
 [[commands.cockpit.copy_presets]]
 name = "subtree_path"
 scope = "subtree"
+subtree_style = "indented"
 template = "{{path}}\n{{subtree}}"
 join_with = "\n\n"
 ```
@@ -87,6 +88,7 @@ join_with = "\n\n"
 - `copy_separator`
 - `copy_presets[].name`
 - `copy_presets[].scope`: `task` or `subtree`
+- `copy_presets[].subtree_style`: `indented` or `tree`
 - `copy_presets[].template`: supports `{{title}}`, `{{path}}`, `{{body}}`, `{{subtree}}`
 - `copy_presets[].join_with`: optional; falls back to `copy_separator`
 

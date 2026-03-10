@@ -52,10 +52,11 @@ func TestConfigRoundTrip(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Tags = []string{"backend", "urgent"}
 	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{
-		Name:     "subtree-path",
-		Scope:    CopyPresetScopeSubtree,
-		Template: "{{path}}\n{{subtree}}",
-		JoinWith: "\n\n",
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleTree,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
 	}}
 	data := FormatConfigTOML(cfg)
 
@@ -200,10 +201,11 @@ func TestConfigValidationRejectsUnsupportedCopyTemplatePlaceholder(t *testing.T)
 func TestConfigUpsertCopyPreset(t *testing.T) {
 	cfg := DefaultConfig()
 	updated, err := cfg.UpsertCopyPreset(CopyPreset{
-		Name:     "subtree-path",
-		Scope:    CopyPresetScopeSubtree,
-		Template: "{{path}}\n{{subtree}}",
-		JoinWith: "\n\n",
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleIndented,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
 	})
 	if err != nil {
 		t.Fatalf("upsert failed: %v", err)
@@ -212,10 +214,11 @@ func TestConfigUpsertCopyPreset(t *testing.T) {
 		t.Fatal("expected first upsert to append")
 	}
 	updated, err = cfg.UpsertCopyPreset(CopyPreset{
-		Name:     "subtree-path",
-		Scope:    CopyPresetScopeSubtree,
-		Template: "{{subtree}}\n{{path}}",
-		JoinWith: "\n\n",
+		Name:         "subtree-path",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: CopySubtreeStyleTree,
+		Template:     "{{subtree}}\n{{path}}",
+		JoinWith:     "\n\n",
 	})
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
@@ -223,8 +226,21 @@ func TestConfigUpsertCopyPreset(t *testing.T) {
 	if !updated {
 		t.Fatal("expected second upsert to update")
 	}
-	if len(cfg.Commands.Cockpit.CopyPresets) != 1 || cfg.Commands.Cockpit.CopyPresets[0].Template != "{{subtree}}\n{{path}}" {
+	if len(cfg.Commands.Cockpit.CopyPresets) != 1 || cfg.Commands.Cockpit.CopyPresets[0].Template != "{{subtree}}\n{{path}}" || cfg.Commands.Cockpit.CopyPresets[0].SubtreeStyle != CopySubtreeStyleTree {
 		t.Fatalf("unexpected copy presets: %+v", cfg.Commands.Cockpit.CopyPresets)
+	}
+}
+
+func TestConfigValidationRejectsInvalidCopyPresetSubtreeStyle(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{
+		Name:         "bad-style",
+		Scope:        CopyPresetScopeSubtree,
+		SubtreeStyle: "diagonal",
+		Template:     "{{subtree}}",
+	}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "subtree style") {
+		t.Fatalf("expected invalid subtree style error, got: %v", err)
 	}
 }
 
