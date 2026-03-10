@@ -34,10 +34,10 @@ type linkTaskRef struct {
 }
 
 type edgeQueryRecord struct {
-	Direction string
-	Type      string
-	Task      linkTaskRef
-	Other     linkTaskRef
+	Direction string      `json:"direction"`
+	Type      string      `json:"type"`
+	Task      linkTaskRef `json:"task"`
+	Other     linkTaskRef `json:"other"`
 }
 
 type copyPresetRecord struct {

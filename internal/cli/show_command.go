@@ -20,9 +20,9 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		Use:     "show <task-id>",
 		Short:   "Show one task with inspector-style details",
 		Args:    cobra.ExactArgs(1),
-		Example: "  shelf show 01AAA\n  shelf show 01AAA --json\n  shelf show 01AAA --format tsv --fields id,title,file",
+		Example: "  shelf show 01AAA\n  shelf show 01AAA --json\n  shelf show 01AAA --format tsv --fields id,title,file\n  shelf show 01AAA --format csv",
 		RunE: func(_ *cobra.Command, args []string) error {
-			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" {
@@ -56,15 +56,35 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			record := buildTaskQueryRecord(ctx.rootDir, task, byID)
+
+			if format == "jsonl" {
+				text, err := renderJSONL([]taskQueryRecord{record})
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
 			if format == "tsv" {
 				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(), allowedShowTSVFields())
 				if err != nil {
 					return err
 				}
-				row := buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()
+				row := record.TSVFields()
 				row["outbound_count"] = fmt.Sprintf("%d", len(outbound))
 				row["inbound_count"] = fmt.Sprintf("%d", len(inbound))
 				fmt.Println(joinTSVFields(selectedFields, row))
+				return nil
+			}
+
+			if format == "csv" {
+				text, err := renderCSV([]taskQueryRecord{record}, defaultShowCSVFields(), true)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -73,7 +93,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	return cmd
 }
@@ -190,6 +210,10 @@ func blankAsDash(value string) string {
 }
 
 func defaultShowTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file", "body"}
+}
+
+func defaultShowCSVFields() []string {
 	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent", "parent_path", "tags", "file", "body"}
 }
 

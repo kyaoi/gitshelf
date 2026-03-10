@@ -95,9 +95,9 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 		Use:     "links <task-id>",
 		Short:   "Show outbound and inbound links for a task",
 		Args:    cobra.ExactArgs(1),
-		Example: "  shelf links 01AAA\n  shelf links 01AAA --json\n  shelf links 01AAA --format tsv --fields direction,type,other_path",
+		Example: "  shelf links 01AAA\n  shelf links 01AAA --json\n  shelf links 01AAA --format tsv --fields direction,type,other_path\n  shelf links 01AAA --format csv",
 		RunE: func(_ *cobra.Command, args []string) error {
-			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" {
@@ -152,6 +152,22 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "jsonl" {
+				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
+				for _, edge := range outbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
+				}
+				for _, edge := range inbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
+				}
+				text, err := renderJSONL(records)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
 			if format == "tsv" {
 				selectedFields, err := resolveTSVFields(fields, defaultLinksTSVFields(), allowedLinksTSVFields())
 				if err != nil {
@@ -166,13 +182,29 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "csv" {
+				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
+				for _, edge := range outbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
+				}
+				for _, edge := range inbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
+				}
+				text, err := renderCSV(records, defaultLinksTSVFields(), true)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
 			printLinkSection("Outbound", taskID, outbound, byID, ctx.showID)
 			printInboundLinkSection("Inbound", taskID, inbound, byID, ctx.showID)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	return cmd
 }

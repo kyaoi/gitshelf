@@ -43,7 +43,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" {
@@ -103,6 +103,19 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "jsonl" {
+				items := make([]taskQueryRecord, 0, len(tasks))
+				for _, task := range tasks {
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
+				}
+				text, err := renderJSONL(items)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
 			if format == "tree" {
 				fromID := filter.Parent
 				if fromID == "root" {
@@ -153,6 +166,19 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				for _, task := range tasks {
 					fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(ctx.rootDir, task, byID).TSVFields()))
 				}
+				return nil
+			}
+
+			if format == "csv" {
+				items := make([]taskQueryRecord, 0, len(tasks))
+				for _, task := range tasks {
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
+				}
+				text, err := renderCSV(items, defaultLsTSVFields(), true)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -233,7 +259,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban|tree|tsv|csv|jsonl")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -264,7 +290,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			"  shelf next --limit 20\n" +
 			"  shelf next --format tsv",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := validateFormat(format, []string{"compact", "tsv"}); err != nil {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" {
@@ -305,6 +331,26 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if format == "jsonl" {
+				items := make([]taskQueryRecord, 0)
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if !ok || !info.Ready {
+						continue
+					}
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
+					if limit > 0 && len(items) >= limit {
+						break
+					}
+				}
+				text, err := renderJSONL(items)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
 			if format == "tsv" {
 				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
 				if err != nil {
@@ -322,6 +368,26 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 						break
 					}
 				}
+				return nil
+			}
+
+			if format == "csv" {
+				items := make([]taskQueryRecord, 0)
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if !ok || !info.Ready {
+						continue
+					}
+					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
+					if limit > 0 && len(items) >= limit {
+						break
+					}
+				}
+				text, err := renderCSV(items, defaultNextTSVFields(), true)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -361,7 +427,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd

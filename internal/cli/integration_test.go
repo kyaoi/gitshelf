@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"io"
 	"os"
@@ -157,6 +159,32 @@ func TestCLIShowTSVFieldsIncludeBodyAndFile(t *testing.T) {
 	}
 	if fields[0] != task.ID || fields[1] != "Task" || fields[2] != "first line second line" || fields[3] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || fields[4] != "focus" {
 		t.Fatalf("unexpected show tsv fields: %#v", fields)
+	}
+}
+
+func TestCLIShowCSVFormatIncludesHeaderAndQuotedBody(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Body: "line 1\nline 2"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "csv")
+	if err != nil {
+		t.Fatalf("show --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "id" || rows[1][0] != task.ID || rows[1][11] != "line 1\nline 2" {
+		t.Fatalf("unexpected show csv rows: %#v", rows)
 	}
 }
 
@@ -345,6 +373,40 @@ func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
 	}
 }
 
+func TestCLILinksJSONLFormatUsesOneEdgePerLine(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("links --format jsonl failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 edge line, got %d: %q", len(lines), out)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &payload); err != nil {
+		t.Fatalf("parse jsonl failed: %v\n%s", err, lines[0])
+	}
+	if payload["direction"] != "outbound" || payload["type"] != "depends_on" {
+		t.Fatalf("unexpected edge payload: %#v", payload)
+	}
+}
+
 func TestCLILsUnknownFilterValues(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
@@ -462,6 +524,32 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 	}
 	if !strings.Contains(out, "Parent") || !strings.Contains(out, "Child") || !strings.Contains(out, "└─") {
 		t.Fatalf("unexpected tree output: %s", out)
+	}
+}
+
+func TestCLILsCSVFormatIncludesHeaderAndRows(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task, One", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "csv", "--search", "Task")
+	if err != nil {
+		t.Fatalf("ls --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "id" || rows[0][1] != "title" || rows[1][0] != task.ID || rows[1][1] != "Task, One" {
+		t.Fatalf("unexpected csv rows: %#v", rows)
 	}
 }
 
@@ -636,6 +724,32 @@ func TestCLINextTSVFieldsRejectUnknownField(t *testing.T) {
 
 	if _, err := executeCLI(t, "next", "--root", root, "--format", "tsv", "--fields", "id,body"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: body") {
 		t.Fatalf("expected unknown field error, got: %v", err)
+	}
+}
+
+func TestCLINextJSONLFormatUsesOneRecordPerLine(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("next --format jsonl failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 jsonl line, got %d: %q", len(lines), out)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &payload); err != nil {
+		t.Fatalf("parse jsonl failed: %v\n%s", err, lines[0])
+	}
+	if payload["title"] != "Ready" {
+		t.Fatalf("unexpected jsonl payload: %#v", payload)
 	}
 }
 
