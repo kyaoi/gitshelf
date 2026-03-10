@@ -2096,6 +2096,38 @@ func TestBoardSelectionSyncsSidebarDate(t *testing.T) {
 	}
 }
 
+func TestTreeModeSelectedDayContentsRefreshWhenFocusedDateChanges(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-10"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, calendarTUIOptions{
+		Mode: calendarModeTree,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(first.ID)
+	model.pane = calendarPaneInspector
+	model.moveSidebarFocusByDays(1)
+
+	section := model.focusedDaySection()
+	if section == nil || len(section.Items) != 1 {
+		t.Fatalf("expected selected day section to rebuild for new date, got %+v", section)
+	}
+	if section.Items[0].Task.ID != second.ID {
+		t.Fatalf("expected selected day contents to switch to second task, got %+v", section.Items)
+	}
+}
+
 func TestCalendarTJumpToToday(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

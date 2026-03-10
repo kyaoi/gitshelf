@@ -1486,10 +1486,12 @@ func (m *calendarTUIModel) pruneMarkedSelection(visibleTasks []shelf.Task) {
 
 func (m *calendarTUIModel) rebuildModeState() {
 	if m.mode == calendarModeTree {
+		m.rebuildSections()
 		m.rebuildTreeRows()
 		return
 	}
 	if m.mode == calendarModeBoard {
+		m.rebuildSections()
 		m.rebuildBoardColumns()
 		return
 	}
