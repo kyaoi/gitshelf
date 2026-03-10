@@ -100,7 +100,7 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `d`: set `done`
 - `c`: set `cancelled`
 - `x`: archive toggle
-- `z`: snooze presets
+- `z`: snooze the selected task, or marked tasks, with presets
 - `e`: open the task file in `$VISUAL`, `$EDITOR`, then `vi`
 - `L`: add a link from the selected task
 - `U`: remove one outbound link from the selected task

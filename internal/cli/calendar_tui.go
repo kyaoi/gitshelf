@@ -3607,38 +3607,61 @@ func isDescendantTask(tasks map[string]shelf.Task, candidateID string, ancestorI
 }
 
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
-	task, ok := m.selectedTask()
-	if !ok {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
 		return fmt.Errorf("選択中の task がありません")
 	}
-
-	var (
-		nextDue string
-		err     error
-	)
-	if option.Mode == snoozeModeTo {
-		nextDue, err = shelf.NormalizeDueOn(option.Value)
-	} else {
-		nextDue, err = applyByDays(task.DueOn, option.Value)
-	}
-	if err != nil {
-		return err
-	}
+	nextDueByTaskID := make(map[string]string, len(taskIDs))
+	dueTargets := map[string]struct{}{}
 
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-snooze"); err != nil {
 			return err
 		}
-		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{DueOn: &nextDue})
-		return err
+		for _, taskID := range taskIDs {
+			task, ok := m.taskByID[taskID]
+			if !ok {
+				continue
+			}
+			var (
+				nextDue string
+				err     error
+			)
+			if option.Mode == snoozeModeTo {
+				nextDue, err = shelf.NormalizeDueOn(option.Value)
+			} else {
+				nextDue, err = applyByDays(task.DueOn, option.Value)
+			}
+			if err != nil {
+				return err
+			}
+			if _, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{DueOn: &nextDue}); err != nil {
+				return err
+			}
+			nextDueByTaskID[task.ID] = nextDue
+			dueTargets[nextDue] = struct{}{}
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 	if err := m.reload(); err != nil {
 		return err
 	}
-	m.selectTaskByID(task.ID)
-	m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDue)
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if len(taskIDs) == 1 {
+		task := m.taskByID[taskIDs[0]]
+		m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDueByTaskID[taskIDs[0]])
+		return nil
+	}
+	if len(dueTargets) == 1 {
+		for nextDue := range dueTargets {
+			m.message = fmt.Sprintf("Snoozed %d tasks to %s", len(nextDueByTaskID), nextDue)
+			return nil
+		}
+	}
+	m.message = fmt.Sprintf("Snoozed %d tasks using %s", len(nextDueByTaskID), option.Label)
 	return nil
 }
 
