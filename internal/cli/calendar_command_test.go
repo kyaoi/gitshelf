@@ -2162,6 +2162,108 @@ func TestTreeModeMoveSelectionFreezesRangeMarksAtMoveStart(t *testing.T) {
 	}
 }
 
+func TestReviewModeMoveSelectionCancelsBackToReview(t *testing.T) {
+	root := t.TempDir()
+	today := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parentA, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent A", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add parentA failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", DueOn: today, Parent: parentA.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent B", Kind: "todo", Status: "open", DueOn: today}); err != nil {
+		t.Fatalf("add parentB failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(child.ID)
+
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	reviewModel := updatedModel.(calendarTUIModel)
+	if reviewModel.mode != calendarModeTree || !reviewModel.moveMode {
+		t.Fatalf("expected temporary tree move mode, got mode=%s move=%v", reviewModel.mode, reviewModel.moveMode)
+	}
+
+	updatedModel, _ = reviewModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	reviewModel = updatedModel.(calendarTUIModel)
+	if reviewModel.mode != calendarModeReview {
+		t.Fatalf("expected cancel to restore review mode, got %s", reviewModel.mode)
+	}
+	if reviewModel.selectedTaskID != child.ID {
+		t.Fatalf("expected cancel to restore selected task, got %s", reviewModel.selectedTaskID)
+	}
+	if reviewModel.moveMode {
+		t.Fatal("expected move mode cleared after cancel")
+	}
+}
+
+func TestReviewModeMoveSelectionAppliesAndReturnsToReview(t *testing.T) {
+	root := t.TempDir()
+	today := time.Now().Local().Format("2006-01-02")
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parentA, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent A", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add parentA failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Kind: "todo", Status: "open", DueOn: today, Parent: parentA.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+	parentB, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent B", Kind: "todo", Status: "open", DueOn: today})
+	if err != nil {
+		t.Fatalf("add parentB failed: %v", err)
+	}
+	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "in_progress", "blocked", "done", "cancelled"}, calendarTUIOptions{
+		Mode: calendarModeReview,
+	})
+	if err != nil {
+		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
+	}
+	model.selectTaskByID(child.ID)
+
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	reviewModel := updatedModel.(calendarTUIModel)
+	if reviewModel.mode != calendarModeTree || !reviewModel.moveMode {
+		t.Fatalf("expected temporary tree move mode, got mode=%s move=%v", reviewModel.mode, reviewModel.moveMode)
+	}
+
+	updatedModel, _ = reviewModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	reviewModel = updatedModel.(calendarTUIModel)
+	if task, ok := reviewModel.selectedTask(); !ok || task.ID != parentB.ID {
+		t.Fatalf("expected move target parentB, got %+v ok=%t", task, ok)
+	}
+
+	updatedModel, _ = reviewModel.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	reviewModel = updatedModel.(calendarTUIModel)
+	if reviewModel.mode != calendarModeReview {
+		t.Fatalf("expected apply to restore review mode, got %s", reviewModel.mode)
+	}
+	if reviewModel.selectedTaskID != child.ID {
+		t.Fatalf("expected moved task selected after return, got %s", reviewModel.selectedTaskID)
+	}
+	updated, err := shelf.EnsureTaskExists(root, child.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if updated.Parent != parentB.ID {
+		t.Fatalf("expected child moved under parentB, got %q", updated.Parent)
+	}
+	if reviewModel.moveMode {
+		t.Fatal("expected move mode finished after apply")
+	}
+}
+
 func TestTreeModeCollapseAndExpandCurrentNode(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {

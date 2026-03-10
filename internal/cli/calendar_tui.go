@@ -198,6 +198,8 @@ type calendarTUIModel struct {
 	rangeBaseIDs             map[string]struct{}
 	moveMode                 bool
 	moveSourceIDs            []string
+	moveReturnMode           calendarMode
+	moveReturnSelectedTaskID string
 	pane                     calendarPane
 	width                    int
 	height                   int
@@ -376,8 +378,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.moveMode {
 			switch msg.String() {
 			case "esc", "q", "m", "ctrl+[":
-				m.moveMode = false
-				m.moveSourceIDs = nil
+				m.finishMoveMode(false, "")
 				m.message = "move をキャンセルしました"
 				return m, nil
 			case "enter":
@@ -893,8 +894,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		changed = true
 	}
 	if m.moveMode {
-		m.moveMode = false
-		m.moveSourceIDs = nil
+		m.finishMoveMode(false, "")
 		changed = true
 	}
 	if m.rangeMarkMode {
@@ -3880,6 +3880,8 @@ func (m *calendarTUIModel) applyLinkCandidate(candidate calendarLinkCandidate) e
 }
 
 func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
+	originalMode := m.mode
+	originalSelectedTaskID := m.selectedTaskID
 	if m.mode != calendarModeTree {
 		task, ok := m.selectedTask()
 		if !ok {
@@ -3901,8 +3903,35 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	}
 	m.moveMode = true
 	m.moveSourceIDs = append([]string{}, taskIDs...)
+	if originalMode != calendarModeTree {
+		m.moveReturnMode = originalMode
+		m.moveReturnSelectedTaskID = originalSelectedTaskID
+	} else {
+		m.moveReturnMode = ""
+		m.moveReturnSelectedTaskID = ""
+	}
 	m.message = fmt.Sprintf("move target を選択して Enter (%d task)", len(taskIDs))
 	return m, nil
+}
+
+func (m *calendarTUIModel) finishMoveMode(applied bool, selectedTaskID string) {
+	returnMode := m.moveReturnMode
+	returnSelectedTaskID := m.moveReturnSelectedTaskID
+	m.moveMode = false
+	m.moveSourceIDs = nil
+	m.moveReturnMode = ""
+	m.moveReturnSelectedTaskID = ""
+	if returnMode == "" {
+		return
+	}
+	m.switchMode(returnMode)
+	targetID := returnSelectedTaskID
+	if applied && strings.TrimSpace(selectedTaskID) != "" {
+		targetID = selectedTaskID
+	}
+	if strings.TrimSpace(targetID) != "" {
+		m.selectTaskByID(targetID)
+	}
 }
 
 func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
@@ -3952,8 +3981,7 @@ func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
 
 func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	if m.mode != calendarModeTree {
-		m.moveMode = false
-		m.moveSourceIDs = nil
+		m.finishMoveMode(false, "")
 		m.message = "move は Tree mode で使ってください"
 		return m, nil
 	}
@@ -3962,7 +3990,7 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		sources = m.activeTaskIDs()
 	}
 	if len(sources) == 0 {
-		m.moveMode = false
+		m.finishMoveMode(false, "")
 		m.message = "move 対象の task がありません"
 		return m, nil
 	}
@@ -4010,11 +4038,14 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		m.message = err.Error()
 		return m, nil
 	}
-	m.moveMode = false
-	m.moveSourceIDs = nil
 	m.clearMarkedSelection()
-	if targetParentID != "" {
-		m.selectTaskByID(targetParentID)
+	if m.moveReturnMode != "" {
+		m.finishMoveMode(true, updated[0].ID)
+	} else {
+		m.finishMoveMode(true, "")
+		if targetParentID != "" {
+			m.selectTaskByID(targetParentID)
+		}
 	}
 	m.message = fmt.Sprintf("moved %d task(s) under %s", len(updated), targetLabel)
 	return m, nil
@@ -4566,7 +4597,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: Selected Day task switch",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
-		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
+		"v: mark  u: clear marks  V: range mark  m: move via tree target picker (root included)",
 		"o/i/b/d/c: status  a: add child  A: add root  D: due  W: repeat  J: note  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}

@@ -87,6 +87,7 @@ These are compact operational views inside the same workspace.
 
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
+- `m`: move the selected task, or marked tasks; non-tree modes temporarily switch to the tree target picker
 - `K`: edit kind on the selected task, or on marked tasks when multi-select is active
 - `#`: edit tags for the selected task, or edit marked tasks with bulk add/remove
 - `D`: edit `due_on` for the selected task, or for marked tasks
