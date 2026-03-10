@@ -41,6 +41,7 @@ type CalendarCommandConfig struct {
 
 type CockpitCommandConfig struct {
 	CopySeparator     string
+	CopyPresets       []CopyPreset
 	PostExitGitAction string
 	CommitMessage     string
 }
@@ -74,9 +75,17 @@ type configCalendarCommand struct {
 }
 
 type configCockpitCommand struct {
-	CopySeparator     string `toml:"copy_separator"`
-	PostExitGitAction string `toml:"post_exit_git_action"`
-	CommitMessage     string `toml:"commit_message"`
+	CopySeparator     string             `toml:"copy_separator"`
+	CopyPresets       []configCopyPreset `toml:"copy_presets"`
+	PostExitGitAction string             `toml:"post_exit_git_action"`
+	CommitMessage     string             `toml:"commit_message"`
+}
+
+type configCopyPreset struct {
+	Name     string `toml:"name"`
+	Scope    string `toml:"scope"`
+	Template string `toml:"template"`
+	JoinWith string `toml:"join_with"`
 }
 
 func DefaultConfig() Config {
@@ -100,6 +109,7 @@ func DefaultConfig() Config {
 			},
 			Cockpit: CockpitCommandConfig{
 				CopySeparator:     "\n",
+				CopyPresets:       nil,
 				PostExitGitAction: "none",
 				CommitMessage:     "chore: update shelf data",
 			},
@@ -159,6 +169,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 			},
 			Cockpit: CockpitCommandConfig{
 				CopySeparator:     f.Commands.Cockpit.CopySeparator,
+				CopyPresets:       make([]CopyPreset, len(f.Commands.Cockpit.CopyPresets)),
 				PostExitGitAction: strings.TrimSpace(f.Commands.Cockpit.PostExitGitAction),
 				CommitMessage:     strings.TrimSpace(f.Commands.Cockpit.CommitMessage),
 			},
@@ -184,6 +195,14 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	if cfg.Commands.Cockpit.CommitMessage == "" {
 		cfg.Commands.Cockpit.CommitMessage = defaults.Commands.Cockpit.CommitMessage
+	}
+	for i, preset := range f.Commands.Cockpit.CopyPresets {
+		cfg.Commands.Cockpit.CopyPresets[i] = CopyPreset{
+			Name:     strings.TrimSpace(preset.Name),
+			Scope:    CopyPresetScope(strings.TrimSpace(preset.Scope)),
+			Template: preset.Template,
+			JoinWith: preset.JoinWith,
+		}
 	}
 	if cfg.StorageRoot == "" {
 		cfg.StorageRoot = defaults.StorageRoot
@@ -299,6 +318,15 @@ func FormatConfigTOML(cfg Config) []byte {
 	buf.WriteString(fmt.Sprintf("copy_separator = %q\n", cfg.Commands.Cockpit.CopySeparator))
 	buf.WriteString(fmt.Sprintf("post_exit_git_action = %q\n", cfg.Commands.Cockpit.PostExitGitAction))
 	buf.WriteString(fmt.Sprintf("commit_message = %q\n", cfg.Commands.Cockpit.CommitMessage))
+	for _, preset := range cfg.Commands.Cockpit.CopyPresets {
+		buf.WriteString("\n[[commands.cockpit.copy_presets]]\n")
+		buf.WriteString(fmt.Sprintf("name = %q\n", preset.Name))
+		buf.WriteString(fmt.Sprintf("scope = %q\n", preset.Scope))
+		buf.WriteString(fmt.Sprintf("template = %q\n", preset.Template))
+		if preset.JoinWith != "" {
+			buf.WriteString(fmt.Sprintf("join_with = %q\n", preset.JoinWith))
+		}
+	}
 
 	return buf.Bytes()
 }
@@ -355,6 +383,23 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Commands.Cockpit.CommitMessage) == "" {
 		return fmt.Errorf("commands.cockpit.commit_message must not be empty")
+	}
+	if err := validateCopyPresets(c.Commands.Cockpit.CopyPresets); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateCopyPresets(presets []CopyPreset) error {
+	names := make(map[string]struct{}, len(presets))
+	for _, preset := range presets {
+		if err := ValidateCopyPreset(preset); err != nil {
+			return err
+		}
+		if _, exists := names[preset.Name]; exists {
+			return fmt.Errorf("commands.cockpit.copy_presets contains duplicate name: %s", preset.Name)
+		}
+		names[preset.Name] = struct{}{}
 	}
 	return nil
 }

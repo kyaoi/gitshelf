@@ -157,6 +157,7 @@ type calendarTUIModel struct {
 	linkChoices   []shelf.LinkType
 	blockingLink  shelf.LinkType
 	copySeparator string
+	copyPresets   []shelf.CopyPreset
 	showID        bool
 
 	visibleTasks  []shelf.Task
@@ -168,65 +169,75 @@ type calendarTUIModel struct {
 	outboundCount map[string]int
 	inboundCount  map[string]int
 
-	days              []calendarDay
-	dayIndex          int
-	sections          []calendarSection
-	sectionIndex      int
-	sectionRows       map[calendarSectionID]int
-	treeRows          []cockpitTreeRow
-	treeRowIndex      int
-	collapsedTree     map[string]struct{}
-	boardColumns      []boardColumn
-	boardColumnIdx    int
-	boardRowIndex     map[int]int
-	selectedTaskID    string
-	markedTaskIDs     map[string]struct{}
-	rangeMarkMode     bool
-	rangeAnchorID     string
-	rangeBaseIDs      map[string]struct{}
-	moveMode          bool
-	moveSourceIDs     []string
-	pane              calendarPane
-	width             int
-	height            int
-	bodyScroll        int
-	message           string
-	showHelp          bool
-	showTaskBody      bool
-	snoozeMode        bool
-	snoozeIndex       int
-	linkMode          bool
-	linkAction        calendarLinkAction
-	linkIndex         int
-	linkQuery         string
-	linkQueryCursor   int
-	linkQueryMode     bool
-	linkTypeIndex     int
-	linkCollapsedTree map[string]struct{}
-	filterMode        bool
-	filterSection     calendarFilterSection
-	filterIndex       int
-	filterSnapshot    shelf.TaskFilter
-	kindMode          bool
-	kindIndex         int
-	kindTarget        calendarKindTarget
-	tagMode           bool
-	tagIndex          int
-	tagSelection      []string
-	tagInputMode      bool
-	tagInputValue     string
-	tagInputCursor    int
-	textPromptMode    bool
-	textPromptTitle   string
-	textPromptValue   string
-	textPromptCursor  int
-	textPromptPurpose calendarTextPromptPurpose
-	addMode           bool
-	addTitle          string
-	addTitleCursor    int
-	addKind           shelf.Kind
-	addField          calendarAddField
-	addAtRoot         bool
+	days                     []calendarDay
+	dayIndex                 int
+	sections                 []calendarSection
+	sectionIndex             int
+	sectionRows              map[calendarSectionID]int
+	treeRows                 []cockpitTreeRow
+	treeRowIndex             int
+	collapsedTree            map[string]struct{}
+	boardColumns             []boardColumn
+	boardColumnIdx           int
+	boardRowIndex            map[int]int
+	selectedTaskID           string
+	markedTaskIDs            map[string]struct{}
+	rangeMarkMode            bool
+	rangeAnchorID            string
+	rangeBaseIDs             map[string]struct{}
+	moveMode                 bool
+	moveSourceIDs            []string
+	pane                     calendarPane
+	width                    int
+	height                   int
+	bodyScroll               int
+	message                  string
+	showHelp                 bool
+	showTaskBody             bool
+	snoozeMode               bool
+	snoozeIndex              int
+	linkMode                 bool
+	linkAction               calendarLinkAction
+	linkIndex                int
+	linkQuery                string
+	linkQueryCursor          int
+	linkQueryMode            bool
+	linkTypeIndex            int
+	linkCollapsedTree        map[string]struct{}
+	copyPresetMode           bool
+	copyPresetIndex          int
+	copyPresetFocus          calendarCopyPresetFocus
+	copyPresetName           string
+	copyPresetNameCursor     int
+	copyPresetScope          shelf.CopyPresetScope
+	copyPresetTemplate       string
+	copyPresetTemplateCursor int
+	copyPresetJoinWith       string
+	copyPresetJoinWithCursor int
+	filterMode               bool
+	filterSection            calendarFilterSection
+	filterIndex              int
+	filterSnapshot           shelf.TaskFilter
+	kindMode                 bool
+	kindIndex                int
+	kindTarget               calendarKindTarget
+	tagMode                  bool
+	tagIndex                 int
+	tagSelection             []string
+	tagInputMode             bool
+	tagInputValue            string
+	tagInputCursor           int
+	textPromptMode           bool
+	textPromptTitle          string
+	textPromptValue          string
+	textPromptCursor         int
+	textPromptPurpose        calendarTextPromptPurpose
+	addMode                  bool
+	addTitle                 string
+	addTitleCursor           int
+	addKind                  shelf.Kind
+	addField                 calendarAddField
+	addAtRoot                bool
 }
 
 func runCalendarTUI(rootDir string, startDate time.Time, daysCount int, statuses []shelf.Status, showID bool) error {
@@ -275,6 +286,7 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		linkChoices:       append([]shelf.LinkType{}, cfg.LinkTypes.Names...),
 		blockingLink:      cfg.BlockingLinkType(),
 		copySeparator:     cfg.Commands.Cockpit.CopySeparator,
+		copyPresets:       append([]shelf.CopyPreset{}, cfg.Commands.Cockpit.CopyPresets...),
 		showID:            opts.ShowID,
 		pane:              calendarPaneMain,
 		sectionRows:       map[calendarSectionID]int{},
@@ -333,6 +345,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.linkMode {
 			return m.updateLinkMode(msg)
+		}
+		if m.copyPresetMode {
+			return m.updateCopyPresetMode(msg)
 		}
 		if m.filterMode {
 			return m.updateFilterMode(msg)
@@ -590,6 +605,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = err.Error()
 			}
 			return m, nil
+		case "M":
+			m.beginCopyPresetMode()
+			return m, nil
 		case "L":
 			m.beginLinkMode(calendarLinkActionAdd)
 			return m, nil
@@ -700,6 +718,8 @@ func (m calendarTUIModel) activePopup() string {
 			query = interactive.RenderTextCursor(query, m.linkQueryCursor)
 		}
 		return renderCalendarLinkPicker(m.linkAction, m.linkTypeLabel(), query, m.linkQueryMode, m.selectedTaskPopupLabel(), m.currentLinkCandidates(), m.linkIndex, popupWidth, popupHeight)
+	case m.copyPresetMode:
+		return renderCalendarCopyPresetPopup(m, popupWidth, popupHeight)
 	case m.kindMode:
 		return renderCalendarKindPicker(m.selectedTaskPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
 	case m.tagMode:
@@ -817,6 +837,19 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		m.linkQuery = ""
 		m.linkQueryCursor = 0
 		m.linkQueryMode = false
+		changed = true
+	}
+	if m.copyPresetMode {
+		m.copyPresetMode = false
+		m.copyPresetIndex = 0
+		m.copyPresetFocus = calendarCopyPresetFocusPresets
+		m.copyPresetName = ""
+		m.copyPresetNameCursor = 0
+		m.copyPresetScope = ""
+		m.copyPresetTemplate = ""
+		m.copyPresetTemplateCursor = 0
+		m.copyPresetJoinWith = ""
+		m.copyPresetJoinWithCursor = 0
 		changed = true
 	}
 	if m.filterMode {
@@ -1485,6 +1518,7 @@ func (m *calendarTUIModel) reload() error {
 	m.linkChoices = append([]shelf.LinkType{}, cfg.LinkTypes.Names...)
 	m.blockingLink = cfg.BlockingLinkType()
 	m.copySeparator = cfg.Commands.Cockpit.CopySeparator
+	m.copyPresets = append([]shelf.CopyPreset{}, cfg.Commands.Cockpit.CopyPresets...)
 	m.statuses = deriveActiveStatuses(m.statusChoices, m.filter)
 	filter := m.filter
 	filter.Limit = 0
@@ -2992,39 +3026,18 @@ func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
 	if len(rootIDs) == 0 {
 		return "", 0, fmt.Errorf("選択中の task がありません")
 	}
-	byParent := make(map[string][]shelf.Task)
-	for _, task := range m.allTasks {
-		byParent[task.Parent] = append(byParent[task.Parent], task)
-	}
-	for parentID := range byParent {
-		sort.Slice(byParent[parentID], func(i, j int) bool {
-			left := byParent[parentID][i]
-			right := byParent[parentID][j]
-			if left.Title != right.Title {
-				return left.Title < right.Title
-			}
-			return left.ID < right.ID
-		})
-	}
 	lines := make([]string, 0, len(rootIDs))
 	count := 0
-	var appendSubtree func(taskID string, depth int)
-	appendSubtree = func(taskID string, depth int) {
-		task, ok := m.taskByID[taskID]
-		if !ok {
-			return
-		}
-		lines = append(lines, strings.Repeat("  ", depth)+task.Title)
-		count++
-		for _, child := range byParent[taskID] {
-			appendSubtree(child.ID, depth+1)
-		}
-	}
 	for i, rootID := range rootIDs {
+		subtreeText, subtreeCount := m.renderTaskSubtreeText(rootID)
+		if strings.TrimSpace(subtreeText) == "" {
+			continue
+		}
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		appendSubtree(rootID, 0)
+		lines = append(lines, subtreeText)
+		count += subtreeCount
 	}
 	if count == 0 {
 		return "", 0, fmt.Errorf("コピー対象の subtree がありません")
@@ -4095,7 +4108,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
+		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)

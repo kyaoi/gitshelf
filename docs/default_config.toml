@@ -32,6 +32,14 @@ default_years = 2
 # Separator used when copying one or more selected titles.
 copy_separator = "\n"
 
+# Saved advanced copy presets shown from Cockpit `M`.
+# Use \n inside template / join_with to express newlines.
+# [[commands.cockpit.copy_presets]]
+# name = "subtree_path"
+# scope = "subtree"
+# template = "{{path}}\n{{subtree}}"
+# join_with = "\n\n"
+
 # Optional git action when leaving Cockpit.
 post_exit_git_action = "none"
 

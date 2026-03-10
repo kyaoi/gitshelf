@@ -65,6 +65,7 @@ func NewRootCommand(version string) *cobra.Command {
 
 	cmd.AddCommand(newInitCommand(ctx))
 	cmd.AddCommand(newCompletionCommand())
+	cmd.AddCommand(newConfigCommand(ctx))
 	cmd.AddCommand(newCockpitCommand(ctx))
 	cmd.AddCommand(newCalendarCommand(ctx))
 	cmd.AddCommand(newBoardCommand(ctx))

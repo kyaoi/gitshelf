@@ -93,6 +93,7 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
 - `O`: copy the selected task body, or marked task bodies
+- `M`: open advanced copy presets with preview and save-command help
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`
@@ -105,6 +106,15 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `U`: remove one outbound link from the selected task
 - `Enter`: toggle compact / detailed inspector
 - `r`: reload
+
+Inside advanced copy (`M`):
+
+- `j` / `k`: choose `Custom` or one saved preset
+- `Tab` / `Shift+Tab`: move focus between preset list and custom fields
+- custom `template` / `join_with` fields use escaped text such as `\n`
+- `Enter`: copy the currently previewed payload
+- `Ctrl+S`: copy the generated `shelf config copy-preset set ...` command
+- `Esc` / `q`: close the popup
 
 Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
 IDs are hidden there unless `--show-id` is enabled.

@@ -76,7 +76,19 @@ cockpit 設定:
 copy_separator = "\n"
 post_exit_git_action = "none"
 commit_message = "chore: update shelf data"
+
+[[commands.cockpit.copy_presets]]
+name = "subtree_path"
+scope = "subtree"
+template = "{{path}}\n{{subtree}}"
+join_with = "\n\n"
 ```
+
+- `copy_separator`
+- `copy_presets[].name`
+- `copy_presets[].scope`: `task` または `subtree`
+- `copy_presets[].template`: `{{title}}`, `{{path}}`, `{{body}}`, `{{subtree}}` を使えます
+- `copy_presets[].join_with`: 省略時は `copy_separator` を使います
 
 保存先設定:
 

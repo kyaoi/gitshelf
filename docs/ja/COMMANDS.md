@@ -72,6 +72,28 @@ TTY 必須。
 - `--not-status <status>`（複数可）
 - `--not-tag <tag>`（複数可）
 
+## `shelf config`
+
+user-facing config を永続化します。
+
+### `shelf config copy-preset set`
+
+Cockpit の `M` で使う advanced copy preset を追加または更新します。
+
+フラグ:
+
+- `--name <preset-name>`
+- `--scope <task|subtree>`
+- `--template <text>`
+- `--join-with <text>` 省略時は `commands.cockpit.copy_separator`
+
+使える placeholder:
+
+- `{{title}}`
+- `{{path}}`
+- `{{body}}`
+- `{{subtree}}`
+
 ## launcher 群
 
 次のコマンドは `shelf cockpit --mode ...` の薄い wrapper です。
