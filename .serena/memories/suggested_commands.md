@@ -1,0 +1,1 @@
+Formatting and checks: `gofmt -w <files>`, `go test ./...`, `go test -race ./...`, `go vet ./...`. Useful targeted checks: `go test ./internal/paths ./internal/shelf ./internal/cli`. Entrypoint: `go test ./...` for validation, `go install ./cmd/shelf` or build via Go tooling for local use.

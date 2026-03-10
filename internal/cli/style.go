@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"time"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
 	"golang.org/x/term"
@@ -69,5 +70,13 @@ func uiDue(dueOn string) string {
 	if dueOn == "" {
 		return uiMuted("-")
 	}
-	return uiColor(dueOn, "38;5;177")
+	today := time.Now().Local().Format("2006-01-02")
+	switch {
+	case dueOn < today:
+		return uiColor(dueOn, "38;5;203")
+	case dueOn == today:
+		return uiColor(dueOn, "38;5;220")
+	default:
+		return uiColor(dueOn, "38;5;114")
+	}
 }

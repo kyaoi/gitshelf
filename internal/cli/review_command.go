@@ -54,6 +54,10 @@ func buildReviewPayload(rootDir string, limit int) (reviewPayload, error) {
 	if err != nil {
 		return reviewPayload{}, err
 	}
+	cfg, err := shelf.LoadConfig(rootDir)
+	if err != nil {
+		return reviewPayload{}, err
+	}
 	readiness, err := shelf.BuildTaskReadiness(rootDir)
 	if err != nil {
 		return reviewPayload{}, err
@@ -89,7 +93,7 @@ func buildReviewPayload(rootDir string, limit int) (reviewPayload, error) {
 			DueOn:       task.DueOn,
 			Parent:      task.Parent,
 			ParentTitle: parentTitle,
-			BlockedBy:   reviewBlockedBy(task, info, titleByID),
+			BlockedBy:   reviewBlockedBy(task, info, titleByID, cfg.BlockingLinkType()),
 		}
 
 		if task.Kind == "inbox" && task.Status == "open" {
@@ -126,7 +130,7 @@ func isReviewActiveStatus(status shelf.Status) bool {
 	return status == "open" || status == "in_progress" || status == "blocked"
 }
 
-func reviewBlockedBy(task shelf.Task, info shelf.TaskReadiness, titleByID map[string]string) []string {
+func reviewBlockedBy(task shelf.Task, info shelf.TaskReadiness, titleByID map[string]string, blockingLinkType shelf.LinkType) []string {
 	reasons := make([]string, 0, 2)
 	if task.Status == "blocked" {
 		reasons = append(reasons, "status=blocked")
@@ -140,7 +144,7 @@ func reviewBlockedBy(task shelf.Task, info shelf.TaskReadiness, titleByID map[st
 			}
 			labels = append(labels, depID)
 		}
-		reasons = append(reasons, "depends_on: "+strings.Join(labels, ", "))
+		reasons = append(reasons, fmt.Sprintf("%s: %s", blockingLinkType, strings.Join(labels, ", ")))
 	}
 	return reasons
 }

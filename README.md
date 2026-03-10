@@ -11,10 +11,10 @@
 ## Documentation
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-- Command guide: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
 - Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 - Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
+- Default config example: [`docs/default_config.toml`](docs/default_config.toml)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
 
 ## Install
@@ -95,6 +95,8 @@ shelf now
 
 # script-friendly queries
 shelf ls --status open --json
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 shelf next
 ```
 
@@ -110,10 +112,13 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf board`
 - `shelf review`
 - `shelf now`
+- `shelf link`
+- `shelf unlink`
+- `shelf links`
 - `shelf ls`
 - `shelf next`
 
-Everything else is expected to happen inside Cockpit.
+Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
 
 ## Cockpit-First Usage
 
@@ -123,6 +128,12 @@ Everything else is expected to happen inside Cockpit.
 - `shelf cockpit` opens it explicitly
 - `calendar/tree/board/review/now` are just launcher presets for the same workspace
 - creating, editing, moving, snoozing, linking, archiving, and status changes are handled inside the TUI
+- transient editors and selectors are shown as centered popups
+- non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
+- the sidebar and main pane synchronize selection in both directions
+- direct scripting is mainly `ls`, `next`, `link`, `unlink`, and `links`
+
+Detailed keybindings live in [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md).
 
 Recommended starting point:
 
@@ -146,8 +157,9 @@ Task metadata uses:
 
 Links use only:
 
-- `depends_on`
-- `related`
+- names from `config.toml` `link_types.names`
+- one blocking relation from `config.toml` `link_types.blocking`
+- default names are `depends_on` and `related`
 
 ## Quality Checks
 

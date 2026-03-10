@@ -2,6 +2,8 @@
 
 Current interactive behavior for the Cockpit-first `shelf` tool.
 
+This is the single detailed keybinding reference for Cockpit.
+
 ## Main Rule
 
 Interactive daily work happens inside `Cockpit`.
@@ -26,13 +28,20 @@ All of those open the same TUI workspace with different starting modes.
 - `R`: review mode
 - `N`: now mode
 - `Ctrl+H` / `Ctrl+L`: previous / next mode
-- `Tab` / `Shift+Tab`: move focus between panes
+- `Tab` / `Shift+Tab`: move focus between panes in non-calendar modes
 - `?`: toggle help overlay
 - `q`: close help first, otherwise quit
-- `Esc` / `Ctrl+C`: quit or leave transient state
-- `Ctrl+[` : return to normal state from transient overlays
+- `Esc`: quit or leave transient state
+- `Ctrl+[` : leave popup or input mode and return to normal state
+
+Transient pickers and composers are shown as centered popups.
+Scrollable lists keep a fixed box height; overflow is handled by scrolling instead of resizing the layout.
 
 ## Calendar Mode
+
+Weeks are rendered Sunday through Saturday.
+
+If a parent task has a due date, descendants without their own `due_on` are shown on that same date as inherited entries.
 
 Main keys:
 
@@ -40,9 +49,11 @@ Main keys:
 - `h` / `l`: move by day
 - `j` / `k`: move by week
 - `[` / `]`: move by month
-- `n` / `p`: cycle tasks on the focused day
-- `a`: create from the current context
-- `A`: quick capture
+- `n` / `p`: cycle tasks on the selected day
+- `a`: create as a child of the selected task, or at root when nothing is selected
+- `A`: create at root
+
+The main calendar view does not use pane focus switching.
 
 ## Tree Mode
 
@@ -76,6 +87,9 @@ These are compact operational views inside the same workspace.
 
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
+- `K`: edit kind on the selected task
+- `#`: edit tags for the selected task
+- `y`: copy the selected title, or marked titles joined by the configured separator
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`
@@ -84,17 +98,52 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `x`: archive toggle
 - `z`: snooze presets
 - `e`: open the task file in `$VISUAL`, `$EDITOR`, then `vi`
-- `L`: open the edge file for the selected task
+- `L`: add a link from the selected task
+- `U`: remove one outbound link from the selected task
 - `Enter`: toggle compact / detailed inspector
 - `r`: reload
 
-## Add / Capture
+Link selectors use tree-style labels and a scrolling window so duplicate titles remain identifiable.
+IDs are hidden there unless `--show-id` is enabled.
+- In link pickers, `h` / `l` collapse and expand the hierarchy like Tree mode.
+- Link type cycling uses `Tab` / `Shift+Tab`.
 
-- `a`: create using the current mode context
-  - calendar / review / now: use focused day as the due date default
-  - tree: use selected task as the parent default
-  - board: use selected column status as the status default
-- `A`: quick capture (`kind=inbox`, `status=open`)
+## Add
+
+- `a`: create using the current mode context as a child of the selected task
+- when nothing is selected, `a` also creates at root
+- `A`: create using the current mode context at root
+- calendar / review / now keep using the focused day as the due date default
+- board keeps using the selected column status as the status default
+- the add composer now includes a title field and kind field
+- `Tab` / `Shift+Tab` cycle between title and kind
+- `j` / `k` cycle kinds while the kind field is active
+- `Enter` confirms creation
+- `Esc` / `Ctrl+[` cancel add mode
+- `q` is normal text input inside the title field
+
+## Filters
+
+- `f`: open a popup filter editor
+- include / exclude filters are available for both `status` and `kind`
+- the applied filters affect every Cockpit mode
+
+## Tags
+
+- `Space`: toggle the highlighted tag
+- `Enter` on `Done`: save and close
+- `Enter` on `+ Add new tag`: enter text input mode
+- `Ctrl+S`: save and close from anywhere in tag editing
+- while typing a new tag, movement keys are treated as text input
+
+## Non-Calendar Sidebar
+
+- the right pane is split into `Calendar / Selected Day / Inspector`
+- the height ratio is `Calendar 40% / gap 1% / Selected Day 28% / gap 1% / Inspector 30%`
+- main selection syncs the sidebar date and `Selected Day`
+- moving the sidebar calendar updates the main selection when that day has visible tasks
+- `n` / `p` inside `Selected Day` updates the main selection in non-calendar modes
+- the focused sidebar calendar uses a highlighted border, matching the main pane focus treatment
 
 ## Scrolling
 
@@ -110,4 +159,7 @@ Long task selectors scroll automatically.
 
 - tree-style labels are used where hierarchy matters
 - `(root)` appears as an explicit move target where relevant
-- `q`, `Esc`, and `Ctrl+C` cancel plain selectors
+- `q` and `Esc` cancel plain selectors
+- Link uses `/` to enter query input mode; while typing, movement keys are treated as text
+- `Selected Day` replaces the old focused-day panel name and stays synced with the main selection
+- `Selected Day` also syncs when the sidebar calendar changes the selected date

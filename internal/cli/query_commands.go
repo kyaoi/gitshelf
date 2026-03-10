@@ -423,3 +423,11 @@ func buildTaskPath(task shelf.Task, byID map[string]shelf.Task) string {
 	}
 	return "root > " + strings.Join(titles, " > ")
 }
+
+func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID bool) string {
+	label := buildTaskPath(task, byID)
+	if showID {
+		return fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
+	}
+	return label
+}

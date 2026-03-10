@@ -16,14 +16,14 @@ func TestCLIHelpShowsMinimalCockpitSurface(t *testing.T) {
 		t.Fatalf("help failed: %v", err)
 	}
 	for _, name := range []string{
-		"board", "calendar", "cockpit", "completion", "init", "ls", "next", "now", "review", "tree",
+		"board", "calendar", "cockpit", "completion", "init", "link", "links", "ls", "next", "now", "review", "tree", "unlink",
 	} {
 		if !strings.Contains(out, "\n  "+name+"\t") && !strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should contain %q: %s", name, out)
 		}
 	}
 	for _, name := range []string{
-		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "link", "show", "triage", "view",
+		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "show", "triage", "view",
 	} {
 		if strings.Contains(out, "\n  "+name+"\t") || strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should not contain removed command %q: %s", name, out)
@@ -101,6 +101,38 @@ func TestCLIInitAndLsFilters(t *testing.T) {
 	}
 	if !strings.Contains(output, "todo-open") || !strings.Contains(output, "todo-in-progress") || strings.Contains(output, "todo-done") {
 		t.Fatalf("unexpected output for multi-status filter: %s", output)
+	}
+}
+
+func TestCLILinkCommands(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "link", "--root", root, "--from", from.ID, "--to", to.ID, "--type", "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+	output, err := executeCLI(t, "links", "--root", root, from.ID)
+	if err != nil {
+		t.Fatalf("links failed: %v", err)
+	}
+	if !strings.Contains(output, "--depends_on-->") || !strings.Contains(output, "root > From") || !strings.Contains(output, "root > To") {
+		t.Fatalf("unexpected links output: %s", output)
+	}
+	if strings.Contains(output, from.ID) || strings.Contains(output, to.ID) {
+		t.Fatalf("expected IDs to stay hidden by default, got: %s", output)
+	}
+	if _, err := executeCLI(t, "unlink", "--root", root, "--from", from.ID, "--to", to.ID, "--type", "depends_on"); err != nil {
+		t.Fatalf("unlink failed: %v", err)
 	}
 }
 
