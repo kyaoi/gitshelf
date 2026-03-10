@@ -146,6 +146,16 @@ func buildCopyPresetRecord(preset shelf.CopyPreset) copyPresetRecord {
 	}
 }
 
+func (record copyPresetRecord) TSVFields() map[string]string {
+	return map[string]string{
+		"name":          record.Name,
+		"scope":         record.Scope,
+		"subtree_style": record.SubtreeStyle,
+		"template":      record.Template,
+		"join_with":     record.JoinWith,
+	}
+}
+
 func taskFilePath(rootDir, taskID string) string {
 	return filepath.Join(shelf.TasksDir(rootDir), taskID+".md")
 }

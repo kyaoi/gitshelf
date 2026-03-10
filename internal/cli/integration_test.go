@@ -188,6 +188,32 @@ func TestCLIShowCSVFormatIncludesHeaderAndQuotedBody(t *testing.T) {
 	}
 }
 
+func TestCLIShowCSVFieldsAndNoHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "csv", "--fields", "title,file,tags", "--no-header")
+	if err != nil {
+		t.Fatalf("show --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Task" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || rows[0][2] != "focus" {
+		t.Fatalf("unexpected show csv rows: %#v", rows)
+	}
+}
+
 func TestCLILauncherHelpMatchesCockpitOnlySurface(t *testing.T) {
 	for _, args := range [][]string{
 		{"calendar", "--help"},
@@ -407,6 +433,42 @@ func TestCLILinksJSONLFormatUsesOneEdgePerLine(t *testing.T) {
 	}
 }
 
+func TestCLILinksCSVFieldsAndHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "csv", "--fields", "direction,type,other_file", "--header")
+	if err != nil {
+		t.Fatalf("links --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "direction" || rows[0][1] != "type" || rows[0][2] != "other_file" {
+		t.Fatalf("unexpected header row: %#v", rows[0])
+	}
+	if rows[1][0] != "outbound" || rows[1][1] != "depends_on" || rows[1][2] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
+		t.Fatalf("unexpected data row: %#v", rows[1])
+	}
+}
+
 func TestCLILsUnknownFilterValues(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
@@ -470,6 +532,32 @@ func TestCLINextListsReadyTasks(t *testing.T) {
 	}
 	if _, ok := items[0]["file"].(string); !ok {
 		t.Fatalf("expected next json items to include file, got: %#v", items)
+	}
+}
+
+func TestCLINextCSVHeaderOption(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "csv", "--fields", "title,file", "--no-header")
+	if err != nil {
+		t.Fatalf("next --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Ready" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected next csv row: %#v", rows[0])
 	}
 }
 
@@ -549,6 +637,32 @@ func TestCLILsCSVFormatIncludesHeaderAndRows(t *testing.T) {
 		t.Fatalf("expected header + 1 row, got %d: %#v", len(rows), rows)
 	}
 	if rows[0][0] != "id" || rows[0][1] != "title" || rows[1][0] != task.ID || rows[1][1] != "Task, One" {
+		t.Fatalf("unexpected csv rows: %#v", rows)
+	}
+}
+
+func TestCLILsCSVFieldsAndNoHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "csv", "--fields", "title,file,tags", "--no-header")
+	if err != nil {
+		t.Fatalf("ls --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Task" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || rows[0][2] != "focus" {
 		t.Fatalf("unexpected csv rows: %#v", rows)
 	}
 }

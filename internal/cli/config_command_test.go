@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -247,5 +249,91 @@ func TestConfigCopyPresetGetCommandJSONAndRemove(t *testing.T) {
 	}
 	if len(updated.Commands.Cockpit.CopyPresets) != 0 {
 		t.Fatalf("expected preset to be removed: %+v", updated.Commands.Cockpit.CopyPresets)
+	}
+}
+
+func TestConfigCopyPresetListCommandCSVAndFields(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if _, err := cfg.UpsertCopyPreset(shelf.CopyPreset{
+		Name:         "subtree-path",
+		Scope:        shelf.CopyPresetScopeSubtree,
+		SubtreeStyle: shelf.CopySubtreeStyleTree,
+		Template:     "{{path}}\n{{subtree}}",
+		JoinWith:     "\n\n",
+	}); err != nil {
+		t.Fatalf("seed preset failed: %v", err)
+	}
+	if err := shelf.SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "--root", root, "config", "copy-preset", "list", "--format", "csv", "--fields", "name,scope,subtree_style", "--no-header")
+	if err != nil {
+		t.Fatalf("copy-preset list --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "subtree-path" || rows[0][1] != "subtree" || rows[0][2] != "tree" {
+		t.Fatalf("unexpected csv row: %#v", rows[0])
+	}
+}
+
+func TestConfigCopyPresetGetCommandJSONL(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if _, err := cfg.UpsertCopyPreset(shelf.CopyPreset{
+		Name:         "titles",
+		Scope:        shelf.CopyPresetScopeTask,
+		SubtreeStyle: shelf.CopySubtreeStyleIndented,
+		Template:     "{{title}}",
+	}); err != nil {
+		t.Fatalf("seed preset failed: %v", err)
+	}
+	if err := shelf.SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "--root", root, "config", "copy-preset", "get", "titles", "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("copy-preset get --format jsonl failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 jsonl line, got %d: %q", len(lines), out)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &payload); err != nil {
+		t.Fatalf("parse jsonl failed: %v\n%s", err, lines[0])
+	}
+	if payload["name"] != "titles" || payload["scope"] != "task" {
+		t.Fatalf("unexpected jsonl payload: %#v", payload)
+	}
+}
+
+func TestConfigCopyPresetFieldsRequireTabularFormat(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "--root", root, "config", "copy-preset", "list", "--fields", "name"); err == nil || !strings.Contains(err.Error(), "--fields requires --format tsv or csv") {
+		t.Fatalf("expected fields format error, got: %v", err)
 	}
 }

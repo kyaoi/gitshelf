@@ -30,6 +30,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		parent          string
 		preset          string
 		fields          string
+		header          bool
+		noHeader        bool
 		limit           int
 		search          string
 	)
@@ -46,8 +48,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
-			if strings.TrimSpace(fields) != "" && format != "tsv" {
-				return fmt.Errorf("--fields requires --format tsv")
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
 			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
@@ -170,11 +172,19 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLsTSVFields(), allowedLsTSVFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
 				items := make([]taskQueryRecord, 0, len(tasks))
 				for _, task := range tasks {
 					items = append(items, buildTaskQueryRecord(ctx.rootDir, task, byID))
 				}
-				text, err := renderCSV(items, defaultLsTSVFields(), true)
+				text, err := renderCSV(items, selectedFields, includeHeader)
 				if err != nil {
 					return err
 				}
@@ -270,6 +280,8 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
 	cmd.Flags().StringVar(&preset, "preset", "", "Apply read-only defaults similar to a Cockpit view: now|review|board")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -277,10 +289,12 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		limit  int
-		asJSON bool
-		format string
-		fields string
+		limit    int
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
 	)
 
 	cmd := &cobra.Command{
@@ -293,8 +307,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
-			if strings.TrimSpace(fields) != "" && format != "tsv" {
-				return fmt.Errorf("--fields requires --format tsv")
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
 			}
 			filter := shelf.TaskFilter{Limit: 0}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
@@ -372,6 +386,14 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
 				items := make([]taskQueryRecord, 0)
 				for _, task := range tasks {
 					info, ok := readiness[task.ID]
@@ -383,7 +405,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 						break
 					}
 				}
-				text, err := renderCSV(items, defaultNextTSVFields(), true)
+				text, err := renderCSV(items, selectedFields, includeHeader)
 				if err != nil {
 					return err
 				}
@@ -429,6 +451,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }

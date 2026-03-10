@@ -87,9 +87,11 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 
 func newLinksCommand(ctx *commandContext) *cobra.Command {
 	var (
-		asJSON bool
-		format string
-		fields string
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
 	)
 	cmd := &cobra.Command{
 		Use:     "links <task-id>",
@@ -100,8 +102,8 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
 				return err
 			}
-			if strings.TrimSpace(fields) != "" && format != "tsv" {
-				return fmt.Errorf("--fields requires --format tsv")
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
 			}
 			taskID := strings.TrimSpace(args[0])
 			outbound, inbound, err := shelf.ListLinks(ctx.rootDir, taskID)
@@ -173,6 +175,13 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				if includeHeader {
+					fmt.Println(strings.Join(selectedFields, "\t"))
+				}
 				for _, edge := range outbound {
 					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID).TSVFields()))
 				}
@@ -183,6 +192,14 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLinksTSVFields(), allowedLinksTSVFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
 				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
 				for _, edge := range outbound {
 					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
@@ -190,7 +207,7 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				for _, edge := range inbound {
 					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
 				}
-				text, err := renderCSV(records, defaultLinksTSVFields(), true)
+				text, err := renderCSV(records, selectedFields, includeHeader)
 				if err != nil {
 					return err
 				}
@@ -205,7 +222,9 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	return cmd
 }
 

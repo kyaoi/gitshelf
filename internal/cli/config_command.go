@@ -60,12 +60,24 @@ func newConfigCopyPresetCommand(ctx *commandContext) *cobra.Command {
 }
 
 func newConfigCopyPresetListCommand(ctx *commandContext) *cobra.Command {
-	var asJSON bool
+	var (
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List saved Cockpit copy presets",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
+			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
 				return err
@@ -78,22 +90,80 @@ func newConfigCopyPresetListCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(string(data))
 				return nil
 			}
+			records := buildCopyPresetListPayload(cfg.Commands.Cockpit.CopyPresets)
+			if format == "jsonl" {
+				text, err := renderJSONL(records)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultCopyPresetTabularFields(), allowedCopyPresetTabularFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				if includeHeader {
+					fmt.Println(strings.Join(selectedFields, "\t"))
+				}
+				for _, record := range records {
+					fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+				}
+				return nil
+			}
+			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultCopyPresetTabularFields(), allowedCopyPresetTabularFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				text, err := renderCSV(records, selectedFields, includeHeader)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
 			printCopyPresetList(cfg.Commands.Cockpit.CopyPresets)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	return cmd
 }
 
 func newConfigCopyPresetGetCommand(ctx *commandContext) *cobra.Command {
-	var asJSON bool
+	var (
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <name>",
 		Short: "Show one saved Cockpit copy preset",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
+			}
 			cfg, err := shelf.LoadConfig(ctx.rootDir)
 			if err != nil {
 				return err
@@ -111,11 +181,55 @@ func newConfigCopyPresetGetCommand(ctx *commandContext) *cobra.Command {
 				fmt.Println(string(data))
 				return nil
 			}
+			record := buildCopyPresetPayload(preset)
+			if format == "jsonl" {
+				text, err := renderJSONL([]copyPresetRecord{record})
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultCopyPresetTabularFields(), allowedCopyPresetTabularFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				if includeHeader {
+					fmt.Println(strings.Join(selectedFields, "\t"))
+				}
+				fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+				return nil
+			}
+			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultCopyPresetTabularFields(), allowedCopyPresetTabularFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				text, err := renderCSV([]copyPresetRecord{record}, selectedFields, includeHeader)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
 			printCopyPreset(preset)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	return cmd
 }
 
@@ -317,6 +431,16 @@ func printCopyPreset(preset shelf.CopyPreset) {
 	fmt.Printf("Subtree Style: %s\n", preset.EffectiveSubtreeStyle())
 	fmt.Printf("Template:\n%s\n", preset.Template)
 	fmt.Printf("Join With: %q\n", preset.JoinWith)
+}
+
+func defaultCopyPresetTabularFields() []string {
+	return []string{"name", "scope", "subtree_style", "template", "join_with"}
+}
+
+func allowedCopyPresetTabularFields() map[string]struct{} {
+	return map[string]struct{}{
+		"name": {}, "scope": {}, "subtree_style": {}, "template": {}, "join_with": {},
+	}
 }
 
 func kindStrings(values []shelf.Kind) []string {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 )
 
 type outputFieldRecord interface {
@@ -46,4 +47,24 @@ func renderJSONL[T any](records []T) (string, error) {
 		buf.WriteByte('\n')
 	}
 	return buf.String(), nil
+}
+
+func resolveTabularHeader(format string, header bool, noHeader bool) (bool, error) {
+	if header && noHeader {
+		return false, fmt.Errorf("--header and --no-header cannot be used together")
+	}
+	switch format {
+	case "csv":
+		if noHeader {
+			return false, nil
+		}
+		return true, nil
+	case "tsv":
+		if header {
+			return true, nil
+		}
+		return false, nil
+	default:
+		return false, nil
+	}
 }
