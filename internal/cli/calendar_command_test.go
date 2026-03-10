@@ -2,6 +2,7 @@ package cli
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1372,6 +1373,43 @@ func TestUpdateAddModeSupportsMidStringEditing(t *testing.T) {
 	}
 }
 
+func TestBeginTagModeUsesMarkedTasksForBulkEdit(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09", Tags: []string{"alpha"}})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-09", Tags: []string{"beta"}})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(first.ID)
+	model.tagChoices = []string{"gamma"}
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	model.beginTagMode()
+
+	if !model.tagBulkMode {
+		t.Fatal("expected beginTagMode to enter bulk mode for marked tasks")
+	}
+	if len(model.tagSelection) != 0 {
+		t.Fatalf("expected no exact selection in bulk mode, got %+v", model.tagSelection)
+	}
+	for _, tag := range []string{"alpha", "beta", "gamma"} {
+		if !containsTag(model.tagChoices, tag) {
+			t.Fatalf("expected tag choices to include %q, got %+v", tag, model.tagChoices)
+		}
+	}
+}
+
 func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
 	model := calendarTUIModel{
 		tagMode:      true,
@@ -1395,6 +1433,34 @@ func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
 	}
 }
 
+func TestUpdateTagModeCyclesBulkStatesWithSpace(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:       true,
+		tagBulkMode:   true,
+		tagChoices:    []string{"alpha"},
+		tagBulkStates: map[string]calendarTagBulkState{},
+		tagIndex:      2,
+	}
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if got := model.tagBulkState("alpha"); got != calendarTagBulkStateAdd {
+		t.Fatalf("expected add state, got %v", got)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if got := model.tagBulkState("alpha"); got != calendarTagBulkStateRemove {
+		t.Fatalf("expected remove state, got %v", got)
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if got := model.tagBulkState("alpha"); got != calendarTagBulkStateUnchanged {
+		t.Fatalf("expected unchanged state, got %v", got)
+	}
+}
+
 func TestUpdateTagModeSupportsMidStringEditing(t *testing.T) {
 	model := calendarTUIModel{
 		tagMode:        true,
@@ -1413,6 +1479,27 @@ func TestUpdateTagModeSupportsMidStringEditing(t *testing.T) {
 	model = updated.(calendarTUIModel)
 	if model.tagInputValue != "aXb" || model.tagInputCursor != 2 {
 		t.Fatalf("unexpected tag input edit: value=%q cursor=%d", model.tagInputValue, model.tagInputCursor)
+	}
+}
+
+func TestUpdateTagModeAddsNewTagAsBulkAdd(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:        true,
+		tagBulkMode:    true,
+		tagChoices:     []string{"alpha"},
+		tagBulkStates:  map[string]calendarTagBulkState{},
+		tagInputMode:   true,
+		tagInputValue:  "beta",
+		tagInputCursor: 4,
+	}
+
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if !containsTag(model.tagChoices, "beta") {
+		t.Fatalf("expected new tag in choices, got %+v", model.tagChoices)
+	}
+	if got := model.tagBulkState("beta"); got != calendarTagBulkStateAdd {
+		t.Fatalf("expected new tag to default to add state, got %v", got)
 	}
 }
 
@@ -1455,6 +1542,78 @@ func TestUpdateTagModeUsesSpaceForToggleAndCtrlSForSave(t *testing.T) {
 	reloadedTask := model.taskByID[task.ID]
 	if len(reloadedTask.Tags) != 1 || reloadedTask.Tags[0] != "alpha" {
 		t.Fatalf("expected saved tag on task, got %+v", reloadedTask.Tags)
+	}
+}
+
+func TestApplySelectedTaskTagDeltaUsesMarkedTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "First",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+		Tags:   []string{"alpha", "gamma"},
+	})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:  "Second",
+		Kind:   "todo",
+		Status: "open",
+		DueOn:  "2026-03-09",
+		Tags:   []string{"beta", "gamma"},
+	})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(second.ID)
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	if err := model.applySelectedTaskTagDelta(shelf.SetTaskInput{
+		AddTags:    []string{"delta"},
+		RemoveTags: []string{"gamma"},
+	}); err != nil {
+		t.Fatalf("applySelectedTaskTagDelta failed: %v", err)
+	}
+
+	reloadedFirst, err := shelf.EnsureTaskExists(root, first.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed for first: %v", err)
+	}
+	if !slices.Equal(reloadedFirst.Tags, []string{"alpha", "delta"}) {
+		t.Fatalf("unexpected first tags: %+v", reloadedFirst.Tags)
+	}
+	reloadedSecond, err := shelf.EnsureTaskExists(root, second.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed for second: %v", err)
+	}
+	if !slices.Equal(reloadedSecond.Tags, []string{"beta", "delta"}) {
+		t.Fatalf("unexpected second tags: %+v", reloadedSecond.Tags)
+	}
+	if model.markedCount() != 0 {
+		t.Fatalf("expected marks cleared after bulk tag update, got %d", model.markedCount())
+	}
+	if model.selectedTaskID != first.ID {
+		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	}
+	if model.message != "Updated tags for 2 tasks (+delta; -gamma)" {
+		t.Fatalf("unexpected message: %s", model.message)
+	}
+	cfg, err := shelf.LoadConfig(root)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if !containsTag(cfg.Tags, "delta") {
+		t.Fatalf("expected config tags to include delta, got %+v", cfg.Tags)
 	}
 }
 

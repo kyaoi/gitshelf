@@ -56,6 +56,14 @@ const (
 	calendarTextPromptTag
 )
 
+type calendarTagBulkState int
+
+const (
+	calendarTagBulkStateUnchanged calendarTagBulkState = iota
+	calendarTagBulkStateAdd
+	calendarTagBulkStateRemove
+)
+
 type calendarFilterSection int
 
 const (
@@ -225,6 +233,8 @@ type calendarTUIModel struct {
 	tagMode                  bool
 	tagIndex                 int
 	tagSelection             []string
+	tagBulkMode              bool
+	tagBulkStates            map[string]calendarTagBulkState
 	tagInputMode             bool
 	tagInputValue            string
 	tagInputCursor           int
@@ -722,7 +732,7 @@ func (m calendarTUIModel) activePopup() string {
 		if m.tagInputMode {
 			inputValue = interactive.RenderTextCursor(inputValue, m.tagInputCursor)
 		}
-		return renderCalendarTagPicker(m.selectedTaskPopupLabel(), m.tagChoices, m.tagSelection, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
+		return renderCalendarTagPicker(m.tagPopupLabel(), m.tagChoices, m.tagSelection, m.tagBulkMode, m.tagBulkStates, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
 	case m.textPromptMode:
 		return renderCalendarTextPrompt(m.textPromptTitle, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
 	case m.addMode:
@@ -857,11 +867,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		changed = true
 	}
 	if m.tagMode {
-		m.tagMode = false
-		m.tagSelection = nil
-		m.tagInputMode = false
-		m.tagInputValue = ""
-		m.tagInputCursor = 0
+		m.clearTagModeState()
 		changed = true
 	}
 	if m.textPromptMode {
@@ -1236,6 +1242,69 @@ func (m calendarTUIModel) bulkActionPopupLabel() string {
 	return m.selectedTaskPopupLabel()
 }
 
+func (m calendarTUIModel) tagPopupLabel() string {
+	if m.tagBulkMode {
+		return m.bulkActionPopupLabel()
+	}
+	return m.selectedTaskPopupLabel()
+}
+
+func (m *calendarTUIModel) clearTagModeState() {
+	m.tagMode = false
+	m.tagSelection = nil
+	m.tagBulkMode = false
+	m.tagBulkStates = nil
+	m.tagInputMode = false
+	m.tagInputValue = ""
+	m.tagInputCursor = 0
+}
+
+func (m calendarTUIModel) tagBulkState(tag string) calendarTagBulkState {
+	if m.tagBulkStates == nil {
+		return calendarTagBulkStateUnchanged
+	}
+	state, ok := m.tagBulkStates[tag]
+	if !ok {
+		return calendarTagBulkStateUnchanged
+	}
+	return state
+}
+
+func (m *calendarTUIModel) setTagBulkState(tag string, state calendarTagBulkState) {
+	if state == calendarTagBulkStateUnchanged {
+		if m.tagBulkStates != nil {
+			delete(m.tagBulkStates, tag)
+		}
+		return
+	}
+	if m.tagBulkStates == nil {
+		m.tagBulkStates = map[string]calendarTagBulkState{}
+	}
+	m.tagBulkStates[tag] = state
+}
+
+func nextCalendarTagBulkState(state calendarTagBulkState) calendarTagBulkState {
+	switch state {
+	case calendarTagBulkStateUnchanged:
+		return calendarTagBulkStateAdd
+	case calendarTagBulkStateAdd:
+		return calendarTagBulkStateRemove
+	default:
+		return calendarTagBulkStateUnchanged
+	}
+}
+
+func markerForCalendarTagBulkState(state calendarTagBulkState) string {
+	switch state {
+	case calendarTagBulkStateAdd:
+		return "[+]"
+	case calendarTagBulkStateRemove:
+		return "[-]"
+	default:
+		return "[ ]"
+	}
+}
+
 func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 	if len(m.kindChoices) == 0 {
 		m.message = "kind が設定されていません"
@@ -1319,12 +1388,37 @@ func (m *calendarTUIModel) beginTagMode() {
 		choices = append(choices, tag)
 	}
 	m.tagChoices = shelf.NormalizeTags(choices)
-	m.tagSelection = append([]string{}, task.Tags...)
+	if m.markedCount() > 0 {
+		for _, taskID := range m.activeTaskIDs() {
+			markedTask, ok := m.taskByID[taskID]
+			if !ok {
+				continue
+			}
+			for _, tag := range markedTask.Tags {
+				if containsTag(m.tagChoices, tag) {
+					continue
+				}
+				m.tagChoices = append(m.tagChoices, tag)
+			}
+		}
+		m.tagChoices = shelf.NormalizeTags(m.tagChoices)
+		m.tagSelection = nil
+		m.tagBulkMode = true
+		m.tagBulkStates = map[string]calendarTagBulkState{}
+	} else {
+		m.tagSelection = append([]string{}, task.Tags...)
+		m.tagBulkMode = false
+		m.tagBulkStates = nil
+	}
 	m.tagIndex = 0
 	m.tagMode = true
 	m.tagInputMode = false
 	m.tagInputValue = ""
 	m.tagInputCursor = 0
+	if m.tagBulkMode {
+		m.message = "tag を一括編集"
+		return
+	}
 	m.message = "tag を編集"
 }
 
@@ -1347,7 +1441,9 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.tagChoices = append(m.tagChoices, value)
 				m.tagChoices = shelf.NormalizeTags(m.tagChoices)
 			}
-			if !containsTag(m.tagSelection, value) {
+			if m.tagBulkMode {
+				m.setTagBulkState(value, calendarTagBulkStateAdd)
+			} else if !containsTag(m.tagSelection, value) {
 				m.tagSelection = append(m.tagSelection, value)
 				m.tagSelection = shelf.NormalizeTags(m.tagSelection)
 			}
@@ -1386,20 +1482,24 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	optionCount := len(m.tagChoices) + 2
 	switch msg.String() {
 	case "ctrl+s":
+		if m.tagBulkMode {
+			if err := m.applySelectedTaskTagDelta(m.currentTagBulkDelta()); err != nil {
+				m.clearTagModeState()
+				m.message = err.Error()
+				return m, nil
+			}
+			m.clearTagModeState()
+			return m, nil
+		}
 		if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
-			m.tagMode = false
+			m.clearTagModeState()
 			m.message = err.Error()
 			return m, nil
 		}
-		m.tagMode = false
-		m.tagSelection = nil
+		m.clearTagModeState()
 		return m, nil
 	case "esc", "q", "ctrl+[":
-		m.tagMode = false
-		m.tagSelection = nil
-		m.tagInputMode = false
-		m.tagInputValue = ""
-		m.tagInputCursor = 0
+		m.clearTagModeState()
 		m.message = "tag 変更をキャンセルしました"
 		return m, nil
 	case "up", "k":
@@ -1417,6 +1517,10 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		tag := m.tagChoices[m.tagIndex-2]
+		if m.tagBulkMode {
+			m.setTagBulkState(tag, nextCalendarTagBulkState(m.tagBulkState(tag)))
+			return m, nil
+		}
 		if containsTag(m.tagSelection, tag) {
 			m.tagSelection = removeTag(m.tagSelection, tag)
 		} else {
@@ -1427,13 +1531,21 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		switch {
 		case m.tagIndex == 0:
+			if m.tagBulkMode {
+				if err := m.applySelectedTaskTagDelta(m.currentTagBulkDelta()); err != nil {
+					m.clearTagModeState()
+					m.message = err.Error()
+					return m, nil
+				}
+				m.clearTagModeState()
+				return m, nil
+			}
 			if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
-				m.tagMode = false
+				m.clearTagModeState()
 				m.message = err.Error()
 				return m, nil
 			}
-			m.tagMode = false
-			m.tagSelection = nil
+			m.clearTagModeState()
 			return m, nil
 		case m.tagIndex == 1:
 			m.tagInputMode = true
@@ -2986,6 +3098,73 @@ func (m *calendarTUIModel) applySelectedTaskTags(tags []string) error {
 	}
 	m.message = fmt.Sprintf("Updated tags: %s", strings.Join(normalized, ", "))
 	return nil
+}
+
+func (m calendarTUIModel) currentTagBulkDelta() shelf.SetTaskInput {
+	addTags := make([]string, 0, len(m.tagBulkStates))
+	removeTags := make([]string, 0, len(m.tagBulkStates))
+	for _, tag := range m.tagChoices {
+		switch m.tagBulkState(tag) {
+		case calendarTagBulkStateAdd:
+			addTags = append(addTags, tag)
+		case calendarTagBulkStateRemove:
+			removeTags = append(removeTags, tag)
+		}
+	}
+	return shelf.SetTaskInput{
+		AddTags:    addTags,
+		RemoveTags: removeTags,
+	}
+}
+
+func (m *calendarTUIModel) applySelectedTaskTagDelta(input shelf.SetTaskInput) error {
+	addTags := shelf.NormalizeTags(input.AddTags)
+	removeTags := shelf.NormalizeTags(input.RemoveTags)
+	if len(addTags) == 0 && len(removeTags) == 0 {
+		m.message = "No tag changes selected"
+		return nil
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-tags"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{
+				AddTags:    addTags,
+				RemoveTags: removeTags,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	m.message = formatCalendarTagDeltaMessage(len(taskIDs), addTags, removeTags)
+	return nil
+}
+
+func formatCalendarTagDeltaMessage(taskCount int, addTags []string, removeTags []string) string {
+	parts := make([]string, 0, 2)
+	if len(addTags) > 0 {
+		parts = append(parts, "+"+strings.Join(addTags, ","))
+	}
+	if len(removeTags) > 0 {
+		parts = append(parts, "-"+strings.Join(removeTags, ","))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Updated tags for %d tasks (%s)", taskCount, strings.Join(parts, "; "))
 }
 
 func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
@@ -5043,14 +5222,20 @@ func renderCalendarKindPicker(selectedTask string, kinds []shelf.Kind, selected 
 	return renderPopupBoxWithHeader(header, lines, width, height, lipgloss.Color("81"), anchor)
 }
 
-func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []string, selected int, inputMode bool, inputValue string, width int, height int) string {
+func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []string, bulkMode bool, bulkStates map[string]calendarTagBulkState, selected int, inputMode bool, inputValue string, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	targetLabel := "Selected: " + selectedTask
+	helpLabel := "j/k: move  Space: toggle  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"
+	if bulkMode {
+		targetLabel = "Target: " + selectedTask
+		helpLabel = "j/k: move  Space: cycle [+]/[-]/[ ]  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"
+	}
 	header := []string{
 		titleStyle.Render("Tags"),
-		helpStyle.Render("Selected: " + selectedTask),
-		helpStyle.Render("j/k: move  Space: toggle  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"),
+		helpStyle.Render(targetLabel),
+		helpStyle.Render(helpLabel),
 	}
 	if inputMode {
 		header = append(header, helpStyle.Render("Add new tag: "+inputValue))
@@ -5058,7 +5243,11 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	options := []string{"Done", "+ Add new tag"}
 	for _, tag := range tags {
 		marker := "[ ]"
-		if containsTag(selectedTags, tag) {
+		if bulkMode {
+			if bulkStates != nil {
+				marker = markerForCalendarTagBulkState(bulkStates[tag])
+			}
+		} else if containsTag(selectedTags, tag) {
 			marker = "[x]"
 		}
 		options = append(options, fmt.Sprintf("%s %s", marker, tag))

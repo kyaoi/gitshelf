@@ -88,7 +88,7 @@ These are compact operational views inside the same workspace.
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
 - `K`: edit kind on the selected task, or on marked tasks when multi-select is active
-- `#`: edit tags for the selected task
+- `#`: edit tags for the selected task, or edit marked tasks with bulk add/remove
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
@@ -146,11 +146,15 @@ IDs are hidden there unless `--show-id` is enabled.
 
 ## Tags
 
-- `Space`: toggle the highlighted tag
+- single-task mode keeps the current exact-set editor
+- marked tasks switch `#` into bulk mode with tri-state markers
+- bulk markers: `[ ]` unchanged, `[+]` add to all marked tasks, `[-]` remove from all marked tasks
+- `Space`: toggle the highlighted tag in single-task mode, or cycle bulk state in marked-task mode
 - `Enter` on `Done`: save and close
 - `Enter` on `+ Add new tag`: enter text input mode
 - `Ctrl+S`: save and close from anywhere in tag editing
 - while typing a new tag, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
+- new tags are immediately selected in single-task mode, and become `[+]` in bulk mode
 
 ## Non-Calendar Sidebar
 
