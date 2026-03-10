@@ -123,15 +123,15 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &payload); err != nil {
 		t.Fatalf("parse show json failed: %v\n%s", err, out)
 	}
-	if payload["path"] != "root > Task" || payload["body"] != "note" {
-		t.Fatalf("unexpected show payload: %#v", payload)
-	}
-	if payload["file"] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
-		t.Fatalf("expected show json to include file path, got: %#v", payload)
+	if len(payload) != 2 || payload["task"] == nil || payload["edges"] == nil {
+		t.Fatalf("expected canonical show payload, got: %#v", payload)
 	}
 	taskPayload, ok := payload["task"].(map[string]any)
-	if !ok || taskPayload["title"] != "Task" {
+	if !ok || taskPayload["title"] != "Task" || taskPayload["path"] != "root > Task" || taskPayload["body"] != "note" {
 		t.Fatalf("expected normalized task payload, got: %#v", payload["task"])
+	}
+	if taskPayload["file"] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("expected task payload to include file path, got: %#v", taskPayload)
 	}
 	if taskPayload["parent_id"] != nil {
 		t.Fatalf("expected root task to omit parent_id, got: %#v", taskPayload)
@@ -139,71 +139,6 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	edges, ok := payload["edges"].([]any)
 	if !ok || len(edges) != 1 {
 		t.Fatalf("expected normalized edges payload, got: %#v", payload["edges"])
-	}
-	inbound, ok := payload["inbound"].([]any)
-	if !ok || len(inbound) != 1 {
-		t.Fatalf("unexpected inbound payload: %#v", payload["inbound"])
-	}
-}
-
-func TestCLIShowJSONSchemaV2UsesCanonicalShape(t *testing.T) {
-	root := t.TempDir()
-	if _, err := executeCLI(t, "init", "--root", root); err != nil {
-		t.Fatalf("init failed: %v", err)
-	}
-	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
-	if err != nil {
-		t.Fatalf("add parent failed: %v", err)
-	}
-	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Parent: parent.ID, Body: "note"})
-	if err != nil {
-		t.Fatalf("add task failed: %v", err)
-	}
-	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
-	if err != nil {
-		t.Fatalf("add peer failed: %v", err)
-	}
-	if err := shelf.LinkTasks(root, peer.ID, task.ID, "related"); err != nil {
-		t.Fatalf("link failed: %v", err)
-	}
-
-	out, err := executeCLI(t, "show", "--root", root, task.ID, "--json", "--schema", "v2")
-	if err != nil {
-		t.Fatalf("show --json --schema v2 failed: %v", err)
-	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("parse show json failed: %v\n%s", err, out)
-	}
-	if len(payload) != 2 || payload["task"] == nil || payload["edges"] == nil {
-		t.Fatalf("expected canonical top-level shape, got: %#v", payload)
-	}
-	if _, ok := payload["path"]; ok {
-		t.Fatalf("v2 payload should not expose flattened task fields: %#v", payload)
-	}
-	if _, ok := payload["inbound"]; ok {
-		t.Fatalf("v2 payload should not expose legacy inbound/outbound fields: %#v", payload)
-	}
-	taskPayload, ok := payload["task"].(map[string]any)
-	if !ok {
-		t.Fatalf("missing task payload: %#v", payload)
-	}
-	if taskPayload["parent_id"] != parent.ID {
-		t.Fatalf("expected parent_id, got: %#v", taskPayload)
-	}
-	if _, ok := taskPayload["parent"]; ok {
-		t.Fatalf("v2 task payload should not expose parent alias: %#v", taskPayload)
-	}
-	edges, ok := payload["edges"].([]any)
-	if !ok || len(edges) != 1 {
-		t.Fatalf("expected one canonical edge, got: %#v", payload["edges"])
-	}
-	edgePayload, ok := edges[0].(map[string]any)
-	if !ok || edgePayload["direction"] != "inbound" {
-		t.Fatalf("unexpected edge payload: %#v", edges[0])
-	}
-	if _, ok := edgePayload["task"]; ok {
-		t.Fatalf("v2 edge payload should not expose task/other aliases: %#v", edgePayload)
 	}
 }
 
@@ -286,7 +221,7 @@ func TestCLIShowCSVFieldsAndNoHeader(t *testing.T) {
 	}
 }
 
-func TestCLIShowSchemaV2RejectsLegacyParentField(t *testing.T) {
+func TestCLIShowRejectsLegacyParentField(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -295,7 +230,7 @@ func TestCLIShowSchemaV2RejectsLegacyParentField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add task failed: %v", err)
 	}
-	if _, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "tsv", "--schema", "v2", "--fields", "id,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
+	if _, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "tsv", "--fields", "id,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
 		t.Fatalf("expected legacy parent field to be rejected, got: %v", err)
 	}
 }
@@ -448,63 +383,8 @@ func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
 	if !ok || target["id"] != to.ID {
 		t.Fatalf("expected target payload, got: %#v", edgePayload["target"])
 	}
-	outbound, ok := payload["outbound"].([]any)
-	if !ok || len(outbound) != 1 {
-		t.Fatalf("unexpected outbound payload: %#v", payload["outbound"])
-	}
-	first, ok := outbound[0].(map[string]any)
-	if !ok {
-		t.Fatalf("unexpected outbound item: %#v", outbound[0])
-	}
-	if first["path"] != "root > To" || first["file"] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
-		t.Fatalf("unexpected outbound item: %#v", first)
-	}
-}
-
-func TestCLILinksJSONSchemaV2UsesCanonicalShape(t *testing.T) {
-	root := t.TempDir()
-	if _, err := executeCLI(t, "init", "--root", root); err != nil {
-		t.Fatalf("init failed: %v", err)
-	}
-	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
-	if err != nil {
-		t.Fatalf("add from failed: %v", err)
-	}
-	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
-	if err != nil {
-		t.Fatalf("add to failed: %v", err)
-	}
-	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
-		t.Fatalf("link failed: %v", err)
-	}
-
-	out, err := executeCLI(t, "links", "--root", root, from.ID, "--json", "--schema", "v2")
-	if err != nil {
-		t.Fatalf("links --json --schema v2 failed: %v", err)
-	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("parse links json failed: %v\n%s", err, out)
-	}
-	if len(payload) != 2 || payload["task"] == nil || payload["edges"] == nil {
-		t.Fatalf("expected canonical top-level payload, got: %#v", payload)
-	}
-	if _, ok := payload["task_id"]; ok {
-		t.Fatalf("v2 payload should not expose task_id: %#v", payload)
-	}
 	if _, ok := payload["outbound"]; ok {
-		t.Fatalf("v2 payload should not expose outbound/inbound aliases: %#v", payload)
-	}
-	edges, ok := payload["edges"].([]any)
-	if !ok || len(edges) != 1 {
-		t.Fatalf("expected one edge, got: %#v", payload["edges"])
-	}
-	edgePayload, ok := edges[0].(map[string]any)
-	if !ok || edgePayload["direction"] != "outbound" {
-		t.Fatalf("unexpected edge payload: %#v", edges[0])
-	}
-	if _, ok := edgePayload["task"]; ok {
-		t.Fatalf("v2 edge payload should not expose task/other aliases: %#v", edgePayload)
+		t.Fatalf("unexpected legacy outbound payload: %#v", payload)
 	}
 }
 
@@ -532,7 +412,7 @@ func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
 		t.Fatalf("add inbound link failed: %v", err)
 	}
 
-	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "direction,type,other_id,other_path")
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "direction,type,source_id,target_id")
 	if err != nil {
 		t.Fatalf("links --format tsv failed: %v", err)
 	}
@@ -540,10 +420,10 @@ func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 tsv rows, got %d: %q", len(lines), out)
 	}
-	if lines[0] != strings.Join([]string{"outbound", "depends_on", to.ID, "root > To"}, "\t") {
+	if lines[0] != strings.Join([]string{"outbound", "depends_on", from.ID, to.ID}, "\t") {
 		t.Fatalf("unexpected outbound row: %q", lines[0])
 	}
-	if lines[1] != strings.Join([]string{"inbound", "related", peer.ID, "root > Peer"}, "\t") {
+	if lines[1] != strings.Join([]string{"inbound", "related", peer.ID, from.ID}, "\t") {
 		t.Fatalf("unexpected inbound row: %q", lines[1])
 	}
 }
@@ -574,7 +454,7 @@ func TestCLILinksTSVSupportsSourceAndTargetAliases(t *testing.T) {
 	}
 }
 
-func TestCLILinksSchemaV2RejectsLegacyTaskAliasFields(t *testing.T) {
+func TestCLILinksRejectLegacyTaskAliasFields(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -590,7 +470,7 @@ func TestCLILinksSchemaV2RejectsLegacyTaskAliasFields(t *testing.T) {
 	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
 		t.Fatalf("link failed: %v", err)
 	}
-	if _, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--schema", "v2", "--fields", "task_id,target_id"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: task_id") {
+	if _, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "task_id,target_id"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: task_id") {
 		t.Fatalf("expected legacy task alias field to be rejected, got: %v", err)
 	}
 }
@@ -646,7 +526,7 @@ func TestCLILinksCSVFieldsAndHeader(t *testing.T) {
 		t.Fatalf("link failed: %v", err)
 	}
 
-	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "csv", "--fields", "direction,type,other_file", "--header")
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "csv", "--fields", "direction,type,target_file", "--header")
 	if err != nil {
 		t.Fatalf("links --format csv failed: %v", err)
 	}
@@ -657,7 +537,7 @@ func TestCLILinksCSVFieldsAndHeader(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("expected header + row, got %d: %#v", len(rows), rows)
 	}
-	if rows[0][0] != "direction" || rows[0][1] != "type" || rows[0][2] != "other_file" {
+	if rows[0][0] != "direction" || rows[0][1] != "type" || rows[0][2] != "target_file" {
 		t.Fatalf("unexpected header row: %#v", rows[0])
 	}
 	if rows[1][0] != "outbound" || rows[1][1] != "depends_on" || rows[1][2] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
@@ -871,7 +751,7 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 	}
 }
 
-func TestCLILsJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
+func TestCLILsJSONUsesCanonicalTaskFields(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -885,9 +765,9 @@ func TestCLILsJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
 		t.Fatalf("add child failed: %v", err)
 	}
 
-	out, err := executeCLI(t, "ls", "--root", root, "--json", "--schema", "v2")
+	out, err := executeCLI(t, "ls", "--root", root, "--json")
 	if err != nil {
-		t.Fatalf("ls --json --schema v2 failed: %v", err)
+		t.Fatalf("ls --json failed: %v", err)
 	}
 	var items []map[string]any
 	if err := json.Unmarshal([]byte(out), &items); err != nil {
@@ -902,7 +782,7 @@ func TestCLILsJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
 				t.Fatalf("expected canonical parent_id, got: %#v", item)
 			}
 			if _, ok := item["parent"]; ok {
-				t.Fatalf("v2 task item should not expose parent alias: %#v", item)
+				t.Fatalf("legacy parent alias should not be exposed: %#v", item)
 			}
 		}
 	}
@@ -1082,7 +962,7 @@ func TestCLINextSortsByDueOn(t *testing.T) {
 	}
 }
 
-func TestCLINextJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
+func TestCLINextJSONUsesCanonicalTaskFields(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -1096,9 +976,9 @@ func TestCLINextJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
 		t.Fatalf("add child failed: %v", err)
 	}
 
-	out, err := executeCLI(t, "next", "--root", root, "--json", "--schema", "v2")
+	out, err := executeCLI(t, "next", "--root", root, "--json")
 	if err != nil {
-		t.Fatalf("next --json --schema v2 failed: %v", err)
+		t.Fatalf("next --json failed: %v", err)
 	}
 	var items []map[string]any
 	if err := json.Unmarshal([]byte(out), &items); err != nil {
@@ -1113,7 +993,7 @@ func TestCLINextJSONSchemaV2UsesCanonicalTaskFields(t *testing.T) {
 				t.Fatalf("expected canonical parent_id, got: %#v", item)
 			}
 			if _, ok := item["parent"]; ok {
-				t.Fatalf("v2 next item should not expose parent alias: %#v", item)
+				t.Fatalf("legacy parent alias should not be exposed: %#v", item)
 			}
 		}
 	}
@@ -1129,12 +1009,12 @@ func TestCLILsRejectsUnknownSortField(t *testing.T) {
 	}
 }
 
-func TestCLILsSchemaV2RejectsLegacyParentField(t *testing.T) {
+func TestCLILsRejectsLegacyParentField(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	if _, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--schema", "v2", "--fields", "title,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
+	if _, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
 		t.Fatalf("expected legacy parent field to be rejected, got: %v", err)
 	}
 }

@@ -20,26 +20,6 @@ type taskQueryRecord struct {
 	RepeatEvery string   `json:"repeat_every,omitempty"`
 	ArchivedAt  string   `json:"archived_at,omitempty"`
 	ParentID    string   `json:"parent_id,omitempty"`
-	Parent      string   `json:"parent,omitempty"`
-	ParentTitle string   `json:"parent_title,omitempty"`
-	ParentPath  string   `json:"parent_path,omitempty"`
-	CreatedAt   string   `json:"created_at,omitempty"`
-	UpdatedAt   string   `json:"updated_at,omitempty"`
-	Body        string   `json:"body,omitempty"`
-}
-
-type taskQueryRecordV2 struct {
-	ID          string   `json:"id"`
-	File        string   `json:"file"`
-	Title       string   `json:"title"`
-	Path        string   `json:"path"`
-	Kind        string   `json:"kind"`
-	Status      string   `json:"status"`
-	Tags        []string `json:"tags,omitempty"`
-	DueOn       string   `json:"due_on,omitempty"`
-	RepeatEvery string   `json:"repeat_every,omitempty"`
-	ArchivedAt  string   `json:"archived_at,omitempty"`
-	ParentID    string   `json:"parent_id,omitempty"`
 	ParentPath  string   `json:"parent_path,omitempty"`
 	CreatedAt   string   `json:"created_at,omitempty"`
 	UpdatedAt   string   `json:"updated_at,omitempty"`
@@ -58,15 +38,6 @@ type edgeQueryRecord struct {
 	Type      string      `json:"type"`
 	Source    linkTaskRef `json:"source"`
 	Target    linkTaskRef `json:"target"`
-	Task      linkTaskRef `json:"task"`
-	Other     linkTaskRef `json:"other"`
-}
-
-type edgeQueryRecordV2 struct {
-	Direction string      `json:"direction"`
-	Type      string      `json:"type"`
-	Source    linkTaskRef `json:"source"`
-	Target    linkTaskRef `json:"target"`
 }
 
 type linkSummaryRecord struct {
@@ -78,11 +49,6 @@ type linkSummaryRecord struct {
 type groupedTaskQueryRecord struct {
 	Group string `json:"group"`
 	taskQueryRecord
-}
-
-type groupedTaskQueryRecordV2 struct {
-	Group string `json:"group"`
-	taskQueryRecordV2
 }
 
 type copyPresetRecord struct {
@@ -106,63 +72,19 @@ func buildTaskQueryRecord(rootDir string, task shelf.Task, byID map[string]shelf
 		RepeatEvery: task.RepeatEvery,
 		ArchivedAt:  task.ArchivedAt,
 		ParentID:    task.Parent,
-		Parent:      task.Parent,
 		CreatedAt:   task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		Body:        task.Body,
 	}
 	if task.Parent != "" {
 		if parent, ok := byID[task.Parent]; ok {
-			record.ParentTitle = parent.Title
 			record.ParentPath = buildTaskPath(parent, byID)
 		}
 	}
 	return record
 }
 
-func buildTaskQueryRecordV2(rootDir string, task shelf.Task, byID map[string]shelf.Task) taskQueryRecordV2 {
-	record := buildTaskQueryRecord(rootDir, task, byID)
-	return taskQueryRecordV2{
-		ID:          record.ID,
-		File:        record.File,
-		Title:       record.Title,
-		Path:        record.Path,
-		Kind:        record.Kind,
-		Status:      record.Status,
-		Tags:        append([]string{}, record.Tags...),
-		DueOn:       record.DueOn,
-		RepeatEvery: record.RepeatEvery,
-		ArchivedAt:  record.ArchivedAt,
-		ParentID:    record.ParentID,
-		ParentPath:  record.ParentPath,
-		CreatedAt:   record.CreatedAt,
-		UpdatedAt:   record.UpdatedAt,
-		Body:        record.Body,
-	}
-}
-
 func (record taskQueryRecord) TSVFields() map[string]string {
-	return map[string]string{
-		"id":           record.ID,
-		"title":        record.Title,
-		"path":         record.Path,
-		"kind":         record.Kind,
-		"status":       record.Status,
-		"due_on":       record.DueOn,
-		"repeat_every": record.RepeatEvery,
-		"archived_at":  record.ArchivedAt,
-		"parent_id":    record.ParentID,
-		"parent":       record.Parent,
-		"parent_path":  record.ParentPath,
-		"tags":         strings.Join(record.Tags, ","),
-		"file":         record.File,
-		"created_at":   record.CreatedAt,
-		"updated_at":   record.UpdatedAt,
-		"body":         record.Body,
-	}
-}
-
-func (record taskQueryRecordV2) TSVFields() map[string]string {
 	return map[string]string{
 		"id":           record.ID,
 		"title":        record.Title,
@@ -193,28 +115,7 @@ func buildLinkTaskRef(rootDir, taskID string, byID map[string]shelf.Task) linkTa
 }
 
 func buildEdgeQueryRecord(rootDir, direction string, sourceID string, targetID string, linkType shelf.LinkType, byID map[string]shelf.Task) edgeQueryRecord {
-	if direction == "outbound" {
-		return edgeQueryRecord{
-			Direction: direction,
-			Type:      string(linkType),
-			Source:    buildLinkTaskRef(rootDir, sourceID, byID),
-			Target:    buildLinkTaskRef(rootDir, targetID, byID),
-			Task:      buildLinkTaskRef(rootDir, sourceID, byID),
-			Other:     buildLinkTaskRef(rootDir, targetID, byID),
-		}
-	}
 	return edgeQueryRecord{
-		Direction: direction,
-		Type:      string(linkType),
-		Source:    buildLinkTaskRef(rootDir, sourceID, byID),
-		Target:    buildLinkTaskRef(rootDir, targetID, byID),
-		Task:      buildLinkTaskRef(rootDir, targetID, byID),
-		Other:     buildLinkTaskRef(rootDir, sourceID, byID),
-	}
-}
-
-func buildEdgeQueryRecordV2(rootDir, direction string, sourceID string, targetID string, linkType shelf.LinkType, byID map[string]shelf.Task) edgeQueryRecordV2 {
-	return edgeQueryRecordV2{
 		Direction: direction,
 		Type:      string(linkType),
 		Source:    buildLinkTaskRef(rootDir, sourceID, byID),
@@ -223,29 +124,6 @@ func buildEdgeQueryRecordV2(rootDir, direction string, sourceID string, targetID
 }
 
 func (record edgeQueryRecord) TSVFields() map[string]string {
-	return map[string]string{
-		"direction":    record.Direction,
-		"type":         record.Type,
-		"source_id":    record.Source.ID,
-		"source_title": record.Source.Title,
-		"source_path":  record.Source.Path,
-		"source_file":  record.Source.File,
-		"target_id":    record.Target.ID,
-		"target_title": record.Target.Title,
-		"target_path":  record.Target.Path,
-		"target_file":  record.Target.File,
-		"task_id":      record.Task.ID,
-		"task_title":   record.Task.Title,
-		"task_path":    record.Task.Path,
-		"task_file":    record.Task.File,
-		"other_id":     record.Other.ID,
-		"other_title":  record.Other.Title,
-		"other_path":   record.Other.Path,
-		"other_file":   record.Other.File,
-	}
-}
-
-func (record edgeQueryRecordV2) TSVFields() map[string]string {
 	return map[string]string{
 		"direction":    record.Direction,
 		"type":         record.Type,
@@ -270,12 +148,6 @@ func (record linkSummaryRecord) TSVFields() map[string]string {
 
 func (record groupedTaskQueryRecord) TSVFields() map[string]string {
 	row := record.taskQueryRecord.TSVFields()
-	row["group"] = record.Group
-	return row
-}
-
-func (record groupedTaskQueryRecordV2) TSVFields() map[string]string {
-	row := record.taskQueryRecordV2.TSVFields()
 	row["group"] = record.Group
 	return row
 }

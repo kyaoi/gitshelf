@@ -88,25 +88,20 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 
 func newLinksCommand(ctx *commandContext) *cobra.Command {
 	var (
-		asJSON      bool
-		format      string
-		fields      string
-		header      bool
-		noHeader    bool
-		summary     bool
-		schemaValue string
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
+		summary  bool
 	)
 	cmd := &cobra.Command{
 		Use:     "links <task-id>",
 		Short:   "Show outbound and inbound links for a task",
 		Args:    cobra.ExactArgs(1),
-		Example: "  shelf links 01AAA\n  shelf links 01AAA --json\n  shelf links 01AAA --format tsv --fields direction,type,other_path\n  shelf links 01AAA --format csv",
+		Example: "  shelf links 01AAA\n  shelf links 01AAA --json\n  shelf links 01AAA --format tsv --fields direction,type,source_path,target_path\n  shelf links 01AAA --format csv",
 		RunE: func(_ *cobra.Command, args []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
-				return err
-			}
-			schema, err := parseOutputSchema(schemaValue)
-			if err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
@@ -143,56 +138,18 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					fmt.Println(string(data))
 					return nil
 				}
-				type edgeItem struct {
-					ID    string `json:"id"`
-					File  string `json:"file,omitempty"`
-					Title string `json:"title,omitempty"`
-					Path  string `json:"path,omitempty"`
-					Type  string `json:"type"`
-				}
-				if schema == outputSchemaV2 {
-					payload := struct {
-						Task  linkTaskRef         `json:"task"`
-						Edges []edgeQueryRecordV2 `json:"edges"`
-					}{
-						Task:  buildLinkTaskRef(ctx.rootDir, taskID, byID),
-						Edges: make([]edgeQueryRecordV2, 0, len(outbound)+len(inbound)),
-					}
-					for _, edge := range outbound {
-						payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
-					}
-					for _, edge := range inbound {
-						payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
-					}
-					data, err := json.MarshalIndent(payload, "", "  ")
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(data))
-					return nil
-				}
 				payload := struct {
-					TaskID   string            `json:"task_id"`
-					Task     linkTaskRef       `json:"task"`
-					Edges    []edgeQueryRecord `json:"edges"`
-					Outbound []edgeItem        `json:"outbound"`
-					Inbound  []edgeItem        `json:"inbound"`
+					Task  linkTaskRef       `json:"task"`
+					Edges []edgeQueryRecord `json:"edges"`
 				}{
-					TaskID:   taskID,
-					Task:     buildLinkTaskRef(ctx.rootDir, taskID, byID),
-					Edges:    make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
-					Outbound: make([]edgeItem, 0, len(outbound)),
-					Inbound:  make([]edgeItem, 0, len(inbound)),
+					Task:  buildLinkTaskRef(ctx.rootDir, taskID, byID),
+					Edges: make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
 				}
 				for _, edge := range outbound {
-					record := buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID)
-					payload.Edges = append(payload.Edges, record)
-					payload.Outbound = append(payload.Outbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
+					payload.Edges = append(payload.Edges, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
 				}
 				for _, edge := range inbound {
-					record := buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID)
-					payload.Edges = append(payload.Edges, record)
-					payload.Inbound = append(payload.Inbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
+					payload.Edges = append(payload.Edges, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -211,40 +168,24 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					fmt.Print(text)
 					return nil
 				}
-				switch schema {
-				case outputSchemaV2:
-					records := make([]edgeQueryRecordV2, 0, len(outbound)+len(inbound))
-					for _, edge := range outbound {
-						records = append(records, buildEdgeQueryRecordV2(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
-					}
-					for _, edge := range inbound {
-						records = append(records, buildEdgeQueryRecordV2(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
-					}
-					text, err := renderJSONL(records)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
-				default:
-					records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
-					for _, edge := range outbound {
-						records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
-					}
-					for _, edge := range inbound {
-						records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
-					}
-					text, err := renderJSONL(records)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
+				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
+				for _, edge := range outbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
 				}
+				for _, edge := range inbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
+				}
+				text, err := renderJSONL(records)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
 			if format == "tsv" {
-				defaults := defaultLinksTSVFields(schema)
-				allowed := allowedLinksTSVFields(schema)
+				defaults := defaultLinksTSVFields()
+				allowed := allowedLinksTSVFields()
 				if summary {
 					defaults = defaultLinkSummaryTSVFields()
 					allowed = allowedLinkSummaryTSVFields()
@@ -267,17 +208,17 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					return nil
 				}
 				for _, edge := range outbound {
-					fmt.Println(joinTSVFields(selectedFields, buildEdgeRecordRow(schema, ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID)))
+					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID).TSVFields()))
 				}
 				for _, edge := range inbound {
-					fmt.Println(joinTSVFields(selectedFields, buildEdgeRecordRow(schema, ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID)))
+					fmt.Println(joinTSVFields(selectedFields, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID).TSVFields()))
 				}
 				return nil
 			}
 
 			if format == "csv" {
-				defaults := defaultLinksTSVFields(schema)
-				allowed := allowedLinksTSVFields(schema)
+				defaults := defaultLinksTSVFields()
+				allowed := allowedLinksTSVFields()
 				if summary {
 					defaults = defaultLinkSummaryTSVFields()
 					allowed = allowedLinkSummaryTSVFields()
@@ -298,34 +239,18 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					fmt.Print(text)
 					return nil
 				}
-				switch schema {
-				case outputSchemaV2:
-					records := make([]edgeQueryRecordV2, 0, len(outbound)+len(inbound))
-					for _, edge := range outbound {
-						records = append(records, buildEdgeQueryRecordV2(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
-					}
-					for _, edge := range inbound {
-						records = append(records, buildEdgeQueryRecordV2(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
-					}
-					text, err := renderCSV(records, selectedFields, includeHeader)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
-				default:
-					records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
-					for _, edge := range outbound {
-						records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
-					}
-					for _, edge := range inbound {
-						records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
-					}
-					text, err := renderCSV(records, selectedFields, includeHeader)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
+				records := make([]edgeQueryRecord, 0, len(outbound)+len(inbound))
+				for _, edge := range outbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID))
 				}
+				for _, edge := range inbound {
+					records = append(records, buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID))
+				}
+				text, err := renderCSV(records, selectedFields, includeHeader)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -344,7 +269,6 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
 	cmd.Flags().BoolVar(&summary, "summary", false, "Show summary counts by direction and link type")
-	cmd.Flags().StringVar(&schemaValue, "schema", "v1", "Machine-readable schema: v1|v2")
 	return cmd
 }
 
@@ -393,30 +317,16 @@ func formatLinkEndpoint(taskID string, byID map[string]shelf.Task, showID bool) 
 	return formatTaskPathLabel(task, byID, showID)
 }
 
-func defaultLinksTSVFields(schema outputSchema) []string {
-	if schema == outputSchemaV2 {
-		return []string{"direction", "type", "source_id", "source_path", "target_id", "target_path", "target_file"}
-	}
-	return []string{"direction", "type", "task_id", "task_path", "other_id", "other_path", "other_file"}
+func defaultLinksTSVFields() []string {
+	return []string{"direction", "type", "source_id", "source_path", "target_id", "target_path", "target_file"}
 }
 
-func allowedLinksTSVFields(schema outputSchema) map[string]struct{} {
-	allowed := map[string]struct{}{
+func allowedLinksTSVFields() map[string]struct{} {
+	return map[string]struct{}{
 		"direction": {}, "type": {},
 		"source_id": {}, "source_title": {}, "source_path": {}, "source_file": {},
 		"target_id": {}, "target_title": {}, "target_path": {}, "target_file": {},
 	}
-	if schema == outputSchemaV1 {
-		allowed["task_id"] = struct{}{}
-		allowed["task_title"] = struct{}{}
-		allowed["task_path"] = struct{}{}
-		allowed["task_file"] = struct{}{}
-		allowed["other_id"] = struct{}{}
-		allowed["other_title"] = struct{}{}
-		allowed["other_path"] = struct{}{}
-		allowed["other_file"] = struct{}{}
-	}
-	return allowed
 }
 
 func defaultLinkSummaryTSVFields() []string {
@@ -427,13 +337,6 @@ func allowedLinkSummaryTSVFields() map[string]struct{} {
 	return map[string]struct{}{
 		"direction": {}, "type": {}, "count": {},
 	}
-}
-
-func buildEdgeRecordRow(schema outputSchema, rootDir, direction string, sourceID string, targetID string, linkType shelf.LinkType, byID map[string]shelf.Task) map[string]string {
-	if schema == outputSchemaV2 {
-		return buildEdgeQueryRecordV2(rootDir, direction, sourceID, targetID, linkType, byID).TSVFields()
-	}
-	return buildEdgeQueryRecord(rootDir, direction, sourceID, targetID, linkType, byID).TSVFields()
 }
 
 func buildLinkSummaryRecords(outbound []shelf.Edge, inbound []shelf.InboundEdge) []linkSummaryRecord {

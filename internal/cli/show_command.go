@@ -11,12 +11,11 @@ import (
 
 func newShowCommand(ctx *commandContext) *cobra.Command {
 	var (
-		asJSON      bool
-		format      string
-		fields      string
-		header      bool
-		noHeader    bool
-		schemaValue string
+		asJSON   bool
+		format   string
+		fields   string
+		header   bool
+		noHeader bool
 	)
 
 	cmd := &cobra.Command{
@@ -26,10 +25,6 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf show 01AAA\n  shelf show 01AAA --json\n  shelf show 01AAA --format tsv --fields id,title,file\n  shelf show 01AAA --format csv",
 		RunE: func(_ *cobra.Command, args []string) error {
 			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
-				return err
-			}
-			schema, err := parseOutputSchema(schemaValue)
-			if err != nil {
 				return err
 			}
 			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
@@ -55,11 +50,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if asJSON {
-				payload := any(buildShowTaskPayload(ctx.rootDir, task, byID, outbound, inbound))
-				if schema == outputSchemaV2 {
-					payload = buildShowTaskPayloadV2(ctx.rootDir, task, byID, outbound, inbound)
-				}
-				data, err := json.MarshalIndent(payload, "", "  ")
+				data, err := json.MarshalIndent(buildShowTaskPayload(ctx.rootDir, task, byID, outbound, inbound), "", "  ")
 				if err != nil {
 					return err
 				}
@@ -68,25 +59,16 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "jsonl" {
-				switch schema {
-				case outputSchemaV2:
-					text, err := renderJSONL([]taskQueryRecordV2{buildTaskQueryRecordV2(ctx.rootDir, task, byID)})
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
-				default:
-					text, err := renderJSONL([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)})
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
+				text, err := renderJSONL([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)})
+				if err != nil {
+					return err
 				}
+				fmt.Print(text)
 				return nil
 			}
 
 			if format == "tsv" {
-				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(schema), allowedShowTSVFields(schema))
+				selectedFields, err := resolveTSVFields(fields, defaultShowTSVFields(), allowedShowTSVFields())
 				if err != nil {
 					return err
 				}
@@ -94,7 +76,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				row := buildShowTaskRow(schema, ctx.rootDir, task, byID)
+				row := buildShowTaskRow(ctx.rootDir, task, byID)
 				row["outbound_count"] = fmt.Sprintf("%d", len(outbound))
 				row["inbound_count"] = fmt.Sprintf("%d", len(inbound))
 				if includeHeader {
@@ -105,7 +87,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if format == "csv" {
-				selectedFields, err := resolveTSVFields(fields, defaultShowCSVFields(schema), allowedShowTSVFields(schema))
+				selectedFields, err := resolveTSVFields(fields, defaultShowCSVFields(), allowedShowTSVFields())
 				if err != nil {
 					return err
 				}
@@ -113,20 +95,11 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				switch schema {
-				case outputSchemaV2:
-					text, err := renderCSV([]taskQueryRecordV2{buildTaskQueryRecordV2(ctx.rootDir, task, byID)}, selectedFields, includeHeader)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
-				default:
-					text, err := renderCSV([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)}, selectedFields, includeHeader)
-					if err != nil {
-						return err
-					}
-					fmt.Print(text)
+				text, err := renderCSV([]taskQueryRecord{buildTaskQueryRecord(ctx.rootDir, task, byID)}, selectedFields, includeHeader)
+				if err != nil {
+					return err
 				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -139,104 +112,24 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
 	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
-	cmd.Flags().StringVar(&schemaValue, "schema", "v1", "Machine-readable schema: v1|v2")
 	return cmd
 }
 
 type showTaskPayload struct {
-	Task        taskQueryRecord   `json:"task"`
-	Edges       []edgeQueryRecord `json:"edges"`
-	ID          string            `json:"id"`
-	File        string            `json:"file"`
-	Title       string            `json:"title"`
-	Path        string            `json:"path"`
-	Kind        string            `json:"kind"`
-	Status      string            `json:"status"`
-	Tags        []string          `json:"tags,omitempty"`
-	DueOn       string            `json:"due_on,omitempty"`
-	RepeatEvery string            `json:"repeat_every,omitempty"`
-	ArchivedAt  string            `json:"archived_at,omitempty"`
-	Parent      string            `json:"parent,omitempty"`
-	ParentTitle string            `json:"parent_title,omitempty"`
-	ParentPath  string            `json:"parent_path,omitempty"`
-	CreatedAt   string            `json:"created_at"`
-	UpdatedAt   string            `json:"updated_at"`
-	Body        string            `json:"body,omitempty"`
-	Outbound    []showLinkPayload `json:"outbound"`
-	Inbound     []showLinkPayload `json:"inbound"`
-}
-
-type showLinkPayload struct {
-	ID    string `json:"id"`
-	File  string `json:"file,omitempty"`
-	Title string `json:"title,omitempty"`
-	Path  string `json:"path,omitempty"`
-	Type  string `json:"type"`
-}
-
-type showTaskPayloadV2 struct {
-	Task  taskQueryRecordV2   `json:"task"`
-	Edges []edgeQueryRecordV2 `json:"edges"`
+	Task  taskQueryRecord   `json:"task"`
+	Edges []edgeQueryRecord `json:"edges"`
 }
 
 func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
-	record := buildTaskQueryRecord(rootDir, task, byID)
 	payload := showTaskPayload{
-		Task:        record,
-		ID:          record.ID,
-		File:        record.File,
-		Title:       record.Title,
-		Path:        record.Path,
-		Kind:        record.Kind,
-		Status:      record.Status,
-		Tags:        record.Tags,
-		DueOn:       record.DueOn,
-		RepeatEvery: record.RepeatEvery,
-		ArchivedAt:  record.ArchivedAt,
-		Parent:      record.Parent,
-		ParentTitle: record.ParentTitle,
-		ParentPath:  record.ParentPath,
-		CreatedAt:   record.CreatedAt,
-		UpdatedAt:   record.UpdatedAt,
-		Body:        record.Body,
-		Edges:       make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
-		Outbound:    make([]showLinkPayload, 0, len(outbound)),
-		Inbound:     make([]showLinkPayload, 0, len(inbound)),
+		Task:  buildTaskQueryRecord(rootDir, task, byID),
+		Edges: make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
 	}
 	for _, edge := range outbound {
 		payload.Edges = append(payload.Edges, buildEdgeQueryRecord(rootDir, "outbound", task.ID, edge.To, edge.Type, byID))
-		payload.Outbound = append(payload.Outbound, buildShowLinkPayload(rootDir, edge.To, edge.Type, byID))
 	}
 	for _, edge := range inbound {
 		payload.Edges = append(payload.Edges, buildEdgeQueryRecord(rootDir, "inbound", edge.From, task.ID, edge.Type, byID))
-		payload.Inbound = append(payload.Inbound, buildShowLinkPayload(rootDir, edge.From, edge.Type, byID))
-	}
-	return payload
-}
-
-func buildShowTaskPayloadV2(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayloadV2 {
-	payload := showTaskPayloadV2{
-		Task:  buildTaskQueryRecordV2(rootDir, task, byID),
-		Edges: make([]edgeQueryRecordV2, 0, len(outbound)+len(inbound)),
-	}
-	for _, edge := range outbound {
-		payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(rootDir, "outbound", task.ID, edge.To, edge.Type, byID))
-	}
-	for _, edge := range inbound {
-		payload.Edges = append(payload.Edges, buildEdgeQueryRecordV2(rootDir, "inbound", edge.From, task.ID, edge.Type, byID))
-	}
-	return payload
-}
-
-func buildShowLinkPayload(rootDir, taskID string, linkType shelf.LinkType, byID map[string]shelf.Task) showLinkPayload {
-	payload := showLinkPayload{
-		ID:   taskID,
-		Type: string(linkType),
-	}
-	if task, ok := byID[taskID]; ok {
-		payload.File = taskFilePath(rootDir, task.ID)
-		payload.Title = task.Title
-		payload.Path = buildTaskPath(task, byID)
 	}
 	return payload
 }
@@ -279,33 +172,22 @@ func blankAsDash(value string) string {
 	return value
 }
 
-func defaultShowTSVFields(schema outputSchema) []string {
-	parentField := "parent"
-	if schema == outputSchemaV2 {
-		parentField = "parent_id"
-	}
-	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", parentField, "parent_path", "tags", "file", "body"}
+func defaultShowTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent_id", "parent_path", "tags", "file", "body"}
 }
 
-func defaultShowCSVFields(schema outputSchema) []string {
-	return defaultShowTSVFields(schema)
+func defaultShowCSVFields() []string {
+	return defaultShowTSVFields()
 }
 
-func allowedShowTSVFields(schema outputSchema) map[string]struct{} {
-	allowed := map[string]struct{}{
+func allowedShowTSVFields() map[string]struct{} {
+	return map[string]struct{}{
 		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "tags": {}, "due_on": {},
 		"repeat_every": {}, "archived_at": {}, "parent_id": {}, "parent_path": {}, "file": {},
 		"created_at": {}, "updated_at": {}, "body": {}, "outbound_count": {}, "inbound_count": {},
 	}
-	if schema == outputSchemaV1 {
-		allowed["parent"] = struct{}{}
-	}
-	return allowed
 }
 
-func buildShowTaskRow(schema outputSchema, rootDir string, task shelf.Task, byID map[string]shelf.Task) map[string]string {
-	if schema == outputSchemaV2 {
-		return buildTaskQueryRecordV2(rootDir, task, byID).TSVFields()
-	}
+func buildShowTaskRow(rootDir string, task shelf.Task, byID map[string]shelf.Task) map[string]string {
 	return buildTaskQueryRecord(rootDir, task, byID).TSVFields()
 }
