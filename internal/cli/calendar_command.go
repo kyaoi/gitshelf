@@ -56,7 +56,7 @@ func resolveCalendarStart(value string) (time.Time, error) {
 
 func startOfWeek(value time.Time) time.Time {
 	day := value
-	for day.Weekday() != time.Monday {
+	for day.Weekday() != time.Sunday {
 		day = day.AddDate(0, 0, -1)
 	}
 	return time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())

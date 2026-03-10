@@ -51,3 +51,27 @@ func TestInitializeIsIdempotentWithoutForce(t *testing.T) {
 		t.Fatal("config should not change without --force")
 	}
 }
+
+func TestInitializeNormalizesShelfDirTarget(t *testing.T) {
+	root := t.TempDir()
+
+	result, err := Initialize(filepath.Join(root, ".shelf"), false)
+	if err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if result.RootDir != root {
+		t.Fatalf("expected root %q, got %q", root, result.RootDir)
+	}
+	if _, err := os.Stat(ConfigPath(root)); err != nil {
+		t.Fatalf("config should exist at normalized root: %v", err)
+	}
+}
+
+func TestInitializeRejectsPathInsideShelf(t *testing.T) {
+	root := t.TempDir()
+
+	_, err := Initialize(filepath.Join(root, ".shelf", "tasks"), false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

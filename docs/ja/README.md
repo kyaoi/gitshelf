@@ -11,10 +11,10 @@
 ## ドキュメント
 
 * CLI 仕様: [`docs/COMMANDS.md`](docs/COMMANDS.md)
-* コマンドガイド: [`docs/COMMAND_GUIDE.md`](docs/COMMAND_GUIDE.md)
 * ワークフローガイド: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
 * 対話動作: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
 * 保存形式: [`docs/STORAGE.md`](docs/STORAGE.md)
+* default config 例: [`docs/default_config.toml`](docs/default_config.toml)
 * 日本語ユーザードキュメント: [`docs/ja/README.md`](docs/ja/README.md)
 
 ## Install
@@ -94,6 +94,8 @@ shelf now
 
 # スクリプト向けクエリ
 shelf ls --status open --json
+shelf link --from 01AAA --to 01BBB --type depends_on
+shelf links 01AAA
 shelf next
 ```
 
@@ -109,10 +111,13 @@ shelf next
 * `shelf board`
 * `shelf review`
 * `shelf now`
+* `shelf link`
+* `shelf unlink`
+* `shelf links`
 * `shelf ls`
 * `shelf next`
 
-それ以外の操作はすべて Cockpit 内で行う想定です。
+日常編集の中心は Cockpit のままですが、link 管理は standalone command でも行えます。
 
 ## Cockpit-First Usage
 
@@ -122,6 +127,12 @@ shelf next
 * `shelf cockpit` で明示的に開ける
 * `calendar/tree/board/review/now` は同じワークスペースに対するランチャープリセット
 * 作成、編集、移動、スヌーズ、リンク、アーカイブ、ステータス変更は TUI 内で行う
+* transient editor / selector は中央 popup で表示する
+* non-calendar mode の右ペインは `Calendar / Selected Day / Inspector`
+* main pane と sidebar は双方向に選択同期する
+* script から直接使うのは主に `ls`, `next`, `link`, `unlink`, `links`
+
+詳細な keybind は [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md) に集約しています。
 
 推奨される開始地点:
 
@@ -143,10 +154,9 @@ shelf
 * `parent`
 * timestamps
 
-リンクで使うのは次の 2 種類のみです。
-
-* `depends_on`
-* `related`
+link 種別は `config.toml` の `link_types.names` で定義します。
+そのうち readiness や cycle check に使う blocking relation は `link_types.blocking` で指定します。
+既定値は `depends_on` と `related`、blocking は `depends_on` です。
 
 ## Quality Checks
 
@@ -156,4 +166,3 @@ go test ./...
 go test -race ./...
 go vet ./...
 ```
-

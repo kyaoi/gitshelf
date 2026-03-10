@@ -5,10 +5,15 @@ Current public CLI surface for `shelf`.
 ## Common
 
 - `--root <dir>` selects the project root that contains `.shelf/`
+- `--root` and global `default_root` accept `~` shorthand such as `~/DailyTodo`
+- if the supplied path points to `<root>/.shelf`, `shelf` normalizes it back to `<root>`
+- paths inside `.shelf/` such as `.shelf/tasks` are rejected as invalid roots
 - if `--root` is omitted, `shelf` searches upward from the current directory
 - if no local `.shelf/` is found, `shelf` falls back to the global `default_root`
 - `init` and `completion` do not require an existing `.shelf/`
 - `--show-id`, `-i` enables task IDs in text output and task selectors
+- `--git-on-exit <none|commit|commit_push>` overrides the post-Cockpit git action
+- `--git-message <text>` overrides the commit message used by `--git-on-exit`
 
 ## shelf
 
@@ -163,8 +168,46 @@ Flags:
 - `--limit <n>`
 - `--json`
 
+## shelf link
+
+Create an outbound link.
+
+Flags:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <link-type>`
+
+If `--type` is omitted, the configured blocking link type is used.
+
+## shelf unlink
+
+Remove an outbound link.
+
+Flags:
+
+- `--from <id>`
+- `--to <id>`
+- `--type <link-type>`
+
+If `--type` is omitted, the configured blocking link type is used.
+
+## shelf links
+
+Show outbound and inbound links for one task.
+
+Usage:
+
+- `shelf links <task-id>`
+
+Flags:
+
+- `--json`
+
+Text output uses tree/path labels so duplicate titles are distinguishable.
+IDs stay hidden unless `--show-id` is enabled.
+
 ## Notes
 
-The current public CLI intentionally does not expose standalone commands for add/edit/show/set/mv/snooze/link/archive/history/import/export/github/view/doctor.
-
-Those operations are expected to happen inside Cockpit.
+Most daily editing happens inside Cockpit.
+Link management is also available through standalone commands.

@@ -14,6 +14,11 @@ type InitResult struct {
 }
 
 func Initialize(rootDir string, force bool) (InitResult, error) {
+	normalizedRoot, err := NormalizeRootDir(rootDir)
+	if err != nil {
+		return InitResult{}, err
+	}
+	rootDir = normalizedRoot
 	shelfDir := ShelfDir(rootDir)
 	tasksDir := TasksDir(rootDir)
 	edgesDir := EdgesDir(rootDir)
@@ -38,7 +43,7 @@ func Initialize(rootDir string, force bool) (InitResult, error) {
 	}
 
 	cfgPath := ConfigPath(rootDir)
-	_, err := os.Stat(cfgPath)
+	_, err = os.Stat(cfgPath)
 	switch {
 	case err == nil && !force:
 		return result, nil

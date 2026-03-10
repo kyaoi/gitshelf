@@ -78,3 +78,24 @@ func TestResolveShelfRootFallsBackToGlobalDefaultRoot(t *testing.T) {
 		t.Fatalf("expected %q, got %q", globalRoot, root)
 	}
 }
+
+func TestNormalizeRootDirAcceptsShelfDirPath(t *testing.T) {
+	root := t.TempDir()
+
+	got, err := NormalizeRootDir(filepath.Join(root, ".shelf"))
+	if err != nil {
+		t.Fatalf("normalize failed: %v", err)
+	}
+	if got != root {
+		t.Fatalf("expected %q, got %q", root, got)
+	}
+}
+
+func TestNormalizeRootDirRejectsPathInsideShelf(t *testing.T) {
+	root := t.TempDir()
+
+	_, err := NormalizeRootDir(filepath.Join(root, ".shelf", "tasks"))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
