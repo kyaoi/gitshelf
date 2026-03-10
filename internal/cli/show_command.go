@@ -38,7 +38,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 			}
 
 			if asJSON {
-				data, err := json.MarshalIndent(buildShowTaskPayload(task, byID, outbound, inbound), "", "  ")
+				data, err := json.MarshalIndent(buildShowTaskPayload(ctx.rootDir, task, byID, outbound, inbound), "", "  ")
 				if err != nil {
 					return err
 				}
@@ -56,6 +56,7 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 
 type showTaskPayload struct {
 	ID          string            `json:"id"`
+	File        string            `json:"file"`
 	Title       string            `json:"title"`
 	Path        string            `json:"path"`
 	Kind        string            `json:"kind"`
@@ -76,14 +77,16 @@ type showTaskPayload struct {
 
 type showLinkPayload struct {
 	ID    string `json:"id"`
+	File  string `json:"file,omitempty"`
 	Title string `json:"title,omitempty"`
 	Path  string `json:"path,omitempty"`
 	Type  string `json:"type"`
 }
 
-func buildShowTaskPayload(task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
+func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
 	payload := showTaskPayload{
 		ID:          task.ID,
+		File:        taskFilePath(rootDir, task.ID),
 		Title:       task.Title,
 		Path:        buildTaskPath(task, byID),
 		Kind:        string(task.Kind),
@@ -106,20 +109,21 @@ func buildShowTaskPayload(task shelf.Task, byID map[string]shelf.Task, outbound 
 		}
 	}
 	for _, edge := range outbound {
-		payload.Outbound = append(payload.Outbound, buildShowLinkPayload(edge.To, edge.Type, byID))
+		payload.Outbound = append(payload.Outbound, buildShowLinkPayload(rootDir, edge.To, edge.Type, byID))
 	}
 	for _, edge := range inbound {
-		payload.Inbound = append(payload.Inbound, buildShowLinkPayload(edge.From, edge.Type, byID))
+		payload.Inbound = append(payload.Inbound, buildShowLinkPayload(rootDir, edge.From, edge.Type, byID))
 	}
 	return payload
 }
 
-func buildShowLinkPayload(taskID string, linkType shelf.LinkType, byID map[string]shelf.Task) showLinkPayload {
+func buildShowLinkPayload(rootDir, taskID string, linkType shelf.LinkType, byID map[string]shelf.Task) showLinkPayload {
 	payload := showLinkPayload{
 		ID:   taskID,
 		Type: string(linkType),
 	}
 	if task, ok := byID[taskID]; ok {
+		payload.File = taskFilePath(rootDir, task.ID)
 		payload.Title = task.Title
 		payload.Path = buildTaskPath(task, byID)
 	}

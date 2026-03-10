@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -91,6 +92,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if asJSON {
 				type lsItem struct {
 					ID          string   `json:"id"`
+					File        string   `json:"file"`
 					Title       string   `json:"title"`
 					Path        string   `json:"path"`
 					Kind        string   `json:"kind"`
@@ -101,15 +103,21 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 					ArchivedAt  string   `json:"archived_at,omitempty"`
 					Parent      string   `json:"parent,omitempty"`
 					ParentTitle string   `json:"parent_title,omitempty"`
+					ParentPath  string   `json:"parent_path,omitempty"`
 				}
 				items := make([]lsItem, 0, len(tasks))
 				for _, task := range tasks {
 					parentTitle := ""
+					parentPath := ""
 					if task.Parent != "" {
 						parentTitle = titleByID[task.Parent]
+						if parent, ok := byID[task.Parent]; ok {
+							parentPath = buildTaskPath(parent, byID)
+						}
 					}
 					items = append(items, lsItem{
 						ID:          task.ID,
+						File:        taskFilePath(ctx.rootDir, task.ID),
 						Title:       task.Title,
 						Path:        buildTaskPath(task, byID),
 						Kind:        string(task.Kind),
@@ -120,6 +128,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 						ArchivedAt:  task.ArchivedAt,
 						Parent:      task.Parent,
 						ParentTitle: parentTitle,
+						ParentPath:  parentPath,
 					})
 				}
 				data, err := json.MarshalIndent(items, "", "  ")
@@ -296,6 +305,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 			if asJSON {
 				type nextItem struct {
 					ID          string `json:"id"`
+					File        string `json:"file"`
 					Title       string `json:"title"`
 					Path        string `json:"path"`
 					Kind        string `json:"kind"`
@@ -305,6 +315,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 					ArchivedAt  string `json:"archived_at,omitempty"`
 					Parent      string `json:"parent,omitempty"`
 					ParentTitle string `json:"parent_title,omitempty"`
+					ParentPath  string `json:"parent_path,omitempty"`
 				}
 				items := make([]nextItem, 0)
 				for _, task := range tasks {
@@ -313,11 +324,16 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 						continue
 					}
 					parentTitle := ""
+					parentPath := ""
 					if task.Parent != "" {
 						parentTitle = titleByID[task.Parent]
+						if parent, ok := byID[task.Parent]; ok {
+							parentPath = buildTaskPath(parent, byID)
+						}
 					}
 					items = append(items, nextItem{
 						ID:          task.ID,
+						File:        taskFilePath(ctx.rootDir, task.ID),
 						Title:       task.Title,
 						Path:        buildTaskPath(task, byID),
 						Kind:        string(task.Kind),
@@ -327,6 +343,7 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 						ArchivedAt:  task.ArchivedAt,
 						Parent:      task.Parent,
 						ParentTitle: parentTitle,
+						ParentPath:  parentPath,
 					})
 					if limit > 0 && len(items) >= limit {
 						break
@@ -483,6 +500,10 @@ func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID boo
 		return fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
 	}
 	return label
+}
+
+func taskFilePath(rootDir, taskID string) string {
+	return filepath.Join(shelf.TasksDir(rootDir), taskID+".md")
 }
 
 func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {

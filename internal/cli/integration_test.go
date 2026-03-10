@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -122,6 +123,9 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	}
 	if payload["path"] != "root > Task" || payload["body"] != "note" {
 		t.Fatalf("unexpected show payload: %#v", payload)
+	}
+	if payload["file"] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("expected show json to include file path, got: %#v", payload)
 	}
 	inbound, ok := payload["inbound"].([]any)
 	if !ok || len(inbound) != 1 {
@@ -286,6 +290,9 @@ func TestCLINextListsReadyTasks(t *testing.T) {
 	if !ok || !strings.HasPrefix(first, "root > ") {
 		t.Fatalf("expected next json items to include path, got: %#v", items)
 	}
+	if _, ok := items[0]["file"].(string); !ok {
+		t.Fatalf("expected next json items to include file, got: %#v", items)
+	}
 }
 
 func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
@@ -297,7 +304,8 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add parent failed: %v", err)
 	}
-	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID}); err != nil {
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID})
+	if err != nil {
 		t.Fatalf("add child failed: %v", err)
 	}
 
@@ -313,13 +321,23 @@ func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
 		t.Fatalf("expected 2 tasks, got %d: %s", len(items), jsonOut)
 	}
 	var childPath string
+	var childFile string
+	var parentPath string
 	for _, item := range items {
 		if item["title"] == "Child" {
 			childPath, _ = item["path"].(string)
+			childFile, _ = item["file"].(string)
+			parentPath, _ = item["parent_path"].(string)
 		}
 	}
 	if childPath != "root > Parent > Child" {
 		t.Fatalf("unexpected child path: %q", childPath)
+	}
+	if childFile != filepath.Join(shelf.TasksDir(root), child.ID+".md") {
+		t.Fatalf("unexpected child file: %q", childFile)
+	}
+	if parentPath != "root > Parent" {
+		t.Fatalf("unexpected parent path: %q", parentPath)
 	}
 
 	out, err := executeCLI(t, "ls", "--root", root, "--format", "tree")
