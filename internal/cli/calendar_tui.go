@@ -56,6 +56,7 @@ const (
 type calendarLinkCandidate struct {
 	TaskID string
 	Title  string
+	Label  string
 	Type   shelf.LinkType
 }
 
@@ -126,6 +127,8 @@ type calendarTUIModel struct {
 	defaultStatus shelf.Status
 	kindChoices   []shelf.Kind
 	tagChoices    []string
+	linkChoices   []shelf.LinkType
+	blockingLink  shelf.LinkType
 	copySeparator string
 	showID        bool
 
@@ -228,6 +231,8 @@ func newCalendarTUIModelWithOptions(rootDir string, startDate time.Time, daysCou
 		defaultStatus: cfg.DefaultStatus,
 		kindChoices:   append([]shelf.Kind{}, cfg.Kinds...),
 		tagChoices:    append([]string{}, cfg.Tags...),
+		linkChoices:   append([]shelf.LinkType{}, cfg.LinkTypes.Names...),
+		blockingLink:  cfg.BlockingLinkType(),
 		copySeparator: cfg.Commands.Cockpit.CopySeparator,
 		showID:        opts.ShowID,
 		pane:          calendarPaneMain,
@@ -622,7 +627,7 @@ func (m calendarTUIModel) View() string {
 
 	main := renderCalendarMainPane(m, month, mainWidth, bodyHeight, m.pane == calendarPaneMain)
 	selectedTask, selectedTaskOK := m.selectedTask()
-	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, inspectorWidth, bodyHeight)
+	right := renderCalendarInspectorPane(selectedTask, selectedTaskOK, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, m.blockingLink, inspectorWidth, bodyHeight)
 	if m.mode == calendarModeCalendar {
 		right = renderCalendarSidebarPane(m, selectedTask, selectedTaskOK, inspectorWidth, bodyHeight)
 	} else {
@@ -1045,6 +1050,8 @@ func (m *calendarTUIModel) reload() error {
 	m.defaultStatus = cfg.DefaultStatus
 	m.kindChoices = append([]shelf.Kind{}, cfg.Kinds...)
 	m.tagChoices = append([]string{}, cfg.Tags...)
+	m.linkChoices = append([]shelf.LinkType{}, cfg.LinkTypes.Names...)
+	m.blockingLink = cfg.BlockingLinkType()
 	m.copySeparator = cfg.Commands.Cockpit.CopySeparator
 	filter := m.filter
 	filter.Limit = 0
@@ -1463,7 +1470,7 @@ func (m *calendarTUIModel) rebuildSections() {
 	if section := m.currentSection(); section != nil {
 		prevSectionID = section.ID
 	}
-	m.sections = buildCalendarSections(m.mode, m.focusedDay(), applyEffectiveDue(m.visibleTasks, m.effectiveDue), m.readiness, m.titleByID, m.sectionLimit)
+	m.sections = buildCalendarSections(m.mode, m.focusedDay(), applyEffectiveDue(m.visibleTasks, m.effectiveDue), m.readiness, m.titleByID, m.blockingLink, m.sectionLimit)
 	if len(m.sections) == 0 {
 		m.sectionIndex = 0
 		m.selectedTaskID = ""
@@ -1576,7 +1583,7 @@ func flattenCockpitTreeRows(nodes []shelf.TreeNode, prefix string, isRoot bool, 
 	return rows
 }
 
-func buildCalendarSections(mode calendarMode, focusedDay *calendarDay, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string, sectionLimit int) []calendarSection {
+func buildCalendarSections(mode calendarMode, focusedDay *calendarDay, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string, blockingLinkType shelf.LinkType, sectionLimit int) []calendarSection {
 	sections := make([]calendarSection, 0, 6)
 	for _, descriptor := range calendarSectionsForMode(mode) {
 		var items []calendarSectionItem
@@ -1590,7 +1597,7 @@ func buildCalendarSections(mode calendarMode, focusedDay *calendarDay, tasks []s
 		case calendarSectionToday:
 			items = buildTodaySectionItems(tasks, titleByID)
 		case calendarSectionBlocked:
-			items = buildBlockedSectionItems(tasks, readiness, titleByID)
+			items = buildBlockedSectionItems(tasks, readiness, titleByID, blockingLinkType)
 		case calendarSectionReady:
 			items = buildReadySectionItems(tasks, readiness, titleByID)
 		}
@@ -1659,14 +1666,14 @@ func buildTodaySectionItems(tasks []shelf.Task, titleByID map[string]string) []c
 	return buildCalendarSectionItems(filtered, titleByID, nil)
 }
 
-func buildBlockedSectionItems(tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string) []calendarSectionItem {
+func buildBlockedSectionItems(tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, titleByID map[string]string, blockingLinkType shelf.LinkType) []calendarSectionItem {
 	filtered := make([]shelf.Task, 0)
 	reasons := map[string]string{}
 	for _, task := range tasks {
 		info := readiness[task.ID]
 		if task.Status == "blocked" || info.BlockedByDeps {
 			filtered = append(filtered, task)
-			reasons[task.ID] = strings.Join(reviewBlockedBy(task, info, titleByID), "; ")
+			reasons[task.ID] = strings.Join(reviewBlockedBy(task, info, titleByID, blockingLinkType), "; ")
 		}
 	}
 	sortTasksForCalendarSection(filtered)
@@ -2503,7 +2510,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m calendarTUIModel) linkTypes() []shelf.LinkType {
-	return []shelf.LinkType{"depends_on", "related"}
+	return append([]shelf.LinkType{}, m.linkChoices...)
 }
 
 func (m calendarTUIModel) linkTypeLabel() string {
@@ -2535,9 +2542,14 @@ func (m calendarTUIModel) currentLinkCandidates() []calendarLinkCandidate {
 		}
 		for _, edge := range outbound {
 			title := m.titleByID[edge.To]
+			label := edge.To
+			if linkedTask, ok := m.taskByID[edge.To]; ok {
+				label = formatTaskPathLabel(linkedTask, m.taskByID, m.showID)
+			}
 			candidate := calendarLinkCandidate{
 				TaskID: edge.To,
 				Title:  title,
+				Label:  label,
 				Type:   edge.Type,
 			}
 			if query != "" && !strings.Contains(strings.ToLower(candidate.searchText()), query) {
@@ -2554,6 +2566,7 @@ func (m calendarTUIModel) currentLinkCandidates() []calendarLinkCandidate {
 		item := calendarLinkCandidate{
 			TaskID: candidate.ID,
 			Title:  candidate.Title,
+			Label:  formatTaskPathLabel(candidate, m.taskByID, m.showID),
 		}
 		if query != "" && !strings.Contains(strings.ToLower(item.searchText()), query) {
 			continue
@@ -2564,10 +2577,14 @@ func (m calendarTUIModel) currentLinkCandidates() []calendarLinkCandidate {
 }
 
 func (c calendarLinkCandidate) searchText() string {
-	if c.Type != "" {
-		return fmt.Sprintf("%s %s %s", c.TaskID, c.Title, c.Type)
+	label := strings.TrimSpace(c.Label)
+	if label == "" {
+		label = c.Title
 	}
-	return fmt.Sprintf("%s %s", c.TaskID, c.Title)
+	if c.Type != "" {
+		return fmt.Sprintf("%s %s %s %s", c.TaskID, c.Title, label, c.Type)
+	}
+	return fmt.Sprintf("%s %s %s", c.TaskID, c.Title, label)
 }
 
 func (m *calendarTUIModel) applyLinkCandidate(candidate calendarLinkCandidate) error {
@@ -3329,14 +3346,14 @@ func renderCalendarSidebarPane(m calendarTUIModel, task shelf.Task, ok bool, wid
 		metaStyle.Render("n/p: task switch"),
 		dayList,
 	}, "\n"))
-	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width, bottomHeight)
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, m.blockingLink, width, bottomHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, focusedPane, "", inspector)
 }
 
 func renderCalendarSecondarySidebarPane(m calendarTUIModel, task shelf.Task, ok bool, width int, height int, active bool) string {
 	topHeight, bottomHeight := splitSidebarHeights(height)
 	calendarPane := renderCalendarMiniSidebar(m, width, topHeight, active)
-	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, width, bottomHeight)
+	inspector := renderCalendarInspectorPane(task, ok, m.showID, m.showTaskBody, m.taskByID, m.readiness, m.outboundCount, m.inboundCount, m.blockingLink, width, bottomHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, calendarPane, "", inspector)
 }
 
@@ -3698,7 +3715,7 @@ func renderCalendarSectionsPane(sections []calendarSection, sectionIndex int, se
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
-func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTaskBody bool, taskByID map[string]shelf.Task, readiness map[string]shelf.TaskReadiness, outboundCount map[string]int, inboundCount map[string]int, width int, height int) string {
+func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTaskBody bool, taskByID map[string]shelf.Task, readiness map[string]shelf.TaskReadiness, outboundCount map[string]int, inboundCount map[string]int, blockingLinkType shelf.LinkType, width int, height int) string {
 	boxStyle := calendarPanelStyle(width, height, lipgloss.Color("240"))
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
@@ -3747,7 +3764,7 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 						labels = append(labels, depID)
 					}
 				}
-				lines = append(lines, fmt.Sprintf("depends_on=%s", strings.Join(labels, ", ")))
+				lines = append(lines, fmt.Sprintf("%s=%s", blockingLinkType, strings.Join(labels, ", ")))
 			}
 			lines = append(lines, fmt.Sprintf("ready=%t", info.Ready))
 		}
@@ -3814,11 +3831,9 @@ func renderCalendarLinkPicker(action calendarLinkAction, linkType string, query 
 		return boxStyle.Render(strings.Join(lines, "\n"))
 	}
 	for i, candidate := range candidates {
-		label := candidate.Title
+		label := candidate.Label
 		if strings.TrimSpace(label) == "" {
 			label = candidate.TaskID
-		} else {
-			label = fmt.Sprintf("%s [%s]", candidate.Title, shelf.ShortID(candidate.TaskID))
 		}
 		if candidate.Type != "" {
 			label = fmt.Sprintf("%s  (%s)", label, candidate.Type)

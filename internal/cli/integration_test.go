@@ -125,8 +125,11 @@ func TestCLILinkCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("links failed: %v", err)
 	}
-	if !strings.Contains(output, "--depends_on-->") || !strings.Contains(output, "To") {
+	if !strings.Contains(output, "--depends_on-->") || !strings.Contains(output, "root > From") || !strings.Contains(output, "root > To") {
 		t.Fatalf("unexpected links output: %s", output)
+	}
+	if strings.Contains(output, from.ID) || strings.Contains(output, to.ID) {
+		t.Fatalf("expected IDs to stay hidden by default, got: %s", output)
 	}
 	if _, err := executeCLI(t, "unlink", "--root", root, "--from", from.ID, "--to", to.ID, "--type", "depends_on"); err != nil {
 		t.Fatalf("unlink failed: %v", err)

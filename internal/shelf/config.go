@@ -14,10 +14,15 @@ type Config struct {
 	Kinds         []Kind
 	Statuses      []Status
 	Tags          []string
-	LinkTypes     []LinkType
+	LinkTypes     LinkTypesConfig
 	DefaultKind   Kind
 	DefaultStatus Status
 	Commands      CommandsConfig
+}
+
+type LinkTypesConfig struct {
+	Names    []LinkType
+	Blocking LinkType
 }
 
 type CommandsConfig struct {
@@ -42,10 +47,15 @@ type configFile struct {
 	Kinds         []string       `toml:"kinds"`
 	Statuses      []string       `toml:"statuses"`
 	Tags          []string       `toml:"tags"`
-	LinkTypes     []string       `toml:"link_types"`
+	LinkTypes     toml.Primitive `toml:"link_types"`
 	DefaultKind   string         `toml:"default_kind"`
 	DefaultStatus string         `toml:"default_status"`
 	Commands      configCommands `toml:"commands"`
+}
+
+type configLinkTypes struct {
+	Names    []string `toml:"names"`
+	Blocking string   `toml:"blocking"`
 }
 
 type configCommands struct {
@@ -68,10 +78,13 @@ type configCockpitCommand struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:         []Kind{"todo", "idea", "memo", "inbox"},
-		Statuses:      []Status{"open", "in_progress", "blocked", "done", "cancelled"},
-		Tags:          []string{},
-		LinkTypes:     []LinkType{"depends_on", "related"},
+		Kinds:    []Kind{"todo", "idea", "memo", "inbox"},
+		Statuses: []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:     []string{},
+		LinkTypes: LinkTypesConfig{
+			Names:    []LinkType{"depends_on", "related"},
+			Blocking: "depends_on",
+		},
 		DefaultKind:   Kind("todo"),
 		DefaultStatus: Status("open"),
 		Commands: CommandsConfig{
@@ -89,8 +102,6 @@ func DefaultConfig() Config {
 		},
 	}
 }
-
-var supportedLinkTypes = []LinkType{"depends_on", "related"}
 
 func LoadConfig(rootDir string) (Config, error) {
 	path := ConfigPath(rootDir)
@@ -115,15 +126,17 @@ func SaveConfig(rootDir string, cfg Config) error {
 
 func ParseConfigTOML(data []byte) (Config, error) {
 	var f configFile
-	if _, err := toml.Decode(string(data), &f); err != nil {
+	md, err := toml.Decode(string(data), &f)
+	if err != nil {
 		return Config{}, fmt.Errorf("failed to parse config TOML: %w", err)
 	}
 
+	defaults := DefaultConfig()
 	cfg := Config{
 		Kinds:         make([]Kind, len(f.Kinds)),
 		Statuses:      make([]Status, len(f.Statuses)),
 		Tags:          make([]string, len(f.Tags)),
-		LinkTypes:     make([]LinkType, len(f.LinkTypes)),
+		LinkTypes:     defaults.LinkTypes,
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(strings.TrimSpace(f.DefaultStatus)),
 		Commands: CommandsConfig{
@@ -140,7 +153,6 @@ func ParseConfigTOML(data []byte) (Config, error) {
 			},
 		},
 	}
-	defaults := DefaultConfig()
 	if cfg.Commands.Calendar.DefaultRangeUnit == "" {
 		cfg.Commands.Calendar.DefaultRangeUnit = defaults.Commands.Calendar.DefaultRangeUnit
 	}
@@ -171,13 +183,54 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	for i, tag := range f.Tags {
 		cfg.Tags[i] = strings.TrimSpace(tag)
 	}
-	for i, linkType := range f.LinkTypes {
-		cfg.LinkTypes[i] = LinkType(strings.TrimSpace(linkType))
+	linkTypes, err := parseConfigLinkTypes(md, f.LinkTypes, defaults.LinkTypes)
+	if err != nil {
+		return Config{}, err
 	}
+	cfg.LinkTypes = linkTypes
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func parseConfigLinkTypes(md toml.MetaData, primitive toml.Primitive, defaults LinkTypesConfig) (LinkTypesConfig, error) {
+	if !md.IsDefined("link_types") {
+		return defaults, nil
+	}
+
+	var legacy []string
+	if err := md.PrimitiveDecode(primitive, &legacy); err == nil && len(legacy) > 0 {
+		names := make([]LinkType, 0, len(legacy))
+		for _, name := range legacy {
+			names = append(names, LinkType(strings.TrimSpace(name)))
+		}
+		blocking := defaults.Blocking
+		if !slices.Contains(names, blocking) && len(names) > 0 {
+			blocking = names[0]
+		}
+		return LinkTypesConfig{
+			Names:    names,
+			Blocking: blocking,
+		}, nil
+	}
+
+	var table configLinkTypes
+	if err := md.PrimitiveDecode(primitive, &table); err != nil {
+		return LinkTypesConfig{}, fmt.Errorf("failed to parse link_types: %w", err)
+	}
+	names := make([]LinkType, 0, len(table.Names))
+	for _, name := range table.Names {
+		names = append(names, LinkType(strings.TrimSpace(name)))
+	}
+	blocking := LinkType(strings.TrimSpace(table.Blocking))
+	if blocking == "" {
+		blocking = defaults.Blocking
+	}
+	return LinkTypesConfig{
+		Names:    names,
+		Blocking: blocking,
+	}, nil
 }
 
 func FormatConfigTOML(cfg Config) []byte {
@@ -209,17 +262,19 @@ func FormatConfigTOML(cfg Config) []byte {
 		buf.WriteString(fmt.Sprintf("%q", tag))
 	}
 	buf.WriteString("]\n")
+	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
+	buf.WriteString(fmt.Sprintf("default_status = %q\n\n", cfg.DefaultStatus))
 
-	buf.WriteString("link_types = [")
-	for i, linkType := range cfg.LinkTypes {
+	buf.WriteString("[link_types]\n")
+	buf.WriteString("names = [")
+	for i, linkType := range cfg.LinkTypes.Names {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
 		buf.WriteString(fmt.Sprintf("%q", linkType))
 	}
-	buf.WriteString("]\n\n")
-	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
-	buf.WriteString(fmt.Sprintf("default_status = %q\n", cfg.DefaultStatus))
+	buf.WriteString("]\n")
+	buf.WriteString(fmt.Sprintf("blocking = %q\n", cfg.LinkTypes.Blocking))
 	buf.WriteString("\n[commands.calendar]\n")
 	buf.WriteString(fmt.Sprintf("default_range_unit = %q\n", cfg.Commands.Calendar.DefaultRangeUnit))
 	buf.WriteString(fmt.Sprintf("default_days = %d\n", cfg.Commands.Calendar.DefaultDays))
@@ -240,7 +295,7 @@ func (c Config) Validate() error {
 	if len(c.Statuses) == 0 {
 		return fmt.Errorf("config statuses is empty")
 	}
-	if len(c.LinkTypes) == 0 {
+	if len(c.LinkTypes.Names) == 0 {
 		return fmt.Errorf("config link_types is empty")
 	}
 	if err := validateUniqueKinds(c.Kinds); err != nil {
@@ -252,7 +307,7 @@ func (c Config) Validate() error {
 	if err := validateUniqueTags(c.Tags); err != nil {
 		return err
 	}
-	if err := validateUniqueLinkTypes(c.LinkTypes); err != nil {
+	if err := validateLinkTypes(c.LinkTypes); err != nil {
 		return err
 	}
 	if err := c.ValidateKind(c.DefaultKind); err != nil {
@@ -321,10 +376,14 @@ func (c Config) ValidateLinkType(linkType LinkType) error {
 	if strings.TrimSpace(string(linkType)) == "" {
 		return fmt.Errorf("link type is required")
 	}
-	if slices.Contains(c.LinkTypes, linkType) {
+	if slices.Contains(c.LinkTypes.Names, linkType) {
 		return nil
 	}
 	return fmt.Errorf("unknown link type: %s", linkType)
+}
+
+func (c Config) BlockingLinkType() LinkType {
+	return c.LinkTypes.Blocking
 }
 
 func (c *Config) AppendMissingTags(tags []string) bool {
@@ -385,19 +444,22 @@ func validateUniqueTags(values []string) error {
 	return nil
 }
 
-func validateUniqueLinkTypes(values []LinkType) error {
+func validateLinkTypes(cfg LinkTypesConfig) error {
 	seen := map[LinkType]struct{}{}
-	for _, value := range values {
+	for _, value := range cfg.Names {
 		if value == "" {
 			return fmt.Errorf("link_types must not include empty value")
-		}
-		if !slices.Contains(supportedLinkTypes, value) {
-			return fmt.Errorf("unsupported link type: %s (allowed: depends_on, related)", value)
 		}
 		if _, ok := seen[value]; ok {
 			return fmt.Errorf("link_types contains duplicate value: %s", value)
 		}
 		seen[value] = struct{}{}
+	}
+	if strings.TrimSpace(string(cfg.Blocking)) == "" {
+		return fmt.Errorf("link_types.blocking must not be empty")
+	}
+	if _, ok := seen[cfg.Blocking]; !ok {
+		return fmt.Errorf("link_types.blocking must be included in link_types.names: %s", cfg.Blocking)
 	}
 	return nil
 }

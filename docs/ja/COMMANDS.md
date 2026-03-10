@@ -166,7 +166,9 @@ outbound link を作成します。
 
 - `--from <id>`
 - `--to <id>`
-- `--type <depends_on|related>`
+- `--type <link-type>`
+
+`--type` を省略した場合は config の blocking relation を使います。
 
 ## `shelf unlink`
 
@@ -176,7 +178,9 @@ outbound link を削除します。
 
 - `--from <id>`
 - `--to <id>`
-- `--type <depends_on|related>`
+- `--type <link-type>`
+
+`--type` を省略した場合は config の blocking relation を使います。
 
 ## `shelf links`
 
@@ -189,6 +193,9 @@ outbound link を削除します。
 フラグ:
 
 - `--json`
+
+text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
+ID は `--show-id` を付けたときだけ表示します。
 
 ## 補足
 

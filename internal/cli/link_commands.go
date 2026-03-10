@@ -21,21 +21,25 @@ func newLinkCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf link --from 01AAA --to 01BBB --type depends_on\n" +
 			"  shelf link --from 01AAA --to 01CCC --type related",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			resolvedType, err := resolveCLIBlockingLinkType(ctx.rootDir, linkType)
+			if err != nil {
+				return err
+			}
 			return withWriteLock(ctx.rootDir, func() error {
 				if err := prepareUndoSnapshot(ctx.rootDir, "cli-link"); err != nil {
 					return err
 				}
-				if err := shelf.LinkTasks(ctx.rootDir, from, to, shelf.LinkType(linkType)); err != nil {
+				if err := shelf.LinkTasks(ctx.rootDir, from, to, resolvedType); err != nil {
 					return err
 				}
-				fmt.Printf("Linked %s --%s--> %s\n", from, linkType, to)
+				fmt.Printf("Linked %s --%s--> %s\n", from, resolvedType, to)
 				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Source task ID")
 	cmd.Flags().StringVar(&to, "to", "", "Target task ID")
-	cmd.Flags().StringVar(&linkType, "type", "depends_on", "Link type: depends_on|related")
+	cmd.Flags().StringVar(&linkType, "type", "", "Link type name from config (defaults to blocking type)")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
 	return cmd
@@ -53,25 +57,29 @@ func newUnlinkCommand(ctx *commandContext) *cobra.Command {
 		Example: "  shelf unlink --from 01AAA --to 01BBB --type depends_on\n" +
 			"  shelf unlink --from 01AAA --to 01CCC --type related",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			resolvedType, err := resolveCLIBlockingLinkType(ctx.rootDir, linkType)
+			if err != nil {
+				return err
+			}
 			return withWriteLock(ctx.rootDir, func() error {
 				if err := prepareUndoSnapshot(ctx.rootDir, "cli-unlink"); err != nil {
 					return err
 				}
-				removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, shelf.LinkType(linkType))
+				removed, err := shelf.UnlinkTasks(ctx.rootDir, from, to, resolvedType)
 				if err != nil {
 					return err
 				}
 				if !removed {
-					return fmt.Errorf("link not found: %s --%s--> %s", from, linkType, to)
+					return fmt.Errorf("link not found: %s --%s--> %s", from, resolvedType, to)
 				}
-				fmt.Printf("Removed %s --%s--> %s\n", from, linkType, to)
+				fmt.Printf("Removed %s --%s--> %s\n", from, resolvedType, to)
 				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Source task ID")
 	cmd.Flags().StringVar(&to, "to", "", "Target task ID")
-	cmd.Flags().StringVar(&linkType, "type", "depends_on", "Link type: depends_on|related")
+	cmd.Flags().StringVar(&linkType, "type", "", "Link type name from config (defaults to blocking type)")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
 	return cmd
@@ -94,9 +102,9 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			titleByID := make(map[string]string, len(tasks))
+			byID := make(map[string]shelf.Task, len(tasks))
 			for _, task := range tasks {
-				titleByID[task.ID] = task.Title
+				byID[task.ID] = task
 			}
 
 			if asJSON {
@@ -115,10 +123,10 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					Inbound:  make([]edgeItem, 0, len(inbound)),
 				}
 				for _, edge := range outbound {
-					payload.Outbound = append(payload.Outbound, edgeItem{ID: edge.To, Title: titleByID[edge.To], Type: string(edge.Type)})
+					payload.Outbound = append(payload.Outbound, edgeItem{ID: edge.To, Title: byID[edge.To].Title, Type: string(edge.Type)})
 				}
 				for _, edge := range inbound {
-					payload.Inbound = append(payload.Inbound, edgeItem{ID: edge.From, Title: titleByID[edge.From], Type: string(edge.Type)})
+					payload.Inbound = append(payload.Inbound, edgeItem{ID: edge.From, Title: byID[edge.From].Title, Type: string(edge.Type)})
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")
 				if err != nil {
@@ -128,8 +136,8 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
-			printLinkSection("Outbound", taskID, titleByID[taskID], outbound, titleByID)
-			printInboundLinkSection("Inbound", taskID, titleByID[taskID], inbound, titleByID)
+			printLinkSection("Outbound", taskID, outbound, byID, ctx.showID)
+			printInboundLinkSection("Inbound", taskID, inbound, byID, ctx.showID)
 			return nil
 		},
 	}
@@ -137,35 +145,47 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 	return cmd
 }
 
-func printLinkSection(title, taskID, taskTitle string, outbound []shelf.Edge, titleByID map[string]string) {
+func resolveCLIBlockingLinkType(rootDir, flagValue string) (shelf.LinkType, error) {
+	if value := shelf.LinkType(strings.TrimSpace(flagValue)); value != "" {
+		return value, nil
+	}
+	cfg, err := shelf.LoadConfig(rootDir)
+	if err != nil {
+		return "", err
+	}
+	return cfg.BlockingLinkType(), nil
+}
+
+func printLinkSection(title, taskID string, outbound []shelf.Edge, byID map[string]shelf.Task, showID bool) {
 	fmt.Println(uiHeading(title + ":"))
 	if len(outbound) == 0 {
 		fmt.Println(uiMuted("  (none)"))
 		return
 	}
-	source := formatLinkEndpoint(taskID, taskTitle)
+	source := formatLinkEndpoint(taskID, byID, showID)
 	for _, edge := range outbound {
-		target := formatLinkEndpoint(edge.To, titleByID[edge.To])
+		target := formatLinkEndpoint(edge.To, byID, showID)
 		fmt.Printf("  %s --%s--> %s\n", source, edge.Type, target)
 	}
 }
 
-func printInboundLinkSection(title, taskID, taskTitle string, inbound []shelf.InboundEdge, titleByID map[string]string) {
+func printInboundLinkSection(title, taskID string, inbound []shelf.InboundEdge, byID map[string]shelf.Task, showID bool) {
 	fmt.Println(uiHeading(title + ":"))
 	if len(inbound) == 0 {
 		fmt.Println(uiMuted("  (none)"))
 		return
 	}
-	target := formatLinkEndpoint(taskID, taskTitle)
+	target := formatLinkEndpoint(taskID, byID, showID)
 	for _, edge := range inbound {
-		source := formatLinkEndpoint(edge.From, titleByID[edge.From])
+		source := formatLinkEndpoint(edge.From, byID, showID)
 		fmt.Printf("  %s --%s--> %s\n", source, edge.Type, target)
 	}
 }
 
-func formatLinkEndpoint(taskID, title string) string {
-	if strings.TrimSpace(title) == "" {
+func formatLinkEndpoint(taskID string, byID map[string]shelf.Task, showID bool) string {
+	task, ok := byID[taskID]
+	if !ok || strings.TrimSpace(task.Title) == "" {
 		return taskID
 	}
-	return fmt.Sprintf("%s (%s)", title, taskID)
+	return formatTaskPathLabel(task, byID, showID)
 }

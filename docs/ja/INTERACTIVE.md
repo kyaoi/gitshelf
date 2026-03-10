@@ -86,6 +86,9 @@
 - `Enter`: compact / detailed inspector 切り替え
 - `r`: reload
 
+link selector は tree/path ラベルを使います。
+ID は `--show-id` を有効にしたときだけ表示します。
+
 ## 作成
 
 - `a`: 現在 mode の文脈で作成

@@ -778,7 +778,7 @@ func TestBuildCalendarSectionsReviewMode(t *testing.T) {
 	}
 	titles := map[string]string{"01OVER": "Overdue"}
 
-	sections := buildCalendarSections(calendarModeReview, focused, rootTasks, readiness, titles, 0)
+	sections := buildCalendarSections(calendarModeReview, focused, rootTasks, readiness, titles, "depends_on", 0)
 	if len(sections) != 6 {
 		t.Fatalf("unexpected section count: %d", len(sections))
 	}
@@ -811,7 +811,7 @@ func TestBuildCalendarSectionsTodayModeHonorsLimit(t *testing.T) {
 		{ID: "01C", Title: "C", Kind: "todo", Status: "open", DueOn: today},
 		{ID: "01D", Title: "D", Kind: "todo", Status: "open", DueOn: today},
 	}
-	sections := buildCalendarSections(calendarModeNow, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, 1)
+	sections := buildCalendarSections(calendarModeNow, &calendarDay{Date: today, Tasks: []shelf.Task{tasks[2], tasks[3]}}, tasks, map[string]shelf.TaskReadiness{}, map[string]string{}, "depends_on", 1)
 	if len(sections) != 3 {
 		t.Fatalf("unexpected section count: %d", len(sections))
 	}

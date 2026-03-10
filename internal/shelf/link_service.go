@@ -32,13 +32,21 @@ func LinkTasks(rootDir string, fromID, toID string, linkType LinkType) error {
 	if _, err := taskStore.Get(toID); err != nil {
 		return fmt.Errorf("to タスクが存在しません: %s", toID)
 	}
-	if linkType == LinkType("depends_on") {
-		cycle, err := wouldCreateDependsOnCycle(rootDir, fromID, toID)
+	blocking := cfg.BlockingLinkType()
+	if linkType == blocking {
+		ancestor, err := wouldLinkBlockingToAncestor(rootDir, fromID, toID)
+		if err != nil {
+			return err
+		}
+		if ancestor {
+			return fmt.Errorf("%s cannot target an ancestor task: %s -> %s", blocking, fromID, toID)
+		}
+		cycle, err := wouldCreateDependsOnCycle(rootDir, fromID, toID, blocking)
 		if err != nil {
 			return err
 		}
 		if cycle {
-			return fmt.Errorf("depends_on cycle detected: %s -> %s", fromID, toID)
+			return fmt.Errorf("%s cycle detected: %s -> %s", blocking, fromID, toID)
 		}
 	}
 
@@ -46,7 +54,7 @@ func LinkTasks(rootDir string, fromID, toID string, linkType LinkType) error {
 	return edgeStore.AddOutbound(fromID, Edge{
 		To:   toID,
 		Type: linkType,
-	}, cfg.LinkTypes)
+	}, cfg.LinkTypes.Names)
 }
 
 func UnlinkTasks(rootDir string, fromID, toID string, linkType LinkType) (bool, error) {
@@ -94,7 +102,11 @@ func ListTransitiveDependencies(rootDir, taskID string) ([]string, error) {
 	if _, err := taskStore.Get(taskID); err != nil {
 		return nil, fmt.Errorf("task が存在しません: %s", taskID)
 	}
-	adj, err := buildDependsOnAdjacency(rootDir)
+	cfg, err := LoadConfig(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	adj, err := buildDependsOnAdjacency(rootDir, cfg.BlockingLinkType())
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +131,8 @@ func ListTransitiveDependencies(rootDir, taskID string) ([]string, error) {
 	return result, nil
 }
 
-func wouldCreateDependsOnCycle(rootDir, fromID, toID string) (bool, error) {
-	adj, err := buildDependsOnAdjacency(rootDir)
+func wouldCreateDependsOnCycle(rootDir, fromID, toID string, blocking LinkType) (bool, error) {
+	adj, err := buildDependsOnAdjacency(rootDir, blocking)
 	if err != nil {
 		return false, err
 	}
@@ -142,7 +154,32 @@ func wouldCreateDependsOnCycle(rootDir, fromID, toID string) (bool, error) {
 	return false, nil
 }
 
-func buildDependsOnAdjacency(rootDir string) (map[string][]string, error) {
+func wouldLinkBlockingToAncestor(rootDir, fromID, toID string) (bool, error) {
+	taskStore := NewTaskStore(rootDir)
+	tasks, err := taskStore.List()
+	if err != nil {
+		return false, err
+	}
+	parentByID := make(map[string]string, len(tasks))
+	for _, task := range tasks {
+		parentByID[task.ID] = strings.TrimSpace(task.Parent)
+	}
+	seen := map[string]struct{}{fromID: {}}
+	current := parentByID[fromID]
+	for current != "" {
+		if current == toID {
+			return true, nil
+		}
+		if _, ok := seen[current]; ok {
+			break
+		}
+		seen[current] = struct{}{}
+		current = parentByID[current]
+	}
+	return false, nil
+}
+
+func buildDependsOnAdjacency(rootDir string, blocking LinkType) (map[string][]string, error) {
 	adj := map[string][]string{}
 	entries, err := os.ReadDir(EdgesDir(rootDir))
 	if err != nil {
@@ -162,7 +199,7 @@ func buildDependsOnAdjacency(rootDir string) (map[string][]string, error) {
 			return nil, err
 		}
 		for _, edge := range outbound {
-			if edge.Type != LinkType("depends_on") {
+			if edge.Type != blocking {
 				continue
 			}
 			adj[srcID] = append(adj[srcID], edge.To)

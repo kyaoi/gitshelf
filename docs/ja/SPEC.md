@@ -44,10 +44,10 @@
 
 ## link の向き
 
-- 使える link type は `depends_on`, `related` のみ
-- `A depends_on B` は「A をやるには B が先」
-- 表示は必ず `A --depends_on--> B`
-- `related` は緩い関連づけ
+- 使える link type は config の `link_types.names` で定義する
+- readiness / cycle check / ancestor restriction に使う blocking relation は `link_types.blocking` で定義する
+- 既定では `depends_on` が blocking relation で、`A depends_on B` は「A をやるには B が先」
+- 表示は必ず `A --<type>--> B`
 
 ## 非機能要件
 

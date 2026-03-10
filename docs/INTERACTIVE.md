@@ -96,6 +96,9 @@ These actions operate on the selected task, or on marked tasks when multi-select
 - `Enter`: toggle compact / detailed inspector
 - `r`: reload
 
+Link selectors use tree/path labels so duplicate titles remain identifiable.
+IDs are hidden there unless `--show-id` is enabled.
+
 ## Add / Capture
 
 - `a`: create using the current mode context

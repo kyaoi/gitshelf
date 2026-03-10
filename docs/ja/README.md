@@ -148,10 +148,9 @@ shelf
 * `parent`
 * timestamps
 
-リンクで使うのは次の 2 種類のみです。
-
-* `depends_on`
-* `related`
+link 種別は `config.toml` の `link_types.names` で定義します。
+そのうち readiness や cycle check に使う blocking relation は `link_types.blocking` で指定します。
+既定値は `depends_on` と `related`、blocking は `depends_on` です。
 
 ## Quality Checks
 

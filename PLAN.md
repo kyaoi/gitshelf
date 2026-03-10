@@ -63,10 +63,19 @@ These are the current working interpretations and need user confirmation before 
 8. Copy title
    - Confirmed first scope: copy selected task titles in the TUI.
    - Multi-select should copy multiple titles joined by a configurable separator.
-   - Deferred for now: body copy, absolute path copy, subtree copy.
+   - Deferred follow-up tasks to preserve scope:
+     - copy task body
+     - copy task path / file path
+     - copy subtree / tree selection payloads
 
 9. Edge file necessity / task relationships
    - Confirmed direction: keep edge storage, add both standalone CLI commands and TUI operations, and document them.
+   - Additional follow-up accepted during implementation:
+     - use tree/path labels so the target task is identifiable
+     - hide IDs by default and show them only when `--show-id` is enabled
+     - make `link_types` configurable in config
+     - make the blocking relation configurable instead of hard-coding `depends_on`
+     - reject blocking links from a child task to one of its ancestors
 
 ## Proposed Delivery Order
 

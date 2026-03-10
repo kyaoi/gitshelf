@@ -1,10 +1,12 @@
 # gitshelf config
-kinds = ["todo", "idea", "memo"]
+kinds = ["todo", "idea", "memo", "inbox"]
 statuses = ["open", "in_progress", "blocked", "done", "cancelled"]
-link_types = ["depends_on", "related"]
-
 default_kind = "todo"
 default_status = "open"
+
+[link_types]
+names = ["depends_on", "related"]
+blocking = "depends_on"
 
 [commands.calendar]
 default_range_unit = "days"

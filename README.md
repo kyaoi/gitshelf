@@ -151,8 +151,9 @@ Task metadata uses:
 
 Links use only:
 
-- `depends_on`
-- `related`
+- names from `config.toml` `link_types.names`
+- one blocking relation from `config.toml` `link_types.blocking`
+- default names are `depends_on` and `related`
 
 ## Quality Checks
 

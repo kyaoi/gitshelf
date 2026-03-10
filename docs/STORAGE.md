@@ -26,6 +26,18 @@ Current config stores:
 - `[commands.calendar]`
 - `[commands.cockpit]`
 
+Link type config:
+
+```toml
+[link_types]
+names = ["depends_on", "related"]
+blocking = "depends_on"
+```
+
+- `names` lists all allowed link type names
+- `blocking` names the relation used for readiness and cycle checks
+- the default blocking relation also rejects links from a child task to one of its ancestors
+
 Current calendar config:
 
 ```toml
@@ -79,10 +91,8 @@ to = "01..."
 type = "depends_on"
 ```
 
-Supported link types:
-
-- `depends_on`
-- `related`
+Supported link types come from `config.toml` `link_types.names`.
+Default names are `depends_on` and `related`.
 
 ## Invariants
 

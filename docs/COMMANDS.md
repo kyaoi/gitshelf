@@ -176,7 +176,9 @@ Flags:
 
 - `--from <id>`
 - `--to <id>`
-- `--type <depends_on|related>`
+- `--type <link-type>`
+
+If `--type` is omitted, the configured blocking link type is used.
 
 ## shelf unlink
 
@@ -186,7 +188,9 @@ Flags:
 
 - `--from <id>`
 - `--to <id>`
-- `--type <depends_on|related>`
+- `--type <link-type>`
+
+If `--type` is omitted, the configured blocking link type is used.
 
 ## shelf links
 
@@ -199,6 +203,9 @@ Usage:
 Flags:
 
 - `--json`
+
+Text output uses tree/path labels so duplicate titles are distinguishable.
+IDs stay hidden unless `--show-id` is enabled.
 
 ## Notes
 
