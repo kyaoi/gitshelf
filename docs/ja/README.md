@@ -144,6 +144,9 @@ shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | 
 
 # 1 task の依存先 path を確認
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
+
+# 1 task を shell 向けの1行で確認
+shelf show 01AAA --format tsv --fields id,title,file,body
 ```
 
 ## Cockpit-First Usage

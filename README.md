@@ -145,6 +145,9 @@ shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | 
 
 # inspect dependency paths from one task
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
+
+# inspect one task as a single shell-friendly row
+shelf show 01AAA --format tsv --fields id,title,file,body
 ```
 
 ## Cockpit-First Usage

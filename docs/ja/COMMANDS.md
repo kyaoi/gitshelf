@@ -242,7 +242,16 @@ script と単発確認向けの read-only 一覧です。
 
 フラグ:
 
+- `--format compact|tsv`
+- `--fields <name,...>` (`--format tsv` 専用)
 - `--json`
+
+`--format tsv` は選択 task を1行で出力します。
+使える field:
+
+- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
+- `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `outbound_count`, `inbound_count`
 
 ## `shelf link`
 
@@ -278,9 +287,18 @@ outbound link を削除します。
 
 フラグ:
 
+- `--format compact|tsv`
+- `--fields <name,...>` (`--format tsv` 専用)
 - `--json`
 
 JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれます。
+`--format tsv` は edge ごとに1行です。
+使える field:
+
+- `direction`, `type`
+- `task_id`, `task_title`, `task_path`, `task_file`
+- `other_id`, `other_title`, `other_path`, `other_file`
+
 text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
 ID は `--show-id` を付けたときだけ表示します。
 

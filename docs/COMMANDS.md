@@ -252,7 +252,16 @@ Usage:
 
 Flags:
 
+- `--format compact|tsv`
+- `--fields <name,...>` for `--format tsv`
 - `--json`
+
+`--format tsv` prints one row for the selected task.
+Available fields:
+
+- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`
+- `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `outbound_count`, `inbound_count`
 
 ## shelf link
 
@@ -288,9 +297,18 @@ Usage:
 
 Flags:
 
+- `--format compact|tsv`
+- `--fields <name,...>` for `--format tsv`
 - `--json`
 
 JSON output includes `task`, `outbound`, and `inbound` path/file metadata for shell pipelines.
+`--format tsv` prints one row per edge.
+Available fields:
+
+- `direction`, `type`
+- `task_id`, `task_title`, `task_path`, `task_file`
+- `other_id`, `other_title`, `other_path`, `other_file`
+
 Text output uses tree/path labels so duplicate titles are distinguishable.
 IDs stay hidden unless `--show-id` is enabled.
 
