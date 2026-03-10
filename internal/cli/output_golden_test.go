@@ -29,6 +29,10 @@ func TestCLIMachineReadableOutputGoldens(t *testing.T) {
 			args: []string{"ls", "--root", root, "--format", "csv", "--sort", "title"},
 		},
 		{
+			name: "ls-tsv",
+			args: []string{"ls", "--root", root, "--format", "tsv", "--fields", "id,title,parent_id,path,file", "--sort", "title"},
+		},
+		{
 			name: "ls-group-by-parent-json",
 			args: []string{"ls", "--root", root, "--json", "--group-by", "parent", "--sort", "title"},
 		},
@@ -45,8 +49,16 @@ func TestCLIMachineReadableOutputGoldens(t *testing.T) {
 			args: []string{"next", "--root", root, "--format", "tsv", "--fields", "id,title,parent_id,path,due_on,file", "--sort", "title"},
 		},
 		{
+			name: "next-csv",
+			args: []string{"next", "--root", root, "--format", "csv", "--fields", "id,title,parent_id,path,due_on,file", "--sort", "title"},
+		},
+		{
 			name: "show-json",
 			args: []string{"show", "--root", root, goldenTaskChildID, "--json"},
+		},
+		{
+			name: "show-jsonl",
+			args: []string{"show", "--root", root, goldenTaskChildID, "--format", "jsonl"},
 		},
 		{
 			name: "show-csv",
@@ -65,8 +77,16 @@ func TestCLIMachineReadableOutputGoldens(t *testing.T) {
 			args: []string{"links", "--root", root, goldenTaskChildID, "--format", "csv", "--fields", "direction,type,source_id,target_id,target_path,target_file"},
 		},
 		{
+			name: "links-tsv",
+			args: []string{"links", "--root", root, goldenTaskChildID, "--format", "tsv", "--fields", "direction,type,source_id,target_id,target_path,target_file"},
+		},
+		{
 			name: "links-summary-json",
 			args: []string{"links", "--root", root, goldenTaskChildID, "--json", "--summary"},
+		},
+		{
+			name: "links-summary-csv",
+			args: []string{"links", "--root", root, goldenTaskChildID, "--summary", "--format", "csv"},
 		},
 	}
 
