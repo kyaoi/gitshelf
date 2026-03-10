@@ -146,22 +146,26 @@ func newLinksCommand(ctx *commandContext) *cobra.Command {
 					Type  string `json:"type"`
 				}
 				payload := struct {
-					TaskID   string      `json:"task_id"`
-					Task     linkTaskRef `json:"task"`
-					Outbound []edgeItem  `json:"outbound"`
-					Inbound  []edgeItem  `json:"inbound"`
+					TaskID   string            `json:"task_id"`
+					Task     linkTaskRef       `json:"task"`
+					Edges    []edgeQueryRecord `json:"edges"`
+					Outbound []edgeItem        `json:"outbound"`
+					Inbound  []edgeItem        `json:"inbound"`
 				}{
 					TaskID:   taskID,
 					Task:     buildLinkTaskRef(ctx.rootDir, taskID, byID),
+					Edges:    make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
 					Outbound: make([]edgeItem, 0, len(outbound)),
 					Inbound:  make([]edgeItem, 0, len(inbound)),
 				}
 				for _, edge := range outbound {
 					record := buildEdgeQueryRecord(ctx.rootDir, "outbound", taskID, edge.To, edge.Type, byID)
+					payload.Edges = append(payload.Edges, record)
 					payload.Outbound = append(payload.Outbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
 				}
 				for _, edge := range inbound {
 					record := buildEdgeQueryRecord(ctx.rootDir, "inbound", edge.From, taskID, edge.Type, byID)
+					payload.Edges = append(payload.Edges, record)
 					payload.Inbound = append(payload.Inbound, edgeItem{ID: record.Other.ID, File: record.Other.File, Title: record.Other.Title, Path: record.Other.Path, Type: record.Type})
 				}
 				data, err := json.MarshalIndent(payload, "", "  ")

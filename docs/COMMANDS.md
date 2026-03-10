@@ -337,7 +337,7 @@ Flags:
 - `--summary`
 - `--json`
 
-JSON output includes `task`, `outbound`, and `inbound` path/file metadata for shell pipelines.
+JSON output includes normalized `task` and `edges` data, and also keeps `outbound` / `inbound` path/file metadata for compatibility.
 `--format tsv` and `--format csv` print one row per edge.
 Available fields:
 

@@ -129,6 +129,14 @@ func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
 	if payload["file"] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
 		t.Fatalf("expected show json to include file path, got: %#v", payload)
 	}
+	taskPayload, ok := payload["task"].(map[string]any)
+	if !ok || taskPayload["title"] != "Task" {
+		t.Fatalf("expected normalized task payload, got: %#v", payload["task"])
+	}
+	edges, ok := payload["edges"].([]any)
+	if !ok || len(edges) != 1 {
+		t.Fatalf("expected normalized edges payload, got: %#v", payload["edges"])
+	}
 	inbound, ok := payload["inbound"].([]any)
 	if !ok || len(inbound) != 1 {
 		t.Fatalf("unexpected inbound payload: %#v", payload["inbound"])
@@ -345,6 +353,10 @@ func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
 	}
 	if taskPayload["path"] != "root > Parent > From" || taskPayload["file"] != filepath.Join(shelf.TasksDir(root), from.ID+".md") {
 		t.Fatalf("unexpected task payload: %#v", taskPayload)
+	}
+	edges, ok := payload["edges"].([]any)
+	if !ok || len(edges) != 1 {
+		t.Fatalf("expected normalized edges payload: %#v", payload["edges"])
 	}
 	outbound, ok := payload["outbound"].([]any)
 	if !ok || len(outbound) != 1 {

@@ -327,7 +327,7 @@ outbound link を削除します。
 - `--summary`
 - `--json`
 
-JSON 出力には `task`, `outbound`, `inbound` の path/file 情報が含まれます。
+JSON 出力には正規化された `task` と `edges` が含まれ、互換維持のために `outbound` / `inbound` の path/file 情報も残しています。
 `--format tsv` と `--format csv` は edge ごとに1行です。
 使える field:
 

@@ -118,6 +118,8 @@ func newShowCommand(ctx *commandContext) *cobra.Command {
 }
 
 type showTaskPayload struct {
+	Task        taskQueryRecord   `json:"task"`
+	Edges       []edgeQueryRecord `json:"edges"`
 	ID          string            `json:"id"`
 	File        string            `json:"file"`
 	Title       string            `json:"title"`
@@ -149,6 +151,7 @@ type showLinkPayload struct {
 func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf.Task, outbound []shelf.Edge, inbound []shelf.InboundEdge) showTaskPayload {
 	record := buildTaskQueryRecord(rootDir, task, byID)
 	payload := showTaskPayload{
+		Task:        record,
 		ID:          record.ID,
 		File:        record.File,
 		Title:       record.Title,
@@ -165,13 +168,16 @@ func buildShowTaskPayload(rootDir string, task shelf.Task, byID map[string]shelf
 		CreatedAt:   record.CreatedAt,
 		UpdatedAt:   record.UpdatedAt,
 		Body:        record.Body,
+		Edges:       make([]edgeQueryRecord, 0, len(outbound)+len(inbound)),
 		Outbound:    make([]showLinkPayload, 0, len(outbound)),
 		Inbound:     make([]showLinkPayload, 0, len(inbound)),
 	}
 	for _, edge := range outbound {
+		payload.Edges = append(payload.Edges, buildEdgeQueryRecord(rootDir, "outbound", task.ID, edge.To, edge.Type, byID))
 		payload.Outbound = append(payload.Outbound, buildShowLinkPayload(rootDir, edge.To, edge.Type, byID))
 	}
 	for _, edge := range inbound {
+		payload.Edges = append(payload.Edges, buildEdgeQueryRecord(rootDir, "inbound", edge.From, task.ID, edge.Type, byID))
 		payload.Inbound = append(payload.Inbound, buildShowLinkPayload(rootDir, edge.From, edge.Type, byID))
 	}
 	return payload

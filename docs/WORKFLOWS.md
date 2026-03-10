@@ -95,6 +95,9 @@ shelf ls --format tsv --fields group,title --group-by status
 # inspect dependency targets with jq
 shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
 
+# use the normalized edge array for scripts
+shelf links 01AAA --json | jq '.edges[] | {direction, type, other: .other.path}'
+
 # summarize link counts by type
 shelf links 01AAA --summary --format tsv --fields direction,type,count
 
