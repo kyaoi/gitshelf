@@ -282,11 +282,11 @@ func TestCalendarMainCellHeightScalesWithViewport(t *testing.T) {
 
 func TestNowTriptychKeepsColumnOrderWithEmptySection(t *testing.T) {
 	rendered := renderCalendarTriptychSections([]calendarSection{
-		{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+		{ID: calendarSectionFocusedDay, Title: "Selected Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
 		{ID: calendarSectionOverdue, Title: "Overdue"},
 		{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
-	}, 0, map[calendarSectionID]int{}, false, 96)
-	if !strings.Contains(rendered, "Focused Day 1") || !strings.Contains(rendered, "Overdue 0") || !strings.Contains(rendered, "Today 1") {
+	}, 0, map[calendarSectionID]int{}, false, 96, 12)
+	if !strings.Contains(rendered, "Selected Day 1") || !strings.Contains(rendered, "Overdue 0") || !strings.Contains(rendered, "Today 1") {
 		t.Fatalf("triptych should keep all column headers visible: %q", rendered)
 	}
 	if !strings.Contains(rendered, "│") {
@@ -299,7 +299,7 @@ func TestBoardPaneKeepsEmptyColumnsFixed(t *testing.T) {
 		{Status: "open", Tasks: []shelf.Task{{ID: "01A", Title: "Open", Kind: "todo", Status: "open"}}},
 		{Status: "blocked", Tasks: nil},
 		{Status: "done", Tasks: []shelf.Task{{ID: "01B", Title: "Done", Kind: "todo", Status: "done"}}},
-	}, 0, map[int]int{0: 0, 1: 0, 2: 0}, map[string]struct{}{}, false, 96)
+	}, 0, map[int]int{0: 0, 1: 0, 2: 0}, map[string]struct{}{}, false, 96, 12)
 	for _, want := range []string{"open 1", "blocked 0", "done 1", "(none)"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("board pane should keep fixed columns, missing %q in %q", want, rendered)
@@ -758,6 +758,47 @@ func TestCalendarLinkModeRemovesOutboundLink(t *testing.T) {
 	}
 }
 
+func TestCalendarLinkQueryModeTreatsKeysAsInput(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Target", Kind: "todo", Status: "open"}); err != nil {
+		t.Fatalf("add target failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.selectTaskByID(from.ID)
+	model.beginLinkMode(calendarLinkActionAdd)
+
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = updated.(calendarTUIModel)
+	if !model.linkQueryMode {
+		t.Fatal("expected / to enter link query mode")
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != "q" {
+		t.Fatalf("expected q to be appended to query, got %q", model.linkQuery)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyEsc})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryMode {
+		t.Fatal("expected esc to exit query mode only")
+	}
+	if model.linkQuery != "q" {
+		t.Fatalf("expected esc to keep current query text, got %q", model.linkQuery)
+	}
+}
+
 func TestBuildCalendarSectionsReviewMode(t *testing.T) {
 	today := time.Now().Local().Format("2006-01-02")
 	overdue := time.Now().Local().AddDate(0, 0, -1).Format("2006-01-02")
@@ -985,6 +1026,55 @@ func TestUpdateAddModeUsesTabForFieldSwitchAndEnterForCreate(t *testing.T) {
 	created := model.taskByID[model.selectedTaskID]
 	if created.Title != "Created" {
 		t.Fatalf("expected created task selected, got %+v", created)
+	}
+}
+
+func TestUpdateAddModeAllowsRuneInputAndShiftTabCycle(t *testing.T) {
+	model := calendarTUIModel{
+		addMode:     true,
+		addField:    calendarAddFieldTitle,
+		defaultKind: "todo",
+		addKind:     "todo",
+	}
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != "q" {
+		t.Fatalf("expected q to be appended to title, got %q", model.addTitle)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldKind {
+		t.Fatalf("expected tab to move to kind, got %v", model.addField)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = updated.(calendarTUIModel)
+	if model.addField != calendarAddFieldTitle {
+		t.Fatalf("expected shift+tab to move back to title, got %v", model.addField)
+	}
+}
+
+func TestUpdateTagModeUsesInputModeForNewTag(t *testing.T) {
+	model := calendarTUIModel{
+		tagMode:      true,
+		tagChoices:   []string{"alpha"},
+		tagSelection: []string{},
+		tagIndex:     1,
+	}
+	updated, _ := model.updateTagMode(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(calendarTUIModel)
+	if !model.tagInputMode {
+		t.Fatal("expected enter on add-new-tag row to enter input mode")
+	}
+
+	updated, _ = model.updateTagMode(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	model = updated.(calendarTUIModel)
+	if model.tagInputValue != "q" {
+		t.Fatalf("expected q to be recorded as tag input, got %q", model.tagInputValue)
+	}
+	if !model.tagMode {
+		t.Fatal("expected tag picker to stay open while typing")
 	}
 }
 
@@ -1644,7 +1734,7 @@ func TestReviewMainPaneUsesContextStripInsteadOfMonthGrid(t *testing.T) {
 			{ID: "01B", Title: "Today", Kind: "todo", Status: "open", DueOn: today},
 		},
 		sections: []calendarSection{
-			{ID: calendarSectionFocusedDay, Title: "Focused Day"},
+			{ID: calendarSectionFocusedDay, Title: "Selected Day"},
 			{ID: calendarSectionInbox, Title: "Inbox", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Inbox"}}}},
 			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Today"}}}},
 		},
@@ -1678,15 +1768,16 @@ func TestCalendarViewUsesSidebarForFocusedDayTasks(t *testing.T) {
 		t.Fatalf("newCalendarTUIModel failed: %v", err)
 	}
 	model.width = 120
+	model.height = 24
 	rendered := model.View()
-	if !strings.Contains(rendered, "Focused Day") {
-		t.Fatalf("calendar view should render focused day sidebar: %q", rendered)
+	if !strings.Contains(rendered, "Selected Day: 2026-03-09") {
+		t.Fatalf("calendar view should render selected day sidebar: %q", rendered)
 	}
 	if !strings.Contains(rendered, "n/p: task switch") {
-		t.Fatalf("calendar view should show focused day switch hint: %q", rendered)
+		t.Fatalf("calendar view should show selected day switch hint: %q", rendered)
 	}
-	if strings.Index(rendered, "Focused Day") > strings.Index(rendered, "Inspector") {
-		t.Fatalf("focused day pane should be above inspector in calendar sidebar: %q", rendered)
+	if strings.Index(rendered, "Selected Day: 2026-03-09") > strings.Index(rendered, "Inspector") {
+		t.Fatalf("selected day pane should be above inspector in calendar sidebar: %q", rendered)
 	}
 }
 
@@ -1747,12 +1838,13 @@ func TestReviewViewUsesSidebarCalendar(t *testing.T) {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
 	model.width = 120
+	model.height = 24
 	rendered := model.View()
 	if !strings.Contains(rendered, "Calendar") {
 		t.Fatalf("non-calendar mode should render sidebar calendar: %q", rendered)
 	}
-	if !strings.Contains(rendered, "Tab then h/j/k/l/[ ]: date move") {
-		t.Fatalf("sidebar calendar should show navigation hint: %q", rendered)
+	if !strings.Contains(rendered, "selection synced") {
+		t.Fatalf("sidebar calendar should show synced hint: %q", rendered)
 	}
 }
 
@@ -1871,7 +1963,7 @@ func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 		mode: calendarModeNow,
 		days: []calendarDay{{Date: today}},
 		sections: []calendarSection{
-			{ID: calendarSectionFocusedDay, Title: "Focused Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
+			{ID: calendarSectionFocusedDay, Title: "Selected Day", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01A", Title: "Focus"}}}},
 			{ID: calendarSectionOverdue, Title: "Overdue", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01B", Title: "Late"}}}},
 			{ID: calendarSectionToday, Title: "Today", Items: []calendarSectionItem{{Task: shelf.Task{ID: "01C", Title: "Today"}}}},
 		},
@@ -1880,12 +1972,12 @@ func TestNowMainPaneShowsThreeSectionsAtOnce(t *testing.T) {
 	}
 	month := calendarMonthView{Label: "March 2026"}
 	rendered := renderCalendarMainPane(model, month, 120, 18, true)
-	for _, want := range []string{"Focused Day 1", "Overdue 1", "Today 1"} {
+	for _, want := range []string{"Selected Day 1", "Overdue 1", "Today 1"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("now pane should render all three sections, missing %q in %q", want, rendered)
 		}
 	}
-	if strings.Contains(rendered, "Focused Day 1  Overdue 1") {
+	if strings.Contains(rendered, "Selected Day 1  Overdue 1") {
 		t.Fatalf("now pane should render separate columns, got %q", rendered)
 	}
 }
