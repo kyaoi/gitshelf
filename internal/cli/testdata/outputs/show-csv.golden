@@ -1,0 +1,3 @@
+id,title,parent_id,path,file,body
+01FIXCHILD0000000000000002,Build CLI,01FIXPARENT0000000000000001,root > Project Alpha > Build CLI,{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md,"line one
+line two"
