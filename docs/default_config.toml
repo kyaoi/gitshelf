@@ -6,6 +6,10 @@ kinds = ["todo", "idea", "memo", "inbox"]
 # Available workflow statuses.
 statuses = ["open", "in_progress", "blocked", "done", "cancelled"]
 
+# Common parent directory for tasks/ and edges/.
+# Use "." to place them directly under the project root.
+storage_root = ".shelf"
+
 # Defaults used when a new task is created from Cockpit.
 default_kind = "todo"
 default_status = "open"

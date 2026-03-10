@@ -37,6 +37,9 @@ func TestDefaultConfigIsValid(t *testing.T) {
 	if cfg.Commands.Cockpit.PostExitGitAction != "none" || cfg.Commands.Cockpit.CommitMessage == "" {
 		t.Fatalf("unexpected cockpit git defaults: %+v", cfg.Commands.Cockpit)
 	}
+	if cfg.StorageRoot != ".shelf" {
+		t.Fatalf("unexpected storage root: %q", cfg.StorageRoot)
+	}
 	if len(cfg.LinkTypes.Names) != 2 || cfg.LinkTypes.Names[0] != "depends_on" || cfg.LinkTypes.Blocking != "depends_on" {
 		t.Fatalf("unexpected default link types: %+v", cfg.LinkTypes)
 	}
@@ -72,6 +75,9 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 	if parsed.Commands.Cockpit.PostExitGitAction != cfg.Commands.Cockpit.PostExitGitAction || parsed.Commands.Cockpit.CommitMessage != cfg.Commands.Cockpit.CommitMessage {
 		t.Fatalf("parsed cockpit git settings mismatch: %+v", parsed.Commands.Cockpit)
+	}
+	if parsed.StorageRoot != cfg.StorageRoot {
+		t.Fatalf("parsed storage root mismatch: %q", parsed.StorageRoot)
 	}
 	if parsed.LinkTypes.Blocking != cfg.LinkTypes.Blocking {
 		t.Fatalf("parsed blocking link type mismatch: %+v", parsed.LinkTypes)
@@ -121,6 +127,14 @@ func TestConfigValidationRejectsBlockingLinkTypeOutsideNames(t *testing.T) {
 	}
 }
 
+func TestConfigValidationRejectsEmptyStorageRoot(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StorageRoot = "  "
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "storage_root") {
+		t.Fatalf("expected storage_root validation error, got: %v", err)
+	}
+}
+
 func TestConfigValidationRejectsInvalidCalendarDefaultDays(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Commands.Calendar.DefaultDays = 0
@@ -157,5 +171,12 @@ func TestConfigAppendMissingTags(t *testing.T) {
 	}
 	if cfg.AppendMissingTags([]string{"backend"}) {
 		t.Fatal("expected no change for existing tags")
+	}
+}
+
+func TestResolveStorageRootDirRejectsPathOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	if _, err := ResolveStorageRootDir(root, "../outside"); err == nil {
+		t.Fatal("expected error")
 	}
 }

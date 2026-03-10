@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -14,6 +15,7 @@ type Config struct {
 	Kinds         []Kind
 	Statuses      []Status
 	Tags          []string
+	StorageRoot   string
 	LinkTypes     LinkTypesConfig
 	DefaultKind   Kind
 	DefaultStatus Status
@@ -47,6 +49,7 @@ type configFile struct {
 	Kinds         []string       `toml:"kinds"`
 	Statuses      []string       `toml:"statuses"`
 	Tags          []string       `toml:"tags"`
+	StorageRoot   string         `toml:"storage_root"`
 	LinkTypes     toml.Primitive `toml:"link_types"`
 	DefaultKind   string         `toml:"default_kind"`
 	DefaultStatus string         `toml:"default_status"`
@@ -78,9 +81,10 @@ type configCockpitCommand struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Kinds:    []Kind{"todo", "idea", "memo", "inbox"},
-		Statuses: []Status{"open", "in_progress", "blocked", "done", "cancelled"},
-		Tags:     []string{},
+		Kinds:       []Kind{"todo", "idea", "memo", "inbox"},
+		Statuses:    []Status{"open", "in_progress", "blocked", "done", "cancelled"},
+		Tags:        []string{},
+		StorageRoot: ".shelf",
 		LinkTypes: LinkTypesConfig{
 			Names:    []LinkType{"depends_on", "related"},
 			Blocking: "depends_on",
@@ -113,11 +117,17 @@ func LoadConfig(rootDir string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
+	if _, err := ResolveStorageRootDir(rootDir, cfg.StorageRoot); err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
 	return cfg, nil
 }
 
 func SaveConfig(rootDir string, cfg Config) error {
 	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if _, err := ResolveStorageRootDir(rootDir, cfg.StorageRoot); err != nil {
 		return err
 	}
 	path := ConfigPath(rootDir)
@@ -136,6 +146,7 @@ func ParseConfigTOML(data []byte) (Config, error) {
 		Kinds:         make([]Kind, len(f.Kinds)),
 		Statuses:      make([]Status, len(f.Statuses)),
 		Tags:          make([]string, len(f.Tags)),
+		StorageRoot:   strings.TrimSpace(f.StorageRoot),
 		LinkTypes:     defaults.LinkTypes,
 		DefaultKind:   Kind(strings.TrimSpace(f.DefaultKind)),
 		DefaultStatus: Status(strings.TrimSpace(f.DefaultStatus)),
@@ -173,6 +184,9 @@ func ParseConfigTOML(data []byte) (Config, error) {
 	}
 	if cfg.Commands.Cockpit.CommitMessage == "" {
 		cfg.Commands.Cockpit.CommitMessage = defaults.Commands.Cockpit.CommitMessage
+	}
+	if cfg.StorageRoot == "" {
+		cfg.StorageRoot = defaults.StorageRoot
 	}
 	for i, kind := range f.Kinds {
 		cfg.Kinds[i] = Kind(strings.TrimSpace(kind))
@@ -262,6 +276,7 @@ func FormatConfigTOML(cfg Config) []byte {
 		buf.WriteString(fmt.Sprintf("%q", tag))
 	}
 	buf.WriteString("]\n")
+	buf.WriteString(fmt.Sprintf("storage_root = %q\n", cfg.StorageRoot))
 	buf.WriteString(fmt.Sprintf("default_kind = %q\n", cfg.DefaultKind))
 	buf.WriteString(fmt.Sprintf("default_status = %q\n\n", cfg.DefaultStatus))
 
@@ -297,6 +312,9 @@ func (c Config) Validate() error {
 	}
 	if len(c.LinkTypes.Names) == 0 {
 		return fmt.Errorf("config link_types is empty")
+	}
+	if strings.TrimSpace(c.StorageRoot) == "" {
+		return fmt.Errorf("storage_root must not be empty")
 	}
 	if err := validateUniqueKinds(c.Kinds); err != nil {
 		return err
@@ -339,6 +357,29 @@ func (c Config) Validate() error {
 		return fmt.Errorf("commands.cockpit.commit_message must not be empty")
 	}
 	return nil
+}
+
+func ResolveStorageRootDir(rootDir string, storageRoot string) (string, error) {
+	rootDir = filepath.Clean(rootDir)
+	if strings.TrimSpace(rootDir) == "" {
+		return "", fmt.Errorf("rootDir is required")
+	}
+	if strings.TrimSpace(storageRoot) == "" {
+		storageRoot = DefaultConfig().StorageRoot
+	}
+	resolved := storageRoot
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(rootDir, resolved)
+	}
+	resolved = filepath.Clean(resolved)
+	rel, err := filepath.Rel(rootDir, resolved)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve storage_root: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("storage_root must stay inside the shelf root: %s", storageRoot)
+	}
+	return resolved, nil
 }
 
 func (c Config) ValidateKind(kind Kind) error {

@@ -14,6 +14,7 @@
 - `--show-id`, `-i` で text 出力や selector に ID を表示します
 - `--git-on-exit <none|commit|commit_push>` で Cockpit 終了後の git 動作を上書きできます
 - `--git-message <text>` で `--git-on-exit` が使う commit message を上書きできます
+- task data の保存先は `.shelf/config.toml` の `storage_root` で制御します
 
 ## `shelf`
 
@@ -27,8 +28,8 @@
 作成・維持するもの:
 
 - `.shelf/config.toml`
-- `.shelf/tasks/`
-- `.shelf/edges/`
+- `<storage_root>/tasks/`
+- `<storage_root>/edges/`
 
 フラグ:
 

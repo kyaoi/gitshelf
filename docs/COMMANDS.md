@@ -14,6 +14,7 @@ Current public CLI surface for `shelf`.
 - `--show-id`, `-i` enables task IDs in text output and task selectors
 - `--git-on-exit <none|commit|commit_push>` overrides the post-Cockpit git action
 - `--git-message <text>` overrides the commit message used by `--git-on-exit`
+- task data location is controlled by `storage_root` in `.shelf/config.toml`
 
 ## shelf
 
@@ -27,8 +28,8 @@ Initialize or refresh the current shelf.
 Creates and keeps only:
 
 - `.shelf/config.toml`
-- `.shelf/tasks/`
-- `.shelf/edges/`
+- `<storage_root>/tasks/`
+- `<storage_root>/edges/`
 
 Flags:
 

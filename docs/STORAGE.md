@@ -4,6 +4,8 @@ Current storage layout for the Cockpit-first toolset.
 
 ## Directory Layout
 
+Default layout:
+
 ```text
 .shelf/
   config.toml
@@ -13,6 +15,24 @@ Current storage layout for the Cockpit-first toolset.
     <src_id>.toml
 ```
 
+Config always lives at `.shelf/config.toml`.
+Task data lives under `storage_root`, which defaults to `.shelf`.
+
+Example root-level layout:
+
+```toml
+storage_root = "."
+```
+
+```text
+.shelf/
+  config.toml
+tasks/
+  <id>.md
+edges/
+  <src_id>.toml
+```
+
 ## Config
 
 Current config stores:
@@ -20,6 +40,7 @@ Current config stores:
 - `kinds`
 - `statuses`
 - `tags`
+- `storage_root`
 - `link_types`
 - `default_kind`
 - `default_status`
@@ -57,9 +78,19 @@ post_exit_git_action = "none"
 commit_message = "chore: update shelf data"
 ```
 
+Storage location config:
+
+```toml
+storage_root = ".shelf"
+```
+
+- `storage_root` is the common parent directory for `tasks/` and `edges/`
+- relative paths are resolved from the project root
+- `.` places `tasks/` and `edges/` directly under the project root
+
 ## Task File
 
-Each task is stored as `.shelf/tasks/<id>.md`.
+Each task is stored as `<storage_root>/tasks/<id>.md`.
 
 Current front matter fields:
 
@@ -81,7 +112,7 @@ The task body is freeform notes.
 
 Each task can have one outbound edge file:
 
-- `.shelf/edges/<src_id>.toml`
+- `<storage_root>/edges/<src_id>.toml`
 
 Format:
 
