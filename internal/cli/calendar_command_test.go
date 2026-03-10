@@ -679,6 +679,158 @@ func TestCalendarApplySnoozeOptionUsesMarkedTasks(t *testing.T) {
 	}
 }
 
+func TestBeginDuePromptUsesSharedMarkedValue(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(first.ID)
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	model.beginDuePrompt()
+
+	if !model.textPromptMode || model.textPromptPurpose != calendarTextPromptDueOn {
+		t.Fatalf("expected due prompt mode, got mode=%v purpose=%v", model.textPromptMode, model.textPromptPurpose)
+	}
+	if model.textPromptValue != "2026-03-09" {
+		t.Fatalf("expected shared due prefilled, got %q", model.textPromptValue)
+	}
+}
+
+func TestBeginRepeatPromptLeavesMixedMarkedValueBlank(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", RepeatEvery: "1w"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", RepeatEvery: "2w"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(first.ID)
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	model.beginRepeatPrompt()
+
+	if !model.textPromptMode || model.textPromptPurpose != calendarTextPromptRepeatEvery {
+		t.Fatalf("expected repeat prompt mode, got mode=%v purpose=%v", model.textPromptMode, model.textPromptPurpose)
+	}
+	if model.textPromptValue != "" {
+		t.Fatalf("expected blank repeat prompt for mixed values, got %q", model.textPromptValue)
+	}
+}
+
+func TestApplySelectedTaskDueOnUsesMarkedTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", DueOn: "2026-03-09"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", DueOn: "2026-03-10"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(second.ID)
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	if err := model.applySelectedTaskDueOn("2026-03-20"); err != nil {
+		t.Fatalf("applySelectedTaskDueOn failed: %v", err)
+	}
+
+	for _, taskID := range []string{first.ID, second.ID} {
+		updated, err := shelf.EnsureTaskExists(root, taskID)
+		if err != nil {
+			t.Fatalf("EnsureTaskExists failed for %s: %v", taskID, err)
+		}
+		if updated.DueOn != "2026-03-20" {
+			t.Fatalf("expected %s due_on updated, got %+v", taskID, updated)
+		}
+	}
+	if model.markedCount() != 0 {
+		t.Fatalf("expected marks cleared after due update, got %d", model.markedCount())
+	}
+	if model.selectedTaskID != first.ID {
+		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	}
+	if model.message != "Updated due to 2026-03-20 for 2 tasks" {
+		t.Fatalf("unexpected message: %s", model.message)
+	}
+}
+
+func TestApplySelectedTaskRepeatEveryClearsMarkedTasks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open", RepeatEvery: "1w"})
+	if err != nil {
+		t.Fatalf("add first failed: %v", err)
+	}
+	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open", RepeatEvery: "2w"})
+	if err != nil {
+		t.Fatalf("add second failed: %v", err)
+	}
+	model, err := newCalendarTUIModel(root, time.Date(2026, 3, 9, 0, 0, 0, 0, time.Local), 7, []shelf.Status{"open"}, false)
+	if err != nil {
+		t.Fatalf("newCalendarTUIModel failed: %v", err)
+	}
+	model.switchMode(calendarModeTree)
+	model.selectTaskByID(second.ID)
+	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+
+	if err := model.applySelectedTaskRepeatEvery(""); err != nil {
+		t.Fatalf("applySelectedTaskRepeatEvery failed: %v", err)
+	}
+
+	for _, taskID := range []string{first.ID, second.ID} {
+		updated, err := shelf.EnsureTaskExists(root, taskID)
+		if err != nil {
+			t.Fatalf("EnsureTaskExists failed for %s: %v", taskID, err)
+		}
+		if updated.RepeatEvery != "" {
+			t.Fatalf("expected %s repeat_every cleared, got %+v", taskID, updated)
+		}
+	}
+	if model.markedCount() != 0 {
+		t.Fatalf("expected marks cleared after repeat update, got %d", model.markedCount())
+	}
+	if model.selectedTaskID != first.ID {
+		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	}
+	if model.message != "Cleared repeat for 2 tasks" {
+		t.Fatalf("unexpected message: %s", model.message)
+	}
+}
+
 func TestCalendarBulkActionPopupLabelUsesMarkedCount(t *testing.T) {
 	model := calendarTUIModel{
 		showID: true,

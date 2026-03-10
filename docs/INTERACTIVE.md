@@ -89,6 +89,8 @@ These actions operate on the selected task, or on marked tasks when multi-select
 
 - `K`: edit kind on the selected task, or on marked tasks when multi-select is active
 - `#`: edit tags for the selected task, or edit marked tasks with bulk add/remove
+- `D`: edit `due_on` for the selected task, or for marked tasks
+- `W`: edit `repeat_every` for the selected task, or for marked tasks
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
@@ -155,6 +157,16 @@ IDs are hidden there unless `--show-id` is enabled.
 - `Ctrl+S`: save and close from anywhere in tag editing
 - while typing a new tag, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
 - new tags are immediately selected in single-task mode, and become `[+]` in bulk mode
+
+## Due / Repeat
+
+- `D`: open a text prompt to edit `due_on`
+- `W`: open a text prompt to edit `repeat_every`
+- marked tasks use the same prompt and apply one value to all marked tasks
+- if all targeted tasks already share the same value, the prompt is prefilled with it
+- blank input clears the field
+- due accepts the same tokens as the CLI: `YYYY-MM-DD`, `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon`..`sun`, `next-mon`..`next-sun`, `in N days`
+- repeat accepts `<N>d`, `<N>w`, `<N>m`, or `<N>y`
 
 ## Non-Calendar Sidebar
 

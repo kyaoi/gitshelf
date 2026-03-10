@@ -54,6 +54,8 @@ type calendarTextPromptPurpose int
 const (
 	calendarTextPromptNone calendarTextPromptPurpose = iota
 	calendarTextPromptTag
+	calendarTextPromptDueOn
+	calendarTextPromptRepeatEvery
 )
 
 type calendarTagBulkState int
@@ -240,6 +242,7 @@ type calendarTUIModel struct {
 	tagInputCursor           int
 	textPromptMode           bool
 	textPromptTitle          string
+	textPromptHelp           string
 	textPromptValue          string
 	textPromptCursor         int
 	textPromptPurpose        calendarTextPromptPurpose
@@ -547,6 +550,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "T":
 			m.switchMode(calendarModeTree)
 			return m, nil
+		case "D":
+			m.beginDuePrompt()
+			return m, nil
 		case "B":
 			m.switchMode(calendarModeBoard)
 			return m, nil
@@ -641,6 +647,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "K":
 			m.beginKindMode(calendarKindTargetTask)
 			return m, nil
+		case "W":
+			m.beginRepeatPrompt()
+			return m, nil
 		case "#":
 			m.beginTagMode()
 			return m, nil
@@ -734,7 +743,7 @@ func (m calendarTUIModel) activePopup() string {
 		}
 		return renderCalendarTagPicker(m.tagPopupLabel(), m.tagChoices, m.tagSelection, m.tagBulkMode, m.tagBulkStates, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
 	case m.textPromptMode:
-		return renderCalendarTextPrompt(m.textPromptTitle, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
+		return renderCalendarTextPrompt(m.textPromptTitle, m.textPromptHelp, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
 	case m.addMode:
 		title := m.addTitle
 		if m.addField == calendarAddFieldTitle {
@@ -873,6 +882,7 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 	if m.textPromptMode {
 		m.textPromptMode = false
 		m.textPromptTitle = ""
+		m.textPromptHelp = ""
 		m.textPromptValue = ""
 		m.textPromptCursor = 0
 		m.textPromptPurpose = calendarTextPromptNone
@@ -1259,6 +1269,80 @@ func (m *calendarTUIModel) clearTagModeState() {
 	m.tagInputCursor = 0
 }
 
+func (m *calendarTUIModel) clearTextPromptState() {
+	m.textPromptMode = false
+	m.textPromptTitle = ""
+	m.textPromptHelp = ""
+	m.textPromptValue = ""
+	m.textPromptCursor = 0
+	m.textPromptPurpose = calendarTextPromptNone
+}
+
+func (m *calendarTUIModel) beginTextPrompt(title string, help string, value string, purpose calendarTextPromptPurpose) {
+	m.textPromptMode = true
+	m.textPromptTitle = title
+	m.textPromptHelp = help
+	m.textPromptValue = value
+	m.textPromptCursor = len([]rune(value))
+	m.textPromptPurpose = purpose
+}
+
+func (m calendarTUIModel) commonPromptValue(taskIDs []string, getter func(shelf.Task) string) string {
+	if len(taskIDs) == 0 {
+		return ""
+	}
+	value := ""
+	set := false
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			continue
+		}
+		current := getter(task)
+		if !set {
+			value = current
+			set = true
+			continue
+		}
+		if current != value {
+			return ""
+		}
+	}
+	return value
+}
+
+func (m *calendarTUIModel) beginDuePrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.DueOn })
+	m.beginTextPrompt(
+		"Edit Due",
+		fmt.Sprintf("Target: %s  blank clears  YYYY-MM-DD/today/tomorrow/+Nd", m.bulkActionPopupLabel()),
+		current,
+		calendarTextPromptDueOn,
+	)
+	m.message = "due を編集"
+}
+
+func (m *calendarTUIModel) beginRepeatPrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.RepeatEvery })
+	m.beginTextPrompt(
+		"Edit Repeat",
+		fmt.Sprintf("Target: %s  blank clears  <N>d|<N>w|<N>m|<N>y", m.bulkActionPopupLabel()),
+		current,
+		calendarTextPromptRepeatEvery,
+	)
+	m.message = "repeat を編集"
+}
+
 func (m calendarTUIModel) tagBulkState(tag string) calendarTagBulkState {
 	if m.tagBulkStates == nil {
 		return calendarTagBulkStateUnchanged
@@ -1561,16 +1645,12 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
-		m.textPromptMode = false
-		m.textPromptTitle = ""
-		m.textPromptValue = ""
-		m.textPromptCursor = 0
-		m.textPromptPurpose = calendarTextPromptNone
+		m.clearTextPromptState()
 		m.message = "入力をキャンセルしました"
 		return m, nil
 	case "enter":
 		value := strings.TrimSpace(m.textPromptValue)
-		if value == "" {
+		if value == "" && m.textPromptPurpose == calendarTextPromptTag {
 			m.message = "入力は必須です"
 			return m, nil
 		}
@@ -1592,12 +1672,20 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 				}
 			}
 			m.message = fmt.Sprintf("tag %s を追加", value)
+		case calendarTextPromptDueOn:
+			if err := m.applySelectedTaskDueOn(value); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
+		case calendarTextPromptRepeatEvery:
+			if err := m.applySelectedTaskRepeatEvery(value); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
 		}
-		m.textPromptMode = false
-		m.textPromptTitle = ""
-		m.textPromptValue = ""
-		m.textPromptCursor = 0
-		m.textPromptPurpose = calendarTextPromptNone
+		m.clearTextPromptState()
 		return m, nil
 	case "backspace":
 		m.textPromptValue, m.textPromptCursor = interactive.DeleteRuneBeforeCursor(m.textPromptValue, m.textPromptCursor)
@@ -3153,6 +3241,92 @@ func (m *calendarTUIModel) applySelectedTaskTagDelta(input shelf.SetTaskInput) e
 	return nil
 }
 
+func (m *calendarTUIModel) applySelectedTaskDueOn(value string) error {
+	normalized, err := shelf.NormalizeDueOn(value)
+	if err != nil {
+		return err
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-due"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{DueOn: &normalized}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if normalized == "" {
+		if len(taskIDs) == 1 {
+			m.message = "Cleared due"
+			return nil
+		}
+		m.message = fmt.Sprintf("Cleared due for %d tasks", len(taskIDs))
+		return nil
+	}
+	if len(taskIDs) == 1 {
+		m.message = fmt.Sprintf("Updated due to %s", normalized)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated due to %s for %d tasks", normalized, len(taskIDs))
+	return nil
+}
+
+func (m *calendarTUIModel) applySelectedTaskRepeatEvery(value string) error {
+	normalized, err := shelf.NormalizeRepeatEvery(value)
+	if err != nil {
+		return err
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-repeat"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{RepeatEvery: &normalized}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if normalized == "" {
+		if len(taskIDs) == 1 {
+			m.message = "Cleared repeat"
+			return nil
+		}
+		m.message = fmt.Sprintf("Cleared repeat for %d tasks", len(taskIDs))
+		return nil
+	}
+	if len(taskIDs) == 1 {
+		m.message = fmt.Sprintf("Updated repeat to %s", normalized)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated repeat to %s for %d tasks", normalized, len(taskIDs))
+	return nil
+}
+
 func formatCalendarTagDeltaMessage(taskCount int, addTags []string, removeTags []string) string {
 	parts := make([]string, 0, 2)
 	if len(addTags) > 0 {
@@ -4324,7 +4498,7 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
+		"o/i/b/d/c: status  a: add child  A: add root  D: due  W: repeat  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
 		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
@@ -5265,13 +5439,14 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	return renderPopupBoxWithHeader(header, lines, width, height, lipgloss.Color("220"), anchor)
 }
 
-func renderCalendarTextPrompt(title string, value string) string {
+func renderCalendarTextPrompt(title string, help string, value string) string {
 	boxStyle := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("141")).Padding(1, 2).Width(72)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	lines := []string{
 		titleStyle.Render(title),
 		helpStyle.Render("入力して Enter で確定  Left/Right で移動  Esc/q でキャンセル"),
+		helpStyle.Render(help),
 		"Value: " + value,
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
