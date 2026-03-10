@@ -3847,10 +3847,10 @@ func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 		"Tab: pane (non-calendar only)  C/T/B/R/N: mode  ?: close",
 		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: Selected Day task switch",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
-		"sidebar: non-calendar mode syncs calendar + selected day from main selection",
+		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
 		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
 		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y: copy title  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
-		"Enter: details  Ctrl+[: normal mode  q: close help or quit  Esc: quit/cancel",
+		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: quit/cancel",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
 }

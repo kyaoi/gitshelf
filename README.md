@@ -128,6 +128,9 @@ Most daily editing still happens inside Cockpit, but link management is also ava
 - `shelf cockpit` opens it explicitly
 - `calendar/tree/board/review/now` are just launcher presets for the same workspace
 - creating, editing, moving, snoozing, linking, archiving, and status changes are handled inside the TUI
+- transient editors and selectors are shown as centered popups
+- non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
+- the sidebar and main pane synchronize selection in both directions
 
 Recommended starting point:
 
