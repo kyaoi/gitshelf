@@ -2,6 +2,19 @@
 
 `gitshelf` treats the heavy suite as the default suite.
 
+## Local hooks
+
+Install hooks locally with:
+
+```bash
+lefthook install
+```
+
+Hook policy:
+
+- `pre-commit`: fast local guardrails only
+- `pre-push`: the same heavy suite used before merge
+
 ## Required checks
 
 Run all of these before merging:
@@ -11,6 +24,12 @@ Run all of these before merging:
 - `bash scripts/check_coverage_ratchet.sh`
 - `go test -race ./...`
 - `go vet ./...`
+
+You can run the same heavy suite locally with:
+
+```bash
+bash scripts/run_heavy_checks.sh
+```
 
 ## Regression policy
 

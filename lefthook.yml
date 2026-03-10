@@ -2,14 +2,8 @@ pre-commit:
   commands:
     gofmt-staged:
       run: scripts/hooks/check_gofmt_staged.sh
-    test:
-      run: go test ./...
 
 pre-push:
   commands:
-    test:
-      run: go test ./...
-    race:
-      run: go test -race ./...
-    vet:
-      run: go vet ./...
+    heavy-checks:
+      run: scripts/run_heavy_checks.sh
