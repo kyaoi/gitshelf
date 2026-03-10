@@ -231,6 +231,54 @@ func TestConfigUpsertCopyPreset(t *testing.T) {
 	}
 }
 
+func TestCopyPresetHelpers(t *testing.T) {
+	placeholders := SupportedCopyTemplatePlaceholders()
+	if len(placeholders) == 0 || placeholders[0] != "{{title}}" {
+		t.Fatalf("unexpected placeholders: %+v", placeholders)
+	}
+	placeholders[0] = "{{mutated}}"
+	if SupportedCopyTemplatePlaceholders()[0] != "{{title}}" {
+		t.Fatal("supported placeholder list should be defensive copied")
+	}
+
+	preset := CopyPreset{
+		Name:     "path",
+		Scope:    CopyPresetScopeTask,
+		Template: "{{path}}",
+	}
+	if got := preset.EffectiveJoinWith("\n---\n"); got != "\n---\n" {
+		t.Fatalf("unexpected effective join: %q", got)
+	}
+	if got := preset.EffectiveSubtreeStyle(); got != CopySubtreeStyleIndented {
+		t.Fatalf("unexpected default subtree style: %q", got)
+	}
+}
+
+func TestConfigFindAndDeleteCopyPreset(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{
+		{Name: "title", Scope: CopyPresetScopeTask, Template: "{{title}}"},
+		{Name: "subtree", Scope: CopyPresetScopeSubtree, Template: "{{subtree}}"},
+	}
+
+	preset, ok := cfg.FindCopyPreset("subtree")
+	if !ok || preset.Scope != CopyPresetScopeSubtree {
+		t.Fatalf("expected subtree preset, got ok=%v preset=%+v", ok, preset)
+	}
+	if _, ok := cfg.FindCopyPreset("missing"); ok {
+		t.Fatal("expected missing preset lookup to fail")
+	}
+	if !cfg.DeleteCopyPreset("title") {
+		t.Fatal("expected preset deletion to succeed")
+	}
+	if cfg.DeleteCopyPreset("title") {
+		t.Fatal("expected deleting missing preset to return false")
+	}
+	if len(cfg.Commands.Cockpit.CopyPresets) != 1 || cfg.Commands.Cockpit.CopyPresets[0].Name != "subtree" {
+		t.Fatalf("unexpected remaining presets: %+v", cfg.Commands.Cockpit.CopyPresets)
+	}
+}
+
 func TestConfigValidationRejectsInvalidCopyPresetSubtreeStyle(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Commands.Cockpit.CopyPresets = []CopyPreset{{

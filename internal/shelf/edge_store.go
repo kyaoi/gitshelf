@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -109,6 +110,27 @@ func (s *EdgeStore) FindInbound(taskID string) ([]InboundEdge, error) {
 			}
 		}
 	}
+	slices.SortFunc(inbound, func(a, b InboundEdge) int {
+		if a.From < b.From {
+			return -1
+		}
+		if a.From > b.From {
+			return 1
+		}
+		if a.Type < b.Type {
+			return -1
+		}
+		if a.Type > b.Type {
+			return 1
+		}
+		if a.To < b.To {
+			return -1
+		}
+		if a.To > b.To {
+			return 1
+		}
+		return 0
+	})
 	return inbound, nil
 }
 
