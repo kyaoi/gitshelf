@@ -706,7 +706,7 @@ func (m calendarTUIModel) activePopup() string {
 	case m.filterMode:
 		return renderCalendarFilterPicker(m, popupWidth, popupHeight)
 	case m.snoozeMode:
-		return renderCalendarSnoozePicker(m.snoozeIndex, popupWidth, popupHeight)
+		return renderCalendarSnoozePicker(m.bulkActionPopupLabel(), m.snoozeIndex, popupWidth, popupHeight)
 	case m.linkMode:
 		query := m.linkQuery
 		if m.linkQueryMode {
@@ -716,7 +716,7 @@ func (m calendarTUIModel) activePopup() string {
 	case m.copyPresetMode:
 		return renderCalendarCopyPresetPopup(m, popupWidth, popupHeight)
 	case m.kindMode:
-		return renderCalendarKindPicker(m.selectedTaskPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
+		return renderCalendarKindPicker(m.bulkActionPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
 	case m.tagMode:
 		inputValue := m.tagInputValue
 		if m.tagInputMode {
@@ -1227,6 +1227,13 @@ func (m calendarTUIModel) selectedTaskPopupLabel() string {
 		label = fmt.Sprintf("[%s] %s", shelf.ShortID(task.ID), label)
 	}
 	return label
+}
+
+func (m calendarTUIModel) bulkActionPopupLabel() string {
+	if marked := m.markedCount(); marked > 0 {
+		return fmt.Sprintf("%d marked tasks", marked)
+	}
+	return m.selectedTaskPopupLabel()
 }
 
 func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
@@ -4859,11 +4866,15 @@ func formatCalendarStatusFilter(statuses []shelf.Status) string {
 	return strings.Join(labels, ",")
 }
 
-func renderCalendarSnoozePicker(selected int, width int, height int) string {
+func renderCalendarSnoozePicker(targetLabel string, selected int, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	header := []string{titleStyle.Render("Snooze Presets"), helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る")}
+	header := []string{
+		titleStyle.Render("Snooze Presets"),
+		helpStyle.Render("Target: " + targetLabel),
+		helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る"),
+	}
 	lines := make([]string, 0, len(calendarSnoozeOptions()))
 	anchor := -1
 	for i, option := range calendarSnoozeOptions() {

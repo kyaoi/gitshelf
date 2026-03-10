@@ -678,6 +678,32 @@ func TestCalendarApplySnoozeOptionUsesMarkedTasks(t *testing.T) {
 	}
 }
 
+func TestCalendarBulkActionPopupLabelUsesMarkedCount(t *testing.T) {
+	model := calendarTUIModel{
+		showID: true,
+		mode:   calendarModeReview,
+		sections: []calendarSection{{
+			ID: "today",
+			Items: []calendarSectionItem{{
+				Task: shelf.Task{ID: "01ABCDEFG", Title: "Selected"},
+			}},
+		}},
+		sectionRows: map[calendarSectionID]int{"today": 0},
+		markedTaskIDs: map[string]struct{}{
+			"01ABCDEFG": {},
+			"01HIJKLMN": {},
+		},
+	}
+	if got := model.bulkActionPopupLabel(); got != "2 marked tasks" {
+		t.Fatalf("expected marked task label, got %q", got)
+	}
+
+	model.markedTaskIDs = nil
+	if got := model.bulkActionPopupLabel(); got != "[01ABCDEF] Selected" {
+		t.Fatalf("expected selected task label, got %q", got)
+	}
+}
+
 func TestCalendarShowsDescendantsOfDueParent(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
