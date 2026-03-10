@@ -1,5 +1,36 @@
 # TESTING
 
+`gitshelf` treats the heavy suite as the default suite.
+
+## Required checks
+
+Run all of these before merging:
+
+- `gofmt -w .`
+- `go test ./...`
+- `bash scripts/check_coverage_ratchet.sh`
+- `go test -race ./...`
+- `go vet ./...`
+
+## Regression policy
+
+- fix bugs with `repro test first`
+- treat machine-readable CLI output as a public contract
+- update golden fixtures only intentionally
+- do not lower package coverage below [`scripts/coverage_baseline.txt`](../scripts/coverage_baseline.txt)
+
+## Golden fixtures
+
+CLI output snapshots live under:
+
+- `internal/cli/testdata/outputs/`
+
+Refresh them only when the public output contract is intentionally changed:
+
+```bash
+UPDATE_GOLDEN=1 go test ./internal/cli -run TestCLIMachineReadableOutputGoldens
+```
+
 ## Important checks
 
 - `init` is idempotent
@@ -17,3 +48,12 @@
 ## Conflict resistance
 
 - editing task bodies and editing links stay split across task files and edge files
+
+## Release smoke
+
+For a tagged release such as `v1.3`:
+
+1. `go install github.com/kyaoi/gitshelf/cmd/shelf@v1.3`
+2. `shelf --version` prints `v1.3`
+3. `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
+4. `shelf --version` prints the latest tag, not `dev`

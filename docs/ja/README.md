@@ -26,6 +26,10 @@
 go install github.com/kyaoi/gitshelf/cmd/shelf@latest
 ```
 
+tag 付き install では `shelf --version` にその release version が表示されます。
+たとえば `go install ...@v1.3.0` や `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
+では、選ばれた release version がそのまま見える想定です。
+
 ### ローカル開発: clone してビルド
 
 ```bash
@@ -33,6 +37,8 @@ git clone https://github.com/kyaoi/gitshelf.git
 cd gitshelf
 go install ./cmd/shelf
 ```
+
+ローカル checkout からの build では、VCS metadata が取れれば `dev+<shortsha>` を表示します。
 
 ## Shell Completion
 
@@ -161,12 +167,9 @@ shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | 
 shelf ls --format tsv --fields title,path --sort title --reverse
 
 # 1 task の依存先 path を確認
-shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
+shelf links 01AAA --json | jq '.edges[] | {direction, type, source: .source.path, target: .target.path}'
 
-# 正規化された edge record を使う
-shelf links 01AAA --json | jq '.edges[] | {direction, type, other: .other.path}'
-
-# canonical alias の列を使う
+# canonical columns を使う
 shelf links 01AAA --format tsv --fields source_id,target_id
 
 # link type ごとの件数を確認
@@ -223,6 +226,7 @@ link 種別は `config.toml` の `link_types.names` で定義します。
 ```bash
 gofmt -w .
 go test ./...
+bash scripts/check_coverage_ratchet.sh
 go test -race ./...
 go vet ./...
 ```

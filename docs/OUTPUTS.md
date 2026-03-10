@@ -5,10 +5,7 @@ Machine-readable output contract for `shelf`.
 This document covers the public shapes for `--json`, `--format jsonl`, and
 tabular `--format tsv|csv` outputs.
 
-Task and edge queries support `--schema <v1|v2>`.
-
-- `v1` is the default compatibility schema.
-- `v2` is the canonical opt-in schema.
+Task and edge queries use one canonical contract. They are not schema-versioned.
 
 ## Task Record
 
@@ -17,49 +14,6 @@ Used by:
 - `shelf ls`
 - `shelf next`
 - `shelf show --json` `task`
-
-### v1
-
-Fields:
-
-- `id`
-- `title`
-- `path`
-- `file`
-- `kind`
-- `status`
-- `tags`
-- `due_on`
-- `repeat_every`
-- `archived_at`
-- `parent_id`
-- `parent`
-- `parent_title`
-- `parent_path`
-- `created_at`
-- `updated_at`
-- `body`
-
-Tabular task fields:
-
-- `id`
-- `title`
-- `path`
-- `kind`
-- `status`
-- `tags`
-- `due_on`
-- `repeat_every`
-- `archived_at`
-- `parent_id`
-- `parent`
-- `parent_path`
-- `file`
-- `created_at`
-- `updated_at`
-- `body`
-
-### v2
 
 Fields:
 
@@ -112,8 +66,19 @@ Adds:
 
 - `group`
 
-JSON and JSONL keep the normal task fields for the selected schema and add `group`.
+JSON and JSONL keep the normal task fields and add `group`.
 TSV and CSV expose the same `group` field.
+
+## Edge Ref
+
+Nested endpoint ref used inside edge records.
+
+Fields:
+
+- `id`
+- `title`
+- `path`
+- `file`
 
 ## Edge Record
 
@@ -123,50 +88,6 @@ Used by:
 - `shelf show --json` `edges`
 - `shelf links --format jsonl`
 
-### v1
-
-Fields:
-
-- `direction`
-- `type`
-- `source`
-- `target`
-- `task`
-- `other`
-
-Nested refs contain:
-
-- `id`
-- `title`
-- `path`
-- `file`
-
-`source` and `target` are the canonical edge endpoints.
-`task` and `other` are compatibility aliases based on the inspected task context.
-
-Tabular edge fields:
-
-- `direction`
-- `type`
-- `source_id`
-- `source_title`
-- `source_path`
-- `source_file`
-- `target_id`
-- `target_title`
-- `target_path`
-- `target_file`
-- `task_id`
-- `task_title`
-- `task_path`
-- `task_file`
-- `other_id`
-- `other_title`
-- `other_path`
-- `other_file`
-
-### v2
-
 Fields:
 
 - `direction`
@@ -174,12 +95,7 @@ Fields:
 - `source`
 - `target`
 
-Nested refs contain:
-
-- `id`
-- `title`
-- `path`
-- `file`
+`source` and `target` are `edgeRef` objects.
 
 Tabular edge fields:
 
@@ -242,44 +158,25 @@ JSON output:
 
 - one `taskRecord` per line
 
-### `shelf show --json --schema v1`
+### `shelf show --json`
 
 Contains:
 
-- top-level task fields for compatibility
-- `task`: normalized task record
-- `edges`: normalized edge records
-- `outbound`: compatibility link payloads
-- `inbound`: compatibility link payloads
+- `task`: `taskRecord`
+- `edges`: `[]edgeRecord`
 
-### `shelf show --json --schema v2`
+### `shelf links --json`
 
 Contains:
 
-- `task`: canonical task record
-- `edges`: canonical edge records
-
-### `shelf links --json --schema v1`
-
-Contains:
-
-- `task`: inspected task ref
-- `edges`: normalized edge records
-- `outbound`: compatibility link payloads
-- `inbound`: compatibility link payloads
-
-### `shelf links --json --schema v2`
-
-Contains:
-
-- `task`: inspected task ref
-- `edges`: canonical edge records
+- `task`: inspected `edgeRef`
+- `edges`: `[]edgeRecord`
 
 ### `shelf links --json --summary`
 
 Contains:
 
-- `task`
+- `task`: inspected `edgeRef`
 - `summary`: `[]linkSummaryRecord`
 
 ### `shelf config copy-preset list --json`
@@ -298,8 +195,8 @@ Contains:
 - `template`
 - `join_with`
 
-## Compatibility Notes
+## Stability Notes
 
-- `v1` remains the default schema.
-- `v2` removes task field aliases such as `parent`.
-- `v2` removes edge field aliases such as `task`, `other`, `task_*`, and `other_*`.
+- Machine-readable output uses one canonical contract.
+- Task records use `parent_id`, not legacy parent aliases.
+- Edge records use `source` and `target`, not task/other aliases.

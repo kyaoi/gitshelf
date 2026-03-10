@@ -26,6 +26,10 @@
 go install github.com/kyaoi/gitshelf/cmd/shelf@latest
 ```
 
+Tagged installs report the tagged release in `shelf --version`.
+For example, `go install ...@v1.3.0` and `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
+should both print the selected release version.
+
 ### Local development: clone and build
 
 ```bash
@@ -33,6 +37,8 @@ git clone https://github.com/kyaoi/gitshelf.git
 cd gitshelf
 go install ./cmd/shelf
 ```
+
+Local checkout builds report `dev+<shortsha>` when VCS metadata is available.
 
 
 ## Shell Completion
@@ -162,12 +168,9 @@ shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | 
 shelf ls --format tsv --fields title,path --sort title --reverse
 
 # inspect dependency paths from one task
-shelf links 01AAA --json | jq '.outbound[] | {type, path, file}'
+shelf links 01AAA --json | jq '.edges[] | {direction, type, source: .source.path, target: .target.path}'
 
-# use normalized edge records
-shelf links 01AAA --json | jq '.edges[] | {direction, type, other: .other.path}'
-
-# use canonical edge aliases
+# use canonical edge columns
 shelf links 01AAA --format tsv --fields source_id,target_id
 
 # inspect link counts by type
@@ -226,6 +229,7 @@ Links use only:
 ```bash
 gofmt -w .
 go test ./...
+bash scripts/check_coverage_ratchet.sh
 go test -race ./...
 go vet ./...
 ```

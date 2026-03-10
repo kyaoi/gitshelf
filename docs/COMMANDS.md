@@ -234,15 +234,11 @@ Flags:
 - `--group-by <status|kind|parent>`
 - `--count`
 - `--json`
-- `--schema <v1|v2>` for `--json`, `--format jsonl`, `--format tsv`, and `--format csv`
 
 Unknown kind/status/tag values fail fast.
 
 `--preset` applies read-only defaults similar to the matching Cockpit view.
 Explicit flags still win.
-
-`--schema v1` keeps the current compatibility shape.
-`--schema v2` uses canonical machine-readable field names.
 
 `--format tsv` and `--format csv` use the same task fields.
 TSV defaults to no header. CSV defaults to a header row.
@@ -250,8 +246,7 @@ TSV defaults to no header. CSV defaults to a header row.
 
 Task fields:
 
-- `v1`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent`, `parent_path`, `tags`, `file`
-- `v2`: `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `tags`, `file`
+- `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `tags`, `file`
 
 `--fields` can reorder or reduce those columns.
 `--format jsonl` prints one task object per line using the same record shape as `--json`.
@@ -274,12 +269,8 @@ Flags:
 - `--reverse`
 - `--count`
 - `--json`
-- `--schema <v1|v2>` for `--json`, `--format jsonl`, `--format tsv`, and `--format csv`
 
 `--count` prints only the total number of ready tasks. With `--json`, it returns `{ "count": N }`.
-
-`--schema v1` keeps the current compatibility shape.
-`--schema v2` uses canonical machine-readable field names.
 
 ## shelf show
 
@@ -296,16 +287,11 @@ Flags:
 - `--header`
 - `--no-header`
 - `--json`
-- `--schema <v1|v2>` for `--json`, `--format jsonl`, `--format tsv`, and `--format csv`
-
-`--schema v1` keeps the current compatibility shape.
-`--schema v2` keeps only canonical task field names in machine-readable output.
 
 `--format tsv` and `--format csv` print one row for the selected task.
 Available fields:
 
-- `v1`: `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
-- `v2`: `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
 - `outbound_count`, `inbound_count`
 
 `--format jsonl` prints one task object per line.
@@ -350,16 +336,11 @@ Flags:
 - `--no-header`
 - `--summary`
 - `--json`
-- `--schema <v1|v2>` for `--json`, `--format jsonl`, `--format tsv`, and `--format csv`
-
-`--schema v1` keeps the current compatibility shape.
-`--schema v2` keeps only canonical edge field names in machine-readable output.
 
 `--format tsv` and `--format csv` print one row per edge.
 Available fields:
 
-- `v1`: `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`, `task_id`, `task_title`, `task_path`, `task_file`, `other_id`, `other_title`, `other_path`, `other_file`
-- `v2`: `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`
+- `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`
 
 `--format jsonl` prints one edge object per line.
 `--summary` switches the output to aggregated `direction/type/count` rows.

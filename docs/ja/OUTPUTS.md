@@ -1,69 +1,21 @@
-# OUTPUTS（日本語版）
+# OUTPUTS
 
 `shelf` の machine-readable output contract です。
 
-対象:
+このドキュメントは `--json`, `--format jsonl`, `--format tsv|csv` の
+public shape を対象にします。
 
-- `--json`
-- `--format jsonl`
-- `--format tsv|csv`
-
-task / edge query は `--schema <v1|v2>` をサポートします。
-
-- `v1` は既定の互換 schema です。
-- `v2` は opt-in の canonical schema です。
+task / edge query は 1 つの canonical contract を使います。
+schema version 分岐はありません。
 
 ## Task Record
 
-使われる場所:
+使われる箇所:
 
 - `shelf ls`
 - `shelf next`
 - `shelf show --json` の `task`
 
-### v1
-
-field:
-
-- `id`
-- `title`
-- `path`
-- `file`
-- `kind`
-- `status`
-- `tags`
-- `due_on`
-- `repeat_every`
-- `archived_at`
-- `parent_id`
-- `parent`
-- `parent_title`
-- `parent_path`
-- `created_at`
-- `updated_at`
-- `body`
-
-tabular field:
-
-- `id`
-- `title`
-- `path`
-- `kind`
-- `status`
-- `tags`
-- `due_on`
-- `repeat_every`
-- `archived_at`
-- `parent_id`
-- `parent`
-- `parent_path`
-- `file`
-- `created_at`
-- `updated_at`
-- `body`
-
-### v2
-
 field:
 
 - `id`
@@ -82,7 +34,7 @@ field:
 - `updated_at`
 - `body`
 
-tabular field:
+tabular task field:
 
 - `id`
 - `title`
@@ -107,7 +59,7 @@ tabular field:
 
 ## Grouped Task Record
 
-使われる場所:
+使われる箇所:
 
 - `shelf ls --group-by ...`
 
@@ -115,61 +67,28 @@ tabular field:
 
 - `group`
 
-JSON/JSONL では選択した schema の task field に `group` が追加されます。
-TSV/CSV でも同じ `group` field を使います。
+JSON と JSONL は通常の task field に `group` を追加します。
+TSV と CSV でも同じ `group` field を使います。
+
+## Edge Ref
+
+edge record に入る endpoint ref です。
+
+field:
+
+- `id`
+- `title`
+- `path`
+- `file`
 
 ## Edge Record
 
-使われる場所:
+使われる箇所:
 
 - `shelf links --json` の `edges`
 - `shelf show --json` の `edges`
 - `shelf links --format jsonl`
 
-### v1
-
-field:
-
-- `direction`
-- `type`
-- `source`
-- `target`
-- `task`
-- `other`
-
-ネストされた ref の field:
-
-- `id`
-- `title`
-- `path`
-- `file`
-
-`source` と `target` が canonical な edge endpoint です。
-`task` と `other` は inspected task 基準の互換 alias です。
-
-tabular edge field:
-
-- `direction`
-- `type`
-- `source_id`
-- `source_title`
-- `source_path`
-- `source_file`
-- `target_id`
-- `target_title`
-- `target_path`
-- `target_file`
-- `task_id`
-- `task_title`
-- `task_path`
-- `task_file`
-- `other_id`
-- `other_title`
-- `other_path`
-- `other_file`
-
-### v2
-
 field:
 
 - `direction`
@@ -177,12 +96,7 @@ field:
 - `source`
 - `target`
 
-ネストされた ref の field:
-
-- `id`
-- `title`
-- `path`
-- `file`
+`source` と `target` は `edgeRef` object です。
 
 tabular edge field:
 
@@ -199,7 +113,7 @@ tabular edge field:
 
 ## Link Summary Record
 
-使われる場所:
+使われる箇所:
 
 - `shelf links --summary`
 
@@ -211,14 +125,14 @@ field:
 
 ## Count Output
 
-使われる場所:
+使われる箇所:
 
 - `shelf ls --count`
 - `shelf next --count`
 
 text 出力:
 
-- 数値1行
+- 整数 1 行
 
 JSON 出力:
 
@@ -234,8 +148,8 @@ JSON 出力:
 
 ### `shelf ls --format jsonl`
 
-- 1行1 `taskRecord`
-- `--group-by` 付きでは grouped task record を1行ずつ出力
+- 1 行 1 `taskRecord`
+- `--group-by` 付きでは 1 行 1 grouped task record
 
 ### `shelf next --json`
 
@@ -243,46 +157,27 @@ JSON 出力:
 
 ### `shelf next --format jsonl`
 
-- 1行1 `taskRecord`
+- 1 行 1 `taskRecord`
 
-### `shelf show --json --schema v1`
-
-内容:
-
-- 互換維持のための top-level task field
-- `task`: 正規化された task record
-- `edges`: 正規化された edge record
-- `outbound`: 互換維持の link payload
-- `inbound`: 互換維持の link payload
-
-### `shelf show --json --schema v2`
+### `shelf show --json`
 
 内容:
 
-- `task`: canonical task record
-- `edges`: canonical edge record
+- `task`: `taskRecord`
+- `edges`: `[]edgeRecord`
 
-### `shelf links --json --schema v1`
-
-内容:
-
-- `task`: inspected task ref
-- `edges`: 正規化された edge record
-- `outbound`: 互換維持の link payload
-- `inbound`: 互換維持の link payload
-
-### `shelf links --json --schema v2`
+### `shelf links --json`
 
 内容:
 
-- `task`: inspected task ref
-- `edges`: canonical edge record
+- `task`: 対象 task の `edgeRef`
+- `edges`: `[]edgeRecord`
 
 ### `shelf links --json --summary`
 
 内容:
 
-- `task`
+- `task`: 対象 task の `edgeRef`
 - `summary`: `[]linkSummaryRecord`
 
 ### `shelf config copy-preset list --json`
@@ -293,7 +188,7 @@ JSON 出力:
 
 - `copyPresetRecord`
 
-`copyPresetRecord` field:
+`copyPresetRecord` の field:
 
 - `name`
 - `scope`
@@ -301,8 +196,8 @@ JSON 出力:
 - `template`
 - `join_with`
 
-## Compatibility Notes
+## Stability Notes
 
-- `v1` は既定 schema のままです。
-- `v2` では `parent` のような task alias を出しません。
-- `v2` では `task`, `other`, `task_*`, `other_*` のような edge alias を出しません。
+- machine-readable output は 1 つの canonical contract を使います。
+- task record は legacy parent alias ではなく `parent_id` を使います。
+- edge record は task/other alias ではなく `source` / `target` を使います。
