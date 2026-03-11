@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kyaoi/gitshelf/internal/shelf"
@@ -28,6 +29,14 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 		noDue           bool
 		asJSON          bool
 		parent          string
+		preset          string
+		fields          string
+		header          bool
+		noHeader        bool
+		sortBy          string
+		reverse         bool
+		groupBy         string
+		countOnly       bool
 		limit           int
 		search          string
 	)
@@ -40,11 +49,31 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			"  shelf ls --tag backend --not-tag wip\n" +
 			"  shelf ls --ready --overdue\n" +
 			"  shelf ls --json",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := validateFormat(format, []string{"compact", "detail", "kanban"}); err != nil {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "detail", "kanban", "tree", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if err := validateLsGrouping(format, groupBy, countOnly); err != nil {
+				return err
+			}
+			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
+			}
+			cfg, err := shelf.LoadConfig(ctx.rootDir)
+			if err != nil {
+				return err
+			}
+			if err := applyLsPreset(cmd, preset, cfg, &format, &ready, &statuses, &notStatuses); err != nil {
 				return err
 			}
 
+			filterLimit := limit
+			if countOnly {
+				filterLimit = 0
+			}
 			filter := shelf.TaskFilter{
 				Kinds:           toKinds(kinds),
 				Statuses:        toStatuses(statuses),
@@ -61,7 +90,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				Overdue:         overdue,
 				NoDue:           noDue,
 				Parent:          parent,
-				Limit:           limit,
+				Limit:           filterLimit,
 				Search:          search,
 			}
 
@@ -73,48 +102,104 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			titleByID := make(map[string]string, len(allTasks))
+			byID := make(map[string]shelf.Task, len(allTasks))
 			for _, task := range allTasks {
-				titleByID[task.ID] = task.Title
+				byID[task.ID] = task
 			}
+			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
+				return err
+			}
+			if countOnly {
+				return printCountResult(len(tasks), asJSON)
+			}
+			groupedRecords := buildGroupedTaskQueryRecords(ctx.rootDir, tasks, byID, groupBy)
 
 			if asJSON {
-				type lsItem struct {
-					ID          string   `json:"id"`
-					Title       string   `json:"title"`
-					Kind        string   `json:"kind"`
-					Status      string   `json:"status"`
-					Tags        []string `json:"tags,omitempty"`
-					DueOn       string   `json:"due_on,omitempty"`
-					RepeatEvery string   `json:"repeat_every,omitempty"`
-					ArchivedAt  string   `json:"archived_at,omitempty"`
-					Parent      string   `json:"parent,omitempty"`
-					ParentTitle string   `json:"parent_title,omitempty"`
-				}
-				items := make([]lsItem, 0, len(tasks))
-				for _, task := range tasks {
-					parentTitle := ""
-					if task.Parent != "" {
-						parentTitle = titleByID[task.Parent]
-					}
-					items = append(items, lsItem{
-						ID:          task.ID,
-						Title:       task.Title,
-						Kind:        string(task.Kind),
-						Status:      string(task.Status),
-						Tags:        task.Tags,
-						DueOn:       task.DueOn,
-						RepeatEvery: task.RepeatEvery,
-						ArchivedAt:  task.ArchivedAt,
-						Parent:      task.Parent,
-						ParentTitle: parentTitle,
-					})
-				}
+				items := groupedRecordsToAny(groupedRecords, groupBy)
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(data))
+				return nil
+			}
+
+			if format == "jsonl" {
+				text, err := renderGroupedTaskJSONL(groupedRecords, groupBy)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
+			if format == "tree" {
+				fromID := filter.Parent
+				if fromID == "root" {
+					fromID = ""
+				}
+				nodes, err := shelf.BuildTree(ctx.rootDir, shelf.TreeOptions{
+					Kinds:           filter.Kinds,
+					Statuses:        filter.Statuses,
+					Tags:            filter.Tags,
+					NotKinds:        filter.NotKinds,
+					NotStatuses:     filter.NotStatuses,
+					NotTags:         filter.NotTags,
+					IncludeArchived: filter.IncludeArchived,
+					OnlyArchived:    filter.OnlyArchived,
+					FromID:          fromID,
+				})
+				if err != nil {
+					return err
+				}
+				if filter.Parent == "root" {
+					rootNodes := make([]shelf.TreeNode, 0, len(nodes))
+					for _, node := range nodes {
+						if node.Task.Parent == "" {
+							rootNodes = append(rootNodes, node)
+						}
+					}
+					nodes = rootNodes
+				}
+				printed := 0
+				for i, node := range nodes {
+					printTreeNode(node, "", i == len(nodes)-1, ctx.showID, "compact")
+					printed++
+					if filter.Limit > 0 && printed >= filter.Limit {
+						break
+					}
+				}
+				if printed == 0 {
+					fmt.Println(uiMuted("(none)"))
+				}
+				return nil
+			}
+
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
+				if err != nil {
+					return err
+				}
+				for _, record := range groupedRecords {
+					fmt.Println(joinTSVFields(selectedFields, record.TSVFields()))
+				}
+				return nil
+			}
+
+			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultLsTabularFields(groupBy), allowedLsTabularFields(groupBy))
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				text, err := renderCSV(groupedRecords, selectedFields, includeHeader)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -146,14 +231,15 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 				return nil
 			}
 
+			if strings.TrimSpace(groupBy) != "" {
+				printGroupedLsRecords(groupedRecords, format, ctx.showID)
+				return nil
+			}
 			for _, task := range tasks {
 				parentLabel := "root"
 				if task.Parent != "" {
-					if title, ok := titleByID[task.Parent]; ok {
-						parentLabel = uiPrimary(title)
-						if ctx.showID {
-							parentLabel = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.Parent)), uiPrimary(title))
-						}
+					if parent, ok := byID[task.Parent]; ok {
+						parentLabel = formatTaskPathLabel(parent, byID, ctx.showID)
 					} else {
 						parentLabel = uiMuted("(missing)")
 					}
@@ -198,7 +284,7 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&notTags, "not-tag", nil, "Exclude tag (repeatable)")
 	cmd.Flags().BoolVar(&includeArchived, "include-archived", false, "Include archived tasks")
 	cmd.Flags().BoolVar(&onlyArchived, "only-archived", false, "Include only archived tasks")
-	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|detail|kanban|tree|tsv|csv|jsonl")
 	cmd.Flags().BoolVar(&ready, "ready", false, "Include only actionable tasks")
 	cmd.Flags().BoolVar(&depsBlocked, "blocked-by-deps", false, "Include only tasks blocked by unresolved dependencies")
 	cmd.Flags().StringVar(&dueBefore, "due-before", "", "Include only tasks due before this date (YYYY-MM-DD)")
@@ -207,6 +293,14 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 	cmd.Flags().BoolVar(&noDue, "no-due", false, "Include only tasks without due date")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&parent, "parent", "", "Filter by parent task ID or root")
+	cmd.Flags().StringVar(&preset, "preset", "", "Apply read-only defaults similar to a Cockpit view: now|review|board")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
+	cmd.Flags().StringVar(&groupBy, "group-by", "", "Group tasks by: status|kind|parent")
+	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of matching tasks")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
 	cmd.Flags().StringVar(&search, "search", "", "Search by title/body")
 	return cmd
@@ -214,16 +308,33 @@ func newLsCommand(ctx *commandContext) *cobra.Command {
 
 func newNextCommand(ctx *commandContext) *cobra.Command {
 	var (
-		limit  int
-		asJSON bool
+		limit     int
+		asJSON    bool
+		format    string
+		fields    string
+		header    bool
+		noHeader  bool
+		sortBy    string
+		reverse   bool
+		countOnly bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List actionable tasks (ready to work on)",
 		Example: "  shelf next\n" +
-			"  shelf next --limit 20",
-		RunE: func(_ *cobra.Command, _ []string) error {
+			"  shelf next --limit 20\n" +
+			"  shelf next --format tsv",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateFormat(format, []string{"compact", "tsv", "csv", "jsonl"}); err != nil {
+				return err
+			}
+			if err := validateCountModeFlags(cmd, countOnly, fields, header, noHeader, sortBy, reverse, limit); err != nil {
+				return err
+			}
+			if strings.TrimSpace(fields) != "" && format != "tsv" && format != "csv" {
+				return fmt.Errorf("--fields requires --format tsv or csv")
+			}
 			filter := shelf.TaskFilter{Limit: 0}
 			tasks, err := shelf.ListTasks(ctx.rootDir, filter)
 			if err != nil {
@@ -234,53 +345,66 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 
-			titleByID := make(map[string]string, len(tasks))
+			byID := make(map[string]shelf.Task, len(tasks))
 			for _, task := range tasks {
-				titleByID[task.ID] = task.Title
+				byID[task.ID] = task
+			}
+			if err := sortTaskQueryResults(tasks, byID, sortBy, reverse); err != nil {
+				return err
+			}
+			if countOnly {
+				count := 0
+				for _, task := range tasks {
+					info, ok := readiness[task.ID]
+					if ok && info.Ready {
+						count++
+					}
+				}
+				return printCountResult(count, asJSON)
 			}
 
 			if asJSON {
-				type nextItem struct {
-					ID          string `json:"id"`
-					Title       string `json:"title"`
-					Kind        string `json:"kind"`
-					Status      string `json:"status"`
-					DueOn       string `json:"due_on,omitempty"`
-					RepeatEvery string `json:"repeat_every,omitempty"`
-					ArchivedAt  string `json:"archived_at,omitempty"`
-					Parent      string `json:"parent,omitempty"`
-					ParentTitle string `json:"parent_title,omitempty"`
-				}
-				items := make([]nextItem, 0)
-				for _, task := range tasks {
-					info, ok := readiness[task.ID]
-					if !ok || !info.Ready {
-						continue
-					}
-					parentTitle := ""
-					if task.Parent != "" {
-						parentTitle = titleByID[task.Parent]
-					}
-					items = append(items, nextItem{
-						ID:          task.ID,
-						Title:       task.Title,
-						Kind:        string(task.Kind),
-						Status:      string(task.Status),
-						DueOn:       task.DueOn,
-						RepeatEvery: task.RepeatEvery,
-						ArchivedAt:  task.ArchivedAt,
-						Parent:      task.Parent,
-						ParentTitle: parentTitle,
-					})
-					if limit > 0 && len(items) >= limit {
-						break
-					}
-				}
+				items := buildNextJSONItems(ctx.rootDir, tasks, readiness, byID, limit)
 				data, err := json.MarshalIndent(items, "", "  ")
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(data))
+				return nil
+			}
+
+			if format == "jsonl" {
+				text, err := renderNextJSONL(ctx.rootDir, tasks, readiness, byID, limit)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
+				return nil
+			}
+
+			if format == "tsv" {
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				if err != nil {
+					return err
+				}
+				printNextTSV(selectedFields, ctx.rootDir, tasks, readiness, byID, limit)
+				return nil
+			}
+
+			if format == "csv" {
+				selectedFields, err := resolveTSVFields(fields, defaultNextTSVFields(), allowedNextTSVFields())
+				if err != nil {
+					return err
+				}
+				includeHeader, err := resolveTabularHeader(format, header, noHeader)
+				if err != nil {
+					return err
+				}
+				text, err := renderNextCSV(selectedFields, includeHeader, ctx.rootDir, tasks, readiness, byID, limit)
+				if err != nil {
+					return err
+				}
+				fmt.Print(text)
 				return nil
 			}
 
@@ -292,11 +416,8 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 				}
 				parentLabel := uiMuted("root")
 				if task.Parent != "" {
-					if title, ok := titleByID[task.Parent]; ok {
-						parentLabel = uiPrimary(title)
-						if ctx.showID {
-							parentLabel = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.Parent)), uiPrimary(title))
-						}
+					if parent, ok := byID[task.Parent]; ok {
+						parentLabel = formatTaskPathLabel(parent, byID, ctx.showID)
 					} else {
 						parentLabel = uiMuted("(missing)")
 					}
@@ -323,6 +444,13 @@ func newNextCommand(ctx *commandContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of items")
+	cmd.Flags().StringVar(&format, "format", "compact", "Output format: compact|tsv|csv|jsonl")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated field names for --format tsv or csv")
+	cmd.Flags().BoolVar(&header, "header", false, "Include a header row for tabular output")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "Omit the header row for tabular output")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: id|title|path|kind|status|due_on|created_at|updated_at")
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse the sort order")
+	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the total number of ready tasks")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
 	return cmd
 }
@@ -430,4 +558,424 @@ func formatTaskPathLabel(task shelf.Task, byID map[string]shelf.Task, showID boo
 		return fmt.Sprintf("%s [%s]", label, shelf.ShortID(task.ID))
 	}
 	return label
+}
+
+func sanitizeTSVField(value string) string {
+	value = strings.ReplaceAll(value, "\t", " ")
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return value
+}
+
+func resolveTSVFields(raw string, defaults []string, allowed map[string]struct{}) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return append([]string{}, defaults...), nil
+	}
+	parts := strings.Split(raw, ",")
+	fields := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		field := strings.TrimSpace(part)
+		if field == "" {
+			continue
+		}
+		if _, ok := allowed[field]; !ok {
+			return nil, fmt.Errorf("unknown --fields entry: %s", field)
+		}
+		if _, ok := seen[field]; ok {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("--fields must not be empty")
+	}
+	return fields, nil
+}
+
+func joinTSVFields(fields []string, row map[string]string) string {
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		values = append(values, sanitizeTSVField(row[field]))
+	}
+	return strings.Join(values, "\t")
+}
+
+func defaultLsTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "archived_at", "parent_id", "parent_path", "tags", "file"}
+}
+
+func allowedLsTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
+		"archived_at": {}, "parent_id": {}, "parent_path": {}, "tags": {}, "file": {},
+	}
+}
+
+func defaultLsTabularFields(groupBy string) []string {
+	fields := append([]string{}, defaultLsTSVFields()...)
+	if strings.TrimSpace(groupBy) == "" {
+		return fields
+	}
+	return append([]string{"group"}, fields...)
+}
+
+func allowedLsTabularFields(groupBy string) map[string]struct{} {
+	allowed := allowedLsTSVFields()
+	if strings.TrimSpace(groupBy) != "" {
+		allowed["group"] = struct{}{}
+	}
+	return allowed
+}
+
+func defaultNextTSVFields() []string {
+	return []string{"id", "title", "path", "kind", "status", "due_on", "repeat_every", "parent_id", "parent_path", "tags", "file"}
+}
+
+func allowedNextTSVFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "repeat_every": {},
+		"parent_id": {}, "parent_path": {}, "tags": {}, "file": {},
+	}
+}
+
+func sortTaskQueryResults(tasks []shelf.Task, byID map[string]shelf.Task, sortBy string, reverse bool) error {
+	field := strings.TrimSpace(sortBy)
+	if field == "" {
+		return nil
+	}
+	if _, ok := allowedTaskSortFields()[field]; !ok {
+		return fmt.Errorf("unknown --sort field: %s", field)
+	}
+	sort.SliceStable(tasks, func(i, j int) bool {
+		order := compareTaskQueryField(tasks[i], tasks[j], byID, field)
+		if reverse {
+			return order > 0
+		}
+		return order < 0
+	})
+	return nil
+}
+
+func allowedTaskSortFields() map[string]struct{} {
+	return map[string]struct{}{
+		"id": {}, "title": {}, "path": {}, "kind": {}, "status": {}, "due_on": {}, "created_at": {}, "updated_at": {},
+	}
+}
+
+func compareTaskQueryField(a shelf.Task, b shelf.Task, byID map[string]shelf.Task, field string) int {
+	switch field {
+	case "id":
+		return compareTaskStringField(a.ID, b.ID)
+	case "title":
+		return compareTaskStringFieldWithID(a.Title, b.Title, a.ID, b.ID)
+	case "path":
+		return compareTaskStringFieldWithID(buildTaskPath(a, byID), buildTaskPath(b, byID), a.ID, b.ID)
+	case "kind":
+		return compareTaskStringFieldWithID(string(a.Kind), string(b.Kind), a.ID, b.ID)
+	case "status":
+		return compareTaskStringFieldWithID(string(a.Status), string(b.Status), a.ID, b.ID)
+	case "due_on":
+		return compareOptionalTaskStringField(a.DueOn, b.DueOn, a.ID, b.ID)
+	case "created_at":
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			if a.CreatedAt.Before(b.CreatedAt) {
+				return -1
+			}
+			return 1
+		}
+		return compareTaskStringField(a.ID, b.ID)
+	case "updated_at":
+		if !a.UpdatedAt.Equal(b.UpdatedAt) {
+			if a.UpdatedAt.Before(b.UpdatedAt) {
+				return -1
+			}
+			return 1
+		}
+		return compareTaskStringField(a.ID, b.ID)
+	default:
+		return compareTaskStringField(a.ID, b.ID)
+	}
+}
+
+func compareTaskStringField(a string, b string) int {
+	if a != b {
+		if a < b {
+			return -1
+		}
+		return 1
+	}
+	return 0
+}
+
+func compareTaskStringFieldWithID(a string, b string, aID string, bID string) int {
+	if cmp := compareTaskStringField(a, b); cmp != 0 {
+		return cmp
+	}
+	return compareTaskStringField(aID, bID)
+}
+
+func compareOptionalTaskStringField(a string, b string, aID string, bID string) int {
+	aBlank := strings.TrimSpace(a) == ""
+	bBlank := strings.TrimSpace(b) == ""
+	if aBlank != bBlank {
+		if aBlank {
+			return 1
+		}
+		return -1
+	}
+	return compareTaskStringFieldWithID(a, b, aID, bID)
+}
+
+func applyLsPreset(cmd *cobra.Command, preset string, cfg shelf.Config, format *string, ready *bool, statuses *[]string, notStatuses *[]string) error {
+	switch strings.TrimSpace(preset) {
+	case "":
+		return nil
+	case "now":
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeNow, cfg))
+		}
+		if !cmd.Flags().Changed("ready") && !cmd.Flags().Changed("blocked-by-deps") && !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*ready = true
+		}
+		return nil
+	case "review":
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeReview, cfg))
+		}
+		if !cmd.Flags().Changed("format") {
+			*format = "detail"
+		}
+		return nil
+	case "board":
+		if !cmd.Flags().Changed("format") {
+			*format = "kanban"
+		}
+		if !cmd.Flags().Changed("status") && !cmd.Flags().Changed("not-status") {
+			*statuses = statusStrings(defaultCockpitStatuses(calendarModeBoard, cfg))
+			*notStatuses = nil
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown --preset: %s (allowed: now|review|board)", preset)
+	}
+}
+
+func validateCountModeFlags(cmd *cobra.Command, countOnly bool, fields string, header bool, noHeader bool, sortBy string, reverse bool, limit int) error {
+	if !countOnly {
+		return nil
+	}
+	if cmd.Flags().Changed("format") {
+		return fmt.Errorf("--count cannot be combined with --format")
+	}
+	if strings.TrimSpace(fields) != "" {
+		return fmt.Errorf("--count cannot be combined with --fields")
+	}
+	if header || noHeader {
+		return fmt.Errorf("--count cannot be combined with --header or --no-header")
+	}
+	if strings.TrimSpace(sortBy) != "" || reverse {
+		return fmt.Errorf("--count cannot be combined with --sort or --reverse")
+	}
+	if cmd.Flags().Changed("limit") && limit != 50 {
+		return fmt.Errorf("--count cannot be combined with --limit")
+	}
+	return nil
+}
+
+func validateLsGrouping(format string, groupBy string, countOnly bool) error {
+	field := strings.TrimSpace(groupBy)
+	if field == "" {
+		return nil
+	}
+	if countOnly {
+		return fmt.Errorf("--group-by cannot be combined with --count")
+	}
+	if format == "kanban" || format == "tree" {
+		return fmt.Errorf("--group-by cannot be combined with --format %s", format)
+	}
+	if _, ok := allowedLsGroupFields()[field]; !ok {
+		return fmt.Errorf("unknown --group-by field: %s", field)
+	}
+	return nil
+}
+
+func allowedLsGroupFields() map[string]struct{} {
+	return map[string]struct{}{
+		"status": {}, "kind": {}, "parent": {},
+	}
+}
+
+func buildGroupedTaskQueryRecords(rootDir string, tasks []shelf.Task, byID map[string]shelf.Task, groupBy string) []groupedTaskQueryRecord {
+	field := strings.TrimSpace(groupBy)
+	records := make([]groupedTaskQueryRecord, 0, len(tasks))
+	for _, task := range tasks {
+		records = append(records, groupedTaskQueryRecord{
+			Group:           groupTaskLabel(task, byID, field),
+			taskQueryRecord: buildTaskQueryRecord(rootDir, task, byID),
+		})
+	}
+	if field == "" {
+		return records
+	}
+	sort.SliceStable(records, func(i, j int) bool {
+		if records[i].Group != records[j].Group {
+			return records[i].Group < records[j].Group
+		}
+		return records[i].taskQueryRecord.ID < records[j].taskQueryRecord.ID
+	})
+	return records
+}
+
+func groupTaskLabel(task shelf.Task, byID map[string]shelf.Task, field string) string {
+	switch field {
+	case "status":
+		return string(task.Status)
+	case "kind":
+		return string(task.Kind)
+	case "parent":
+		if task.Parent == "" {
+			return "root"
+		}
+		parent, ok := byID[task.Parent]
+		if !ok {
+			return "(missing)"
+		}
+		return buildTaskPath(parent, byID)
+	default:
+		return ""
+	}
+}
+
+func groupedRecordsToAny(records []groupedTaskQueryRecord, groupBy string) any {
+	if strings.TrimSpace(groupBy) == "" {
+		items := make([]taskQueryRecord, 0, len(records))
+		for _, record := range records {
+			items = append(items, record.taskQueryRecord)
+		}
+		return items
+	}
+	return records
+}
+
+func renderGroupedTaskJSONL(recordsV1 []groupedTaskQueryRecord, groupBy string) (string, error) {
+	if strings.TrimSpace(groupBy) == "" {
+		items := make([]taskQueryRecord, 0, len(recordsV1))
+		for _, record := range recordsV1 {
+			items = append(items, record.taskQueryRecord)
+		}
+		return renderJSONL(items)
+	}
+	return renderJSONL(recordsV1)
+}
+
+func buildNextJSONItems(rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) []taskQueryRecord {
+	items := make([]taskQueryRecord, 0)
+	for _, task := range tasks {
+		info, ok := readiness[task.ID]
+		if !ok || !info.Ready {
+			continue
+		}
+		items = append(items, buildTaskQueryRecord(rootDir, task, byID))
+		if limit > 0 && len(items) >= limit {
+			break
+		}
+	}
+	return items
+}
+
+func renderNextJSONL(rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) (string, error) {
+	return renderJSONL(buildNextJSONItems(rootDir, tasks, readiness, byID, limit))
+}
+
+func printNextTSV(selectedFields []string, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) {
+	count := 0
+	for _, task := range tasks {
+		info, ok := readiness[task.ID]
+		if !ok || !info.Ready {
+			continue
+		}
+		fmt.Println(joinTSVFields(selectedFields, buildTaskQueryRecord(rootDir, task, byID).TSVFields()))
+		count++
+		if limit > 0 && count >= limit {
+			break
+		}
+	}
+}
+
+func renderNextCSV(selectedFields []string, includeHeader bool, rootDir string, tasks []shelf.Task, readiness map[string]shelf.TaskReadiness, byID map[string]shelf.Task, limit int) (string, error) {
+	return renderCSV(buildNextJSONItems(rootDir, tasks, readiness, byID, limit), selectedFields, includeHeader)
+}
+
+func printGroupedLsRecords(records []groupedTaskQueryRecord, format string, showID bool) {
+	if len(records) == 0 {
+		fmt.Println(uiMuted("(none)"))
+		return
+	}
+	currentGroup := ""
+	for _, record := range records {
+		if record.Group != currentGroup {
+			currentGroup = record.Group
+			fmt.Println(uiHeading(currentGroup + ":"))
+		}
+		task := shelf.Task{
+			ID:          record.taskQueryRecord.ID,
+			Title:       record.taskQueryRecord.Title,
+			Kind:        shelf.Kind(record.taskQueryRecord.Kind),
+			Status:      shelf.Status(record.taskQueryRecord.Status),
+			Tags:        append([]string{}, record.taskQueryRecord.Tags...),
+			DueOn:       record.taskQueryRecord.DueOn,
+			RepeatEvery: record.taskQueryRecord.RepeatEvery,
+			ArchivedAt:  record.taskQueryRecord.ArchivedAt,
+			Parent:      record.taskQueryRecord.ParentID,
+		}
+		parentLabel := uiMuted("root")
+		if record.taskQueryRecord.ParentID != "" {
+			if strings.TrimSpace(record.taskQueryRecord.ParentPath) != "" {
+				parentLabel = record.taskQueryRecord.ParentPath
+			} else {
+				parentLabel = uiMuted("(missing)")
+			}
+		}
+		label := uiPrimary(task.Title)
+		if showID {
+			label = fmt.Sprintf("%s %s", uiShortID(shelf.ShortID(task.ID)), uiPrimary(task.Title))
+		}
+		dueText := ""
+		if task.DueOn != "" {
+			dueText = fmt.Sprintf(" due=%s", uiDue(task.DueOn))
+		}
+		tagText := ""
+		if len(task.Tags) > 0 {
+			tagText = fmt.Sprintf(" tags=%s", strings.Join(task.Tags, ","))
+		}
+		archivedText := ""
+		if task.ArchivedAt != "" {
+			archivedText = " " + uiMuted("[archived]")
+		}
+		if format == "detail" {
+			repeatText := "-"
+			if task.RepeatEvery != "" {
+				repeatText = task.RepeatEvery
+			}
+			fmt.Printf("  %s kind=%s status=%s tags=%s due=%s repeat=%s archived_at=%q parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), formatTagSummary(task.Tags), uiDue(task.DueOn), repeatText, task.ArchivedAt, parentLabel)
+			continue
+		}
+		fmt.Printf("  %s  (%s/%s)%s%s%s parent=%s\n", label, uiKind(task.Kind), uiStatus(task.Status), dueText, tagText, archivedText, parentLabel)
+	}
+}
+
+func printCountResult(count int, asJSON bool) error {
+	if asJSON {
+		data, err := json.MarshalIndent(map[string]int{"count": count}, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+	fmt.Println(count)
+	return nil
 }

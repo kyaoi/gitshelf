@@ -46,3 +46,10 @@ func TestListTasksUnknownTagFilter(t *testing.T) {
 		t.Fatal("expected unknown tag error")
 	}
 }
+
+func TestNormalizeStringList(t *testing.T) {
+	got := normalizeStringList([]string{"  alpha  ", "", "beta", "alpha", " beta "})
+	if len(got) != 2 || got[0] != "alpha" || got[1] != "beta" {
+		t.Fatalf("unexpected normalized string list: %+v", got)
+	}
+}

@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,14 +19,14 @@ func TestCLIHelpShowsMinimalCockpitSurface(t *testing.T) {
 		t.Fatalf("help failed: %v", err)
 	}
 	for _, name := range []string{
-		"board", "calendar", "cockpit", "completion", "init", "link", "links", "ls", "next", "now", "review", "tree", "unlink",
+		"board", "calendar", "cockpit", "completion", "config", "init", "link", "links", "ls", "next", "now", "review", "show", "tree", "unlink",
 	} {
 		if !strings.Contains(out, "\n  "+name+"\t") && !strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should contain %q: %s", name, out)
 		}
 	}
 	for _, name := range []string{
-		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "show", "triage", "view",
+		"add", "archive", "capture", "deps", "doctor", "edit", "export", "github", "import", "triage", "view",
 	} {
 		if strings.Contains(out, "\n  "+name+"\t") || strings.Contains(out, "\n  "+name+" ") {
 			t.Fatalf("help should not contain removed command %q: %s", name, out)
@@ -32,11 +35,203 @@ func TestCLIHelpShowsMinimalCockpitSurface(t *testing.T) {
 }
 
 func TestCLIRemovedCommandsReturnUnknown(t *testing.T) {
-	for _, name := range []string{"add", "show", "edit", "capture", "triage", "doctor", "github", "view", "import", "export"} {
+	for _, name := range []string{"add", "edit", "capture", "triage", "doctor", "github", "view", "import", "export"} {
 		_, err := executeCLI(t, name)
 		if err == nil || !strings.Contains(err.Error(), "unknown command") {
 			t.Fatalf("%s should be unknown, got %v", name, err)
 		}
+	}
+}
+
+func TestCLIShowDisplaysInspectorStyleTaskDetails(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "Child",
+		Kind:        "todo",
+		Status:      "in_progress",
+		Parent:      parent.ID,
+		Tags:        []string{"backend", "cli"},
+		DueOn:       "2026-03-15",
+		RepeatEvery: "1w",
+		Body:        "first line\nsecond line",
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	dependency, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Dependency", Kind: "todo", Status: "open"})
+	if err != nil {
+		t.Fatalf("add dependency failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, task.ID, dependency.ID, "depends_on"); err != nil {
+		t.Fatalf("link outbound failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, parent.ID, task.ID, "related"); err != nil {
+		t.Fatalf("link inbound failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+	for _, want := range []string{
+		"Task: root > Parent > Child",
+		"Kind: todo",
+		"Status: in_progress",
+		"Tags: backend, cli",
+		"Parent: root > Parent",
+		"Body:",
+		"  first line",
+		"Outbound:",
+		"Inbound:",
+		"--depends_on--> root > Dependency",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected show output to contain %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestCLIShowJSONIncludesPathBodyAndLinks(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Body: "note"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, task.ID, "related"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--json")
+	if err != nil {
+		t.Fatalf("show --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("parse show json failed: %v\n%s", err, out)
+	}
+	if len(payload) != 2 || payload["task"] == nil || payload["edges"] == nil {
+		t.Fatalf("expected canonical show payload, got: %#v", payload)
+	}
+	taskPayload, ok := payload["task"].(map[string]any)
+	if !ok || taskPayload["title"] != "Task" || taskPayload["path"] != "root > Task" || taskPayload["body"] != "note" {
+		t.Fatalf("expected normalized task payload, got: %#v", payload["task"])
+	}
+	if taskPayload["file"] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("expected task payload to include file path, got: %#v", taskPayload)
+	}
+	if taskPayload["parent_id"] != nil {
+		t.Fatalf("expected root task to omit parent_id, got: %#v", taskPayload)
+	}
+	edges, ok := payload["edges"].([]any)
+	if !ok || len(edges) != 1 {
+		t.Fatalf("expected normalized edges payload, got: %#v", payload["edges"])
+	}
+}
+
+func TestCLIShowTSVFieldsIncludeBodyAndFile(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title: "Task",
+		Body:  "first line\nsecond line",
+		Tags:  []string{"focus"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "tsv", "--fields", "id,title,body,file,tags")
+	if err != nil {
+		t.Fatalf("show --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 5 {
+		t.Fatalf("expected 5 columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Task" || fields[2] != "first line second line" || fields[3] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || fields[4] != "focus" {
+		t.Fatalf("unexpected show tsv fields: %#v", fields)
+	}
+}
+
+func TestCLIShowCSVFormatIncludesHeaderAndQuotedBody(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Body: "line 1\nline 2"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "csv")
+	if err != nil {
+		t.Fatalf("show --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "id" || rows[1][0] != task.ID || rows[1][11] != "line 1\nline 2" {
+		t.Fatalf("unexpected show csv rows: %#v", rows)
+	}
+}
+
+func TestCLIShowCSVFieldsAndNoHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "csv", "--fields", "title,file,tags", "--no-header")
+	if err != nil {
+		t.Fatalf("show --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Task" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || rows[0][2] != "focus" {
+		t.Fatalf("unexpected show csv rows: %#v", rows)
+	}
+}
+
+func TestCLIShowRejectsLegacyParentField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+	if _, err := executeCLI(t, "show", "--root", root, task.ID, "--format", "tsv", "--fields", "id,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
+		t.Fatalf("expected legacy parent field to be rejected, got: %v", err)
 	}
 }
 
@@ -136,6 +331,277 @@ func TestCLILinkCommands(t *testing.T) {
 	}
 }
 
+func TestCLILinksJSONIncludesPathAndFile(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--json")
+	if err != nil {
+		t.Fatalf("links --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("parse links json failed: %v\n%s", err, out)
+	}
+	taskPayload, ok := payload["task"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing task payload: %#v", payload)
+	}
+	if taskPayload["path"] != "root > Parent > From" || taskPayload["file"] != filepath.Join(shelf.TasksDir(root), from.ID+".md") {
+		t.Fatalf("unexpected task payload: %#v", taskPayload)
+	}
+	edges, ok := payload["edges"].([]any)
+	if !ok || len(edges) != 1 {
+		t.Fatalf("expected normalized edges payload: %#v", payload["edges"])
+	}
+	edgePayload, ok := edges[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected edge payload: %#v", edges[0])
+	}
+	source, ok := edgePayload["source"].(map[string]any)
+	if !ok || source["id"] != from.ID {
+		t.Fatalf("expected source payload, got: %#v", edgePayload["source"])
+	}
+	target, ok := edgePayload["target"].(map[string]any)
+	if !ok || target["id"] != to.ID {
+		t.Fatalf("expected target payload, got: %#v", edgePayload["target"])
+	}
+	if _, ok := payload["outbound"]; ok {
+		t.Fatalf("unexpected legacy outbound payload: %#v", payload)
+	}
+}
+
+func TestCLILinksTSVFieldsIncludeDirectionAndPaths(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("add outbound link failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, from.ID, "related"); err != nil {
+		t.Fatalf("add inbound link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "direction,type,source_id,target_id")
+	if err != nil {
+		t.Fatalf("links --format tsv failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 tsv rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != strings.Join([]string{"outbound", "depends_on", from.ID, to.ID}, "\t") {
+		t.Fatalf("unexpected outbound row: %q", lines[0])
+	}
+	if lines[1] != strings.Join([]string{"inbound", "related", peer.ID, from.ID}, "\t") {
+		t.Fatalf("unexpected inbound row: %q", lines[1])
+	}
+}
+
+func TestCLILinksTSVSupportsSourceAndTargetAliases(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "source_id,target_id")
+	if err != nil {
+		t.Fatalf("links alias tsv failed: %v", err)
+	}
+	if strings.TrimSpace(out) != from.ID+"\t"+to.ID {
+		t.Fatalf("unexpected alias tsv row: %q", out)
+	}
+}
+
+func TestCLILinksRejectLegacyTaskAliasFields(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+	if _, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "tsv", "--fields", "task_id,target_id"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: task_id") {
+		t.Fatalf("expected legacy task alias field to be rejected, got: %v", err)
+	}
+}
+
+func TestCLILinksJSONLFormatUsesOneEdgePerLine(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("links --format jsonl failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 edge line, got %d: %q", len(lines), out)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &payload); err != nil {
+		t.Fatalf("parse jsonl failed: %v\n%s", err, lines[0])
+	}
+	if payload["direction"] != "outbound" || payload["type"] != "depends_on" {
+		t.Fatalf("unexpected edge payload: %#v", payload)
+	}
+}
+
+func TestCLILinksCSVFieldsAndHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To"})
+	if err != nil {
+		t.Fatalf("add to failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "links", "--root", root, from.ID, "--format", "csv", "--fields", "direction,type,target_file", "--header")
+	if err != nil {
+		t.Fatalf("links --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "direction" || rows[0][1] != "type" || rows[0][2] != "target_file" {
+		t.Fatalf("unexpected header row: %#v", rows[0])
+	}
+	if rows[1][0] != "outbound" || rows[1][1] != "depends_on" || rows[1][2] != filepath.Join(shelf.TasksDir(root), to.ID+".md") {
+		t.Fatalf("unexpected data row: %#v", rows[1])
+	}
+}
+
+func TestCLILinksSummaryJSONAndTSV(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	from, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "From"})
+	if err != nil {
+		t.Fatalf("add from failed: %v", err)
+	}
+	to1, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To1"})
+	if err != nil {
+		t.Fatalf("add to1 failed: %v", err)
+	}
+	to2, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "To2"})
+	if err != nil {
+		t.Fatalf("add to2 failed: %v", err)
+	}
+	peer, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Peer"})
+	if err != nil {
+		t.Fatalf("add peer failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to1.ID, "depends_on"); err != nil {
+		t.Fatalf("link to1 failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, from.ID, to2.ID, "depends_on"); err != nil {
+		t.Fatalf("link to2 failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, peer.ID, from.ID, "related"); err != nil {
+		t.Fatalf("inbound link failed: %v", err)
+	}
+
+	jsonOut, err := executeCLI(t, "links", "--root", root, from.ID, "--json", "--summary")
+	if err != nil {
+		t.Fatalf("links --json --summary failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("parse summary json failed: %v\n%s", err, jsonOut)
+	}
+	summary, ok := payload["summary"].([]any)
+	if !ok || len(summary) != 2 {
+		t.Fatalf("unexpected summary payload: %#v", payload["summary"])
+	}
+
+	tsvOut, err := executeCLI(t, "links", "--root", root, from.ID, "--summary", "--format", "tsv", "--fields", "direction,type,count")
+	if err != nil {
+		t.Fatalf("links --summary --format tsv failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(tsvOut), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 summary rows, got %d: %q", len(lines), tsvOut)
+	}
+	if lines[0] != "inbound\trelated\t1" || lines[1] != "outbound\tdepends_on\t2" {
+		t.Fatalf("unexpected summary rows: %#v", lines)
+	}
+}
+
 func TestCLILsUnknownFilterValues(t *testing.T) {
 	root := t.TempDir()
 	if _, err := executeCLI(t, "init", "--root", root); err != nil {
@@ -192,6 +658,644 @@ func TestCLINextListsReadyTasks(t *testing.T) {
 	}
 	if len(items) != 2 {
 		t.Fatalf("expected 2 ready tasks, got %d: %s", len(items), jsonOut)
+	}
+	first, ok := items[0]["path"].(string)
+	if !ok || !strings.HasPrefix(first, "root > ") {
+		t.Fatalf("expected next json items to include path, got: %#v", items)
+	}
+	if _, ok := items[0]["file"].(string); !ok {
+		t.Fatalf("expected next json items to include file, got: %#v", items)
+	}
+}
+
+func TestCLINextCSVHeaderOption(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "csv", "--fields", "title,file", "--no-header")
+	if err != nil {
+		t.Fatalf("next --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Ready" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected next csv row: %#v", rows[0])
+	}
+}
+
+func TestCLILsJSONIncludesPathAndTreeFormat(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	jsonOut, err := executeCLI(t, "ls", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("ls --json failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &items); err != nil {
+		t.Fatalf("parse ls json failed: %v\n%s", err, jsonOut)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 tasks, got %d: %s", len(items), jsonOut)
+	}
+	var childPath string
+	var childFile string
+	var parentPath string
+	for _, item := range items {
+		if item["title"] == "Child" {
+			childPath, _ = item["path"].(string)
+			childFile, _ = item["file"].(string)
+			parentPath, _ = item["parent_path"].(string)
+			if item["parent_id"] != parent.ID {
+				t.Fatalf("expected parent_id alias, got: %#v", item)
+			}
+		}
+	}
+	if childPath != "root > Parent > Child" {
+		t.Fatalf("unexpected child path: %q", childPath)
+	}
+	if childFile != filepath.Join(shelf.TasksDir(root), child.ID+".md") {
+		t.Fatalf("unexpected child file: %q", childFile)
+	}
+	if parentPath != "root > Parent" {
+		t.Fatalf("unexpected parent path: %q", parentPath)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tree")
+	if err != nil {
+		t.Fatalf("ls --format tree failed: %v", err)
+	}
+	if !strings.Contains(out, "Parent") || !strings.Contains(out, "Child") || !strings.Contains(out, "└─") {
+		t.Fatalf("unexpected tree output: %s", out)
+	}
+}
+
+func TestCLILsJSONUsesCanonicalTaskFields(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("ls --json failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("parse ls json failed: %v\n%s", err, out)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 tasks, got %d: %s", len(items), out)
+	}
+	for _, item := range items {
+		if item["id"] == child.ID {
+			if item["parent_id"] != parent.ID {
+				t.Fatalf("expected canonical parent_id, got: %#v", item)
+			}
+			if _, ok := item["parent"]; ok {
+				t.Fatalf("legacy parent alias should not be exposed: %#v", item)
+			}
+		}
+	}
+}
+
+func TestCLILsCSVFormatIncludesHeaderAndRows(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task, One", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "csv", "--search", "Task")
+	if err != nil {
+		t.Fatalf("ls --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected header + 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "id" || rows[0][1] != "title" || rows[1][0] != task.ID || rows[1][1] != "Task, One" {
+		t.Fatalf("unexpected csv rows: %#v", rows)
+	}
+}
+
+func TestCLILsCSVFieldsAndNoHeader(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "csv", "--fields", "title,file,tags", "--no-header")
+	if err != nil {
+		t.Fatalf("ls --format csv failed: %v", err)
+	}
+	rows, err := csv.NewReader(bytes.NewBufferString(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("parse csv failed: %v\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %#v", len(rows), rows)
+	}
+	if rows[0][0] != "Task" || rows[0][1] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || rows[0][2] != "focus" {
+		t.Fatalf("unexpected csv rows: %#v", rows)
+	}
+}
+
+func TestCLILsSortAndReverse(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Bravo"}); err != nil {
+		t.Fatalf("add bravo failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Alpha"}); err != nil {
+		t.Fatalf("add alpha failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title", "--sort", "title", "--reverse")
+	if err != nil {
+		t.Fatalf("ls --sort failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "Bravo" || lines[1] != "Alpha" {
+		t.Fatalf("unexpected sorted rows: %#v", lines)
+	}
+}
+
+func TestCLILsGroupByStatusTSV(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open", Status: "open"}); err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "group,title,status", "--group-by", "status")
+	if err != nil {
+		t.Fatalf("ls --group-by status failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "done\tDone\tdone" || lines[1] != "open\tOpen\topen" {
+		t.Fatalf("unexpected grouped rows: %#v", lines)
+	}
+}
+
+func TestCLILsGroupByParentJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID}); err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--json", "--group-by", "parent")
+	if err != nil {
+		t.Fatalf("ls --json --group-by parent failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("parse grouped json failed: %v\n%s", err, out)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d: %s", len(items), out)
+	}
+	for _, item := range items {
+		if _, ok := item["group"].(string); !ok {
+			t.Fatalf("missing group field: %#v", item)
+		}
+		if _, ok := item["title"].(string); !ok {
+			t.Fatalf("expected flat task fields, got: %#v", item)
+		}
+	}
+}
+
+func TestCLILsGroupByRejectsKanbanFormat(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--format", "kanban", "--group-by", "status"); err == nil || !strings.Contains(err.Error(), "--group-by cannot be combined with --format kanban") {
+		t.Fatalf("expected group-by/format error, got: %v", err)
+	}
+}
+
+func TestCLINextSortsByDueOn(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Later", Status: "open", DueOn: "2026-03-20"}); err != nil {
+		t.Fatalf("add later failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Sooner", Status: "open", DueOn: "2026-03-12"}); err != nil {
+		t.Fatalf("add sooner failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "No Due", Status: "open"}); err != nil {
+		t.Fatalf("add no due failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "tsv", "--fields", "title,due_on", "--sort", "due_on")
+	if err != nil {
+		t.Fatalf("next --sort failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 rows, got %d: %q", len(lines), out)
+	}
+	if lines[0] != "Sooner\t2026-03-12" || lines[1] != "Later\t2026-03-20" || lines[2] != "No Due" {
+		t.Fatalf("unexpected sorted rows: %#v", lines)
+	}
+}
+
+func TestCLINextJSONUsesCanonicalTaskFields(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	child, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Child", Parent: parent.ID, Status: "open"})
+	if err != nil {
+		t.Fatalf("add child failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--json")
+	if err != nil {
+		t.Fatalf("next --json failed: %v", err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("parse next json failed: %v\n%s", err, out)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 ready tasks, got %d: %s", len(items), out)
+	}
+	for _, item := range items {
+		if item["id"] == child.ID {
+			if item["parent_id"] != parent.ID {
+				t.Fatalf("expected canonical parent_id, got: %#v", item)
+			}
+			if _, ok := item["parent"]; ok {
+				t.Fatalf("legacy parent alias should not be exposed: %#v", item)
+			}
+		}
+	}
+}
+
+func TestCLILsRejectsUnknownSortField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--sort", "body"); err == nil || !strings.Contains(err.Error(), "unknown --sort field: body") {
+		t.Fatalf("expected sort field error, got: %v", err)
+	}
+}
+
+func TestCLILsRejectsLegacyParentField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title,parent"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: parent") {
+		t.Fatalf("expected legacy parent field to be rejected, got: %v", err)
+	}
+}
+
+func TestCLILsCountMode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open A", Status: "open"}); err != nil {
+		t.Fatalf("add open a failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open B", Status: "open"}); err != nil {
+		t.Fatalf("add open b failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--status", "open", "--count")
+	if err != nil {
+		t.Fatalf("ls --count failed: %v", err)
+	}
+	if strings.TrimSpace(out) != "2" {
+		t.Fatalf("expected count 2, got %q", out)
+	}
+
+	jsonOut, err := executeCLI(t, "ls", "--root", root, "--status", "open", "--count", "--json")
+	if err != nil {
+		t.Fatalf("ls --count --json failed: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &payload); err != nil {
+		t.Fatalf("parse count json failed: %v\n%s", err, jsonOut)
+	}
+	if payload["count"] != float64(2) {
+		t.Fatalf("unexpected count payload: %#v", payload)
+	}
+}
+
+func TestCLINextCountMode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	ready, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add ready failed: %v", err)
+	}
+	blocker, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocker", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocker failed: %v", err)
+	}
+	blocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocked", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, blocked.ID, blocker.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--count")
+	if err != nil {
+		t.Fatalf("next --count failed: %v", err)
+	}
+	if strings.TrimSpace(out) != "2" {
+		t.Fatalf("expected ready count 2, got %q", out)
+	}
+	_ = ready
+}
+
+func TestCLICountModeRejectsRowFormattingFlags(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := executeCLI(t, "ls", "--root", root, "--count", "--format", "csv"); err == nil || !strings.Contains(err.Error(), "--count cannot be combined with --format") {
+		t.Fatalf("expected count/format error, got: %v", err)
+	}
+	if _, err := executeCLI(t, "next", "--root", root, "--count", "--sort", "title"); err == nil || !strings.Contains(err.Error(), "--count cannot be combined with --sort or --reverse") {
+		t.Fatalf("expected count/sort error, got: %v", err)
+	}
+}
+
+func TestCLILsPresetNowUsesReadyDefaultsButAllowsOverride(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	ready, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready", Status: "open"})
+	if err != nil {
+		t.Fatalf("add ready failed: %v", err)
+	}
+	blocker, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocker", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocker failed: %v", err)
+	}
+	blocked, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Blocked", Status: "open"})
+	if err != nil {
+		t.Fatalf("add blocked failed: %v", err)
+	}
+	if err := shelf.LinkTasks(root, blocked.ID, blocker.ID, "depends_on"); err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--preset", "now")
+	if err != nil {
+		t.Fatalf("ls --preset now failed: %v", err)
+	}
+	if !strings.Contains(out, ready.Title) || strings.Contains(out, blocked.Title) || strings.Contains(out, "Done") {
+		t.Fatalf("unexpected now preset output: %s", out)
+	}
+
+	out, err = executeCLI(t, "ls", "--root", root, "--preset", "now", "--status", "open")
+	if err != nil {
+		t.Fatalf("ls --preset now --status open failed: %v", err)
+	}
+	if !strings.Contains(out, blocked.Title) || !strings.Contains(out, ready.Title) || strings.Contains(out, "Done") {
+		t.Fatalf("expected explicit status to override preset defaults: %s", out)
+	}
+}
+
+func TestCLILsPresetReviewAndBoardApplyReadSideDefaults(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Open", Status: "open"}); err != nil {
+		t.Fatalf("add open failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Done", Status: "done"}); err != nil {
+		t.Fatalf("add done failed: %v", err)
+	}
+
+	reviewOut, err := executeCLI(t, "ls", "--root", root, "--preset", "review")
+	if err != nil {
+		t.Fatalf("ls --preset review failed: %v", err)
+	}
+	if !strings.Contains(reviewOut, "kind=") || strings.Contains(reviewOut, "Done") {
+		t.Fatalf("unexpected review preset output: %s", reviewOut)
+	}
+
+	boardOut, err := executeCLI(t, "ls", "--root", root, "--preset", "board")
+	if err != nil {
+		t.Fatalf("ls --preset board failed: %v", err)
+	}
+	for _, want := range []string{"open:", "done:", "Open", "Done"} {
+		if !strings.Contains(boardOut, want) {
+			t.Fatalf("expected board preset output to contain %q, got:\n%s", want, boardOut)
+		}
+	}
+}
+
+func TestCLILsTSVFormatUsesStableColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	parent, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Parent"})
+	if err != nil {
+		t.Fatalf("add parent failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title:       "Child\tTask",
+		Parent:      parent.ID,
+		Kind:        "todo",
+		Status:      "open",
+		DueOn:       "2026-03-20",
+		RepeatEvery: "1w",
+		Tags:        []string{"backend", "cli"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--search", "Child")
+	if err != nil {
+		t.Fatalf("ls --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 12 {
+		t.Fatalf("expected 12 tsv columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Child Task" || fields[2] != "root > Parent > Child Task" {
+		t.Fatalf("unexpected tsv columns: %#v", fields)
+	}
+	if fields[8] != parent.ID || fields[9] != "root > Parent" || fields[10] != "backend,cli" || fields[11] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected tsv tail columns: %#v", fields)
+	}
+}
+
+func TestCLINextTSVFormatUsesStableColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{
+		Title: "Ready",
+		Kind:  "todo",
+		Tags:  []string{"focus"},
+	})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "tsv")
+	if err != nil {
+		t.Fatalf("next --format tsv failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 11 {
+		t.Fatalf("expected 11 tsv columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != task.ID || fields[1] != "Ready" || fields[2] != "root > Ready" || fields[10] != filepath.Join(shelf.TasksDir(root), task.ID+".md") {
+		t.Fatalf("unexpected next tsv columns: %#v", fields)
+	}
+}
+
+func TestCLILsTSVFieldsSelectAndReorderColumns(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	task, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task", Tags: []string{"focus"}})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "ls", "--root", root, "--format", "tsv", "--fields", "title,id,file,tags", "--search", "Task")
+	if err != nil {
+		t.Fatalf("ls --fields failed: %v", err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 columns, got %d: %q", len(fields), out)
+	}
+	if fields[0] != "Task" || fields[1] != task.ID || fields[2] != filepath.Join(shelf.TasksDir(root), task.ID+".md") || fields[3] != "focus" {
+		t.Fatalf("unexpected selected fields: %#v", fields)
+	}
+}
+
+func TestCLINextTSVFieldsRejectUnknownField(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Task"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	if _, err := executeCLI(t, "next", "--root", root, "--format", "tsv", "--fields", "id,body"); err == nil || !strings.Contains(err.Error(), "unknown --fields entry: body") {
+		t.Fatalf("expected unknown field error, got: %v", err)
+	}
+}
+
+func TestCLINextJSONLFormatUsesOneRecordPerLine(t *testing.T) {
+	root := t.TempDir()
+	if _, err := executeCLI(t, "init", "--root", root); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Ready"}); err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	out, err := executeCLI(t, "next", "--root", root, "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("next --format jsonl failed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 jsonl line, got %d: %q", len(lines), out)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &payload); err != nil {
+		t.Fatalf("parse jsonl failed: %v\n%s", err, lines[0])
+	}
+	if payload["title"] != "Ready" {
+		t.Fatalf("unexpected jsonl payload: %#v", payload)
 	}
 }
 

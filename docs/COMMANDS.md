@@ -2,6 +2,8 @@
 
 Current public CLI surface for `shelf`.
 
+For machine-readable schemas, see [`OUTPUTS.md`](OUTPUTS.md).
+
 ## Common
 
 - `--root <dir>` selects the project root that contains `.shelf/`
@@ -75,6 +77,50 @@ Flags:
 ## shelf config
 
 Persist user-facing config values.
+
+### shelf config show
+
+Show the effective config for the current root.
+
+Flags:
+
+- `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+
+### shelf config copy-preset list
+
+List saved advanced copy presets.
+
+Flags:
+
+- `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+
+### shelf config copy-preset get
+
+Show one saved advanced copy preset.
+
+Usage:
+
+- `shelf config copy-preset get <name>`
+
+Flags:
+
+- `--json`
+
+### shelf config copy-preset rm
+
+Remove one saved advanced copy preset.
+
+Usage:
+
+- `shelf config copy-preset rm <name>`
 
 ### shelf config copy-preset set
 
@@ -178,10 +224,35 @@ Flags:
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban`
+- `--format compact|detail|kanban|tree|tsv|csv|jsonl`
+- `--preset <now|review|board>`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
+- `--group-by <status|kind|parent>`
+- `--count`
 - `--json`
 
 Unknown kind/status/tag values fail fast.
+
+`--preset` applies read-only defaults similar to the matching Cockpit view.
+Explicit flags still win.
+
+`--format tsv` and `--format csv` use the same task fields.
+TSV defaults to no header. CSV defaults to a header row.
+`--header` and `--no-header` override those defaults.
+
+Task fields:
+
+- `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `tags`, `file`
+
+`--fields` can reorder or reduce those columns.
+`--format jsonl` prints one task object per line using the same record shape as `--json`.
+`--group-by` adds a `group` field to tabular/JSON output and prints grouped sections in text output.
+`--group-by` cannot be combined with `--format kanban`, `--format tree`, or `--count`.
+`--count` prints only the total number of matching tasks. With `--json`, it returns `{ "count": N }`.
 
 ## shelf next
 
@@ -190,7 +261,40 @@ Read-only shortlist of actionable tasks.
 Flags:
 
 - `--limit <n>`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
+- `--count`
 - `--json`
+
+`--count` prints only the total number of ready tasks. With `--json`, it returns `{ "count": N }`.
+
+## shelf show
+
+Show one task with inspector-style details.
+
+Usage:
+
+- `shelf show <task-id>`
+
+Flags:
+
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+- `--json`
+
+`--format tsv` and `--format csv` print one row for the selected task.
+Available fields:
+
+- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `outbound_count`, `inbound_count`
+
+`--format jsonl` prints one task object per line.
 
 ## shelf link
 
@@ -226,7 +330,20 @@ Usage:
 
 Flags:
 
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` for `--format tsv|csv`
+- `--header`
+- `--no-header`
+- `--summary`
 - `--json`
+
+`--format tsv` and `--format csv` print one row per edge.
+Available fields:
+
+- `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`
+
+`--format jsonl` prints one edge object per line.
+`--summary` switches the output to aggregated `direction/type/count` rows.
 
 Text output uses tree/path labels so duplicate titles are distinguishable.
 IDs stay hidden unless `--show-id` is enabled.

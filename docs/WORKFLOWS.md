@@ -59,8 +59,50 @@ In non-calendar modes, the sidebar `Calendar` and `Selected Day` stay synchroniz
 ```bash
 shelf ls --status open --json
 shelf next --json
+shelf next --format tsv
+shelf next --format csv --fields id,title,path --no-header
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
+```
+
+### 5. Compose with shell tools when needed
+
+```bash
+# preview ready tasks in jq
+shelf next --json | jq '.[].path'
+
+# count ready tasks without rendering rows
+shelf next --count
+
+# sort ready tasks by due date before inspection
+shelf next --format tsv --fields title,due_on --sort due_on
+
+# choose a task interactively with fzf
+shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+
+# the same flow using csv without a header row
+shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, --with-nth=2,3 | cut -d, -f1 | xargs -r shelf show
+
+# jump from search results to task files
+shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# reverse-sort titles before piping elsewhere
+shelf ls --format tsv --fields title,path --sort title --reverse
+
+# inspect grouped rows by status
+shelf ls --format tsv --fields group,title --group-by status
+
+# inspect dependency targets with jq
+shelf links 01AAA --json | jq '.edges[] | {direction, type, source: .source.path, target: .target.path}'
+
+# summarize link counts by type
+shelf links 01AAA --summary --format tsv --fields direction,type,count
+
+# read one task as a single tsv row
+shelf show 01AAA --format tsv --fields id,title,file,body
+
+# inspect saved copy presets as csv
+shelf config copy-preset list --format csv --fields name,scope,subtree_style
 ```
 
 ## When to Use Which Mode

@@ -54,6 +54,17 @@ type calendarTextPromptPurpose int
 const (
 	calendarTextPromptNone calendarTextPromptPurpose = iota
 	calendarTextPromptTag
+	calendarTextPromptDueOn
+	calendarTextPromptRepeatEvery
+	calendarTextPromptAppendBody
+)
+
+type calendarTagBulkState int
+
+const (
+	calendarTagBulkStateUnchanged calendarTagBulkState = iota
+	calendarTagBulkStateAdd
+	calendarTagBulkStateRemove
 )
 
 type calendarFilterSection int
@@ -187,6 +198,8 @@ type calendarTUIModel struct {
 	rangeBaseIDs             map[string]struct{}
 	moveMode                 bool
 	moveSourceIDs            []string
+	moveReturnMode           calendarMode
+	moveReturnSelectedTaskID string
 	pane                     calendarPane
 	width                    int
 	height                   int
@@ -225,11 +238,14 @@ type calendarTUIModel struct {
 	tagMode                  bool
 	tagIndex                 int
 	tagSelection             []string
+	tagBulkMode              bool
+	tagBulkStates            map[string]calendarTagBulkState
 	tagInputMode             bool
 	tagInputValue            string
 	tagInputCursor           int
 	textPromptMode           bool
 	textPromptTitle          string
+	textPromptHelp           string
 	textPromptValue          string
 	textPromptCursor         int
 	textPromptPurpose        calendarTextPromptPurpose
@@ -362,8 +378,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.moveMode {
 			switch msg.String() {
 			case "esc", "q", "m", "ctrl+[":
-				m.moveMode = false
-				m.moveSourceIDs = nil
+				m.finishMoveMode(false, "")
 				m.message = "move をキャンセルしました"
 				return m, nil
 			case "enter":
@@ -537,6 +552,9 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "T":
 			m.switchMode(calendarModeTree)
 			return m, nil
+		case "D":
+			m.beginDuePrompt()
+			return m, nil
 		case "B":
 			m.switchMode(calendarModeBoard)
 			return m, nil
@@ -631,6 +649,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "K":
 			m.beginKindMode(calendarKindTargetTask)
 			return m, nil
+		case "J":
+			m.beginAppendBodyPrompt()
+			return m, nil
+		case "W":
+			m.beginRepeatPrompt()
+			return m, nil
 		case "#":
 			m.beginTagMode()
 			return m, nil
@@ -706,7 +730,7 @@ func (m calendarTUIModel) activePopup() string {
 	case m.filterMode:
 		return renderCalendarFilterPicker(m, popupWidth, popupHeight)
 	case m.snoozeMode:
-		return renderCalendarSnoozePicker(m.snoozeIndex, popupWidth, popupHeight)
+		return renderCalendarSnoozePicker(m.bulkActionPopupLabel(), m.snoozeIndex, popupWidth, popupHeight)
 	case m.linkMode:
 		query := m.linkQuery
 		if m.linkQueryMode {
@@ -716,15 +740,15 @@ func (m calendarTUIModel) activePopup() string {
 	case m.copyPresetMode:
 		return renderCalendarCopyPresetPopup(m, popupWidth, popupHeight)
 	case m.kindMode:
-		return renderCalendarKindPicker(m.selectedTaskPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
+		return renderCalendarKindPicker(m.bulkActionPopupLabel(), m.kindChoices, m.kindIndex, popupWidth, popupHeight)
 	case m.tagMode:
 		inputValue := m.tagInputValue
 		if m.tagInputMode {
 			inputValue = interactive.RenderTextCursor(inputValue, m.tagInputCursor)
 		}
-		return renderCalendarTagPicker(m.selectedTaskPopupLabel(), m.tagChoices, m.tagSelection, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
+		return renderCalendarTagPicker(m.tagPopupLabel(), m.tagChoices, m.tagSelection, m.tagBulkMode, m.tagBulkStates, m.tagIndex, m.tagInputMode, inputValue, popupWidth, popupHeight)
 	case m.textPromptMode:
-		return renderCalendarTextPrompt(m.textPromptTitle, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
+		return renderCalendarTextPrompt(m.textPromptTitle, m.textPromptHelp, interactive.RenderTextCursor(m.textPromptValue, m.textPromptCursor))
 	case m.addMode:
 		title := m.addTitle
 		if m.addField == calendarAddFieldTitle {
@@ -857,24 +881,20 @@ func (m *calendarTUIModel) leaveToNormalMode() bool {
 		changed = true
 	}
 	if m.tagMode {
-		m.tagMode = false
-		m.tagSelection = nil
-		m.tagInputMode = false
-		m.tagInputValue = ""
-		m.tagInputCursor = 0
+		m.clearTagModeState()
 		changed = true
 	}
 	if m.textPromptMode {
 		m.textPromptMode = false
 		m.textPromptTitle = ""
+		m.textPromptHelp = ""
 		m.textPromptValue = ""
 		m.textPromptCursor = 0
 		m.textPromptPurpose = calendarTextPromptNone
 		changed = true
 	}
 	if m.moveMode {
-		m.moveMode = false
-		m.moveSourceIDs = nil
+		m.finishMoveMode(false, "")
 		changed = true
 	}
 	if m.rangeMarkMode {
@@ -1229,6 +1249,165 @@ func (m calendarTUIModel) selectedTaskPopupLabel() string {
 	return label
 }
 
+func (m calendarTUIModel) bulkActionPopupLabel() string {
+	if marked := m.markedCount(); marked > 0 {
+		return fmt.Sprintf("%d marked tasks", marked)
+	}
+	return m.selectedTaskPopupLabel()
+}
+
+func (m calendarTUIModel) tagPopupLabel() string {
+	if m.tagBulkMode {
+		return m.bulkActionPopupLabel()
+	}
+	return m.selectedTaskPopupLabel()
+}
+
+func (m *calendarTUIModel) clearTagModeState() {
+	m.tagMode = false
+	m.tagSelection = nil
+	m.tagBulkMode = false
+	m.tagBulkStates = nil
+	m.tagInputMode = false
+	m.tagInputValue = ""
+	m.tagInputCursor = 0
+}
+
+func (m *calendarTUIModel) clearTextPromptState() {
+	m.textPromptMode = false
+	m.textPromptTitle = ""
+	m.textPromptHelp = ""
+	m.textPromptValue = ""
+	m.textPromptCursor = 0
+	m.textPromptPurpose = calendarTextPromptNone
+}
+
+func (m *calendarTUIModel) beginTextPrompt(title string, help string, value string, purpose calendarTextPromptPurpose) {
+	m.textPromptMode = true
+	m.textPromptTitle = title
+	m.textPromptHelp = help
+	m.textPromptValue = value
+	m.textPromptCursor = len([]rune(value))
+	m.textPromptPurpose = purpose
+}
+
+func (m calendarTUIModel) commonPromptValue(taskIDs []string, getter func(shelf.Task) string) string {
+	if len(taskIDs) == 0 {
+		return ""
+	}
+	value := ""
+	set := false
+	for _, taskID := range taskIDs {
+		task, ok := m.taskByID[taskID]
+		if !ok {
+			continue
+		}
+		current := getter(task)
+		if !set {
+			value = current
+			set = true
+			continue
+		}
+		if current != value {
+			return ""
+		}
+	}
+	return value
+}
+
+func (m *calendarTUIModel) beginDuePrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.DueOn })
+	m.beginTextPrompt(
+		"Edit Due",
+		fmt.Sprintf("Target: %s  blank clears  YYYY-MM-DD/today/tomorrow/+Nd", m.bulkActionPopupLabel()),
+		current,
+		calendarTextPromptDueOn,
+	)
+	m.message = "due を編集"
+}
+
+func (m *calendarTUIModel) beginRepeatPrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.RepeatEvery })
+	m.beginTextPrompt(
+		"Edit Repeat",
+		fmt.Sprintf("Target: %s  blank clears  <N>d|<N>w|<N>m|<N>y", m.bulkActionPopupLabel()),
+		current,
+		calendarTextPromptRepeatEvery,
+	)
+	m.message = "repeat を編集"
+}
+
+func (m *calendarTUIModel) beginAppendBodyPrompt() {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		m.message = "選択中の task がありません"
+		return
+	}
+	m.beginTextPrompt(
+		"Append Note",
+		fmt.Sprintf("Target: %s  Ctrl+J inserts newline", m.bulkActionPopupLabel()),
+		"",
+		calendarTextPromptAppendBody,
+	)
+	m.message = "note を追記"
+}
+
+func (m calendarTUIModel) tagBulkState(tag string) calendarTagBulkState {
+	if m.tagBulkStates == nil {
+		return calendarTagBulkStateUnchanged
+	}
+	state, ok := m.tagBulkStates[tag]
+	if !ok {
+		return calendarTagBulkStateUnchanged
+	}
+	return state
+}
+
+func (m *calendarTUIModel) setTagBulkState(tag string, state calendarTagBulkState) {
+	if state == calendarTagBulkStateUnchanged {
+		if m.tagBulkStates != nil {
+			delete(m.tagBulkStates, tag)
+		}
+		return
+	}
+	if m.tagBulkStates == nil {
+		m.tagBulkStates = map[string]calendarTagBulkState{}
+	}
+	m.tagBulkStates[tag] = state
+}
+
+func nextCalendarTagBulkState(state calendarTagBulkState) calendarTagBulkState {
+	switch state {
+	case calendarTagBulkStateUnchanged:
+		return calendarTagBulkStateAdd
+	case calendarTagBulkStateAdd:
+		return calendarTagBulkStateRemove
+	default:
+		return calendarTagBulkStateUnchanged
+	}
+}
+
+func markerForCalendarTagBulkState(state calendarTagBulkState) string {
+	switch state {
+	case calendarTagBulkStateAdd:
+		return "[+]"
+	case calendarTagBulkStateRemove:
+		return "[-]"
+	default:
+		return "[ ]"
+	}
+}
+
 func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 	if len(m.kindChoices) == 0 {
 		m.message = "kind が設定されていません"
@@ -1312,12 +1491,37 @@ func (m *calendarTUIModel) beginTagMode() {
 		choices = append(choices, tag)
 	}
 	m.tagChoices = shelf.NormalizeTags(choices)
-	m.tagSelection = append([]string{}, task.Tags...)
+	if m.markedCount() > 0 {
+		for _, taskID := range m.activeTaskIDs() {
+			markedTask, ok := m.taskByID[taskID]
+			if !ok {
+				continue
+			}
+			for _, tag := range markedTask.Tags {
+				if containsTag(m.tagChoices, tag) {
+					continue
+				}
+				m.tagChoices = append(m.tagChoices, tag)
+			}
+		}
+		m.tagChoices = shelf.NormalizeTags(m.tagChoices)
+		m.tagSelection = nil
+		m.tagBulkMode = true
+		m.tagBulkStates = map[string]calendarTagBulkState{}
+	} else {
+		m.tagSelection = append([]string{}, task.Tags...)
+		m.tagBulkMode = false
+		m.tagBulkStates = nil
+	}
 	m.tagIndex = 0
 	m.tagMode = true
 	m.tagInputMode = false
 	m.tagInputValue = ""
 	m.tagInputCursor = 0
+	if m.tagBulkMode {
+		m.message = "tag を一括編集"
+		return
+	}
 	m.message = "tag を編集"
 }
 
@@ -1340,7 +1544,9 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.tagChoices = append(m.tagChoices, value)
 				m.tagChoices = shelf.NormalizeTags(m.tagChoices)
 			}
-			if !containsTag(m.tagSelection, value) {
+			if m.tagBulkMode {
+				m.setTagBulkState(value, calendarTagBulkStateAdd)
+			} else if !containsTag(m.tagSelection, value) {
 				m.tagSelection = append(m.tagSelection, value)
 				m.tagSelection = shelf.NormalizeTags(m.tagSelection)
 			}
@@ -1379,20 +1585,24 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	optionCount := len(m.tagChoices) + 2
 	switch msg.String() {
 	case "ctrl+s":
+		if m.tagBulkMode {
+			if err := m.applySelectedTaskTagDelta(m.currentTagBulkDelta()); err != nil {
+				m.clearTagModeState()
+				m.message = err.Error()
+				return m, nil
+			}
+			m.clearTagModeState()
+			return m, nil
+		}
 		if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
-			m.tagMode = false
+			m.clearTagModeState()
 			m.message = err.Error()
 			return m, nil
 		}
-		m.tagMode = false
-		m.tagSelection = nil
+		m.clearTagModeState()
 		return m, nil
 	case "esc", "q", "ctrl+[":
-		m.tagMode = false
-		m.tagSelection = nil
-		m.tagInputMode = false
-		m.tagInputValue = ""
-		m.tagInputCursor = 0
+		m.clearTagModeState()
 		m.message = "tag 変更をキャンセルしました"
 		return m, nil
 	case "up", "k":
@@ -1410,6 +1620,10 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		tag := m.tagChoices[m.tagIndex-2]
+		if m.tagBulkMode {
+			m.setTagBulkState(tag, nextCalendarTagBulkState(m.tagBulkState(tag)))
+			return m, nil
+		}
 		if containsTag(m.tagSelection, tag) {
 			m.tagSelection = removeTag(m.tagSelection, tag)
 		} else {
@@ -1420,13 +1634,21 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		switch {
 		case m.tagIndex == 0:
+			if m.tagBulkMode {
+				if err := m.applySelectedTaskTagDelta(m.currentTagBulkDelta()); err != nil {
+					m.clearTagModeState()
+					m.message = err.Error()
+					return m, nil
+				}
+				m.clearTagModeState()
+				return m, nil
+			}
 			if err := m.applySelectedTaskTags(append([]string{}, m.tagSelection...)); err != nil {
-				m.tagMode = false
+				m.clearTagModeState()
 				m.message = err.Error()
 				return m, nil
 			}
-			m.tagMode = false
-			m.tagSelection = nil
+			m.clearTagModeState()
 			return m, nil
 		case m.tagIndex == 1:
 			m.tagInputMode = true
@@ -1442,16 +1664,12 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
-		m.textPromptMode = false
-		m.textPromptTitle = ""
-		m.textPromptValue = ""
-		m.textPromptCursor = 0
-		m.textPromptPurpose = calendarTextPromptNone
+		m.clearTextPromptState()
 		m.message = "入力をキャンセルしました"
 		return m, nil
 	case "enter":
 		value := strings.TrimSpace(m.textPromptValue)
-		if value == "" {
+		if value == "" && m.textPromptPurpose == calendarTextPromptTag {
 			m.message = "入力は必須です"
 			return m, nil
 		}
@@ -1473,13 +1691,36 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 				}
 			}
 			m.message = fmt.Sprintf("tag %s を追加", value)
+		case calendarTextPromptDueOn:
+			if err := m.applySelectedTaskDueOn(value); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
+		case calendarTextPromptRepeatEvery:
+			if err := m.applySelectedTaskRepeatEvery(value); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
+		case calendarTextPromptAppendBody:
+			if value == "" {
+				m.message = "入力は必須です"
+				return m, nil
+			}
+			if err := m.applySelectedTaskAppendBody(m.textPromptValue); err != nil {
+				m.message = err.Error()
+				m.clearTextPromptState()
+				return m, nil
+			}
 		}
-		m.textPromptMode = false
-		m.textPromptTitle = ""
-		m.textPromptValue = ""
-		m.textPromptCursor = 0
-		m.textPromptPurpose = calendarTextPromptNone
+		m.clearTextPromptState()
 		return m, nil
+	case "ctrl+j":
+		if m.textPromptPurpose == calendarTextPromptAppendBody {
+			m.textPromptValue, m.textPromptCursor = interactive.InsertRuneAtCursor(m.textPromptValue, m.textPromptCursor, '\n')
+			return m, nil
+		}
 	case "backspace":
 		m.textPromptValue, m.textPromptCursor = interactive.DeleteRuneBeforeCursor(m.textPromptValue, m.textPromptCursor)
 		return m, nil
@@ -2918,26 +3159,37 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 }
 
 func (m *calendarTUIModel) applySelectedTaskKind(kind shelf.Kind) error {
-	task, ok := m.selectedTask()
-	if !ok {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
 		return fmt.Errorf("選択中の task がありません")
 	}
+	updatedCount := 0
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-kind"); err != nil {
 			return err
 		}
-		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{
-			Kind: &kind,
-		})
-		return err
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{
+				Kind: &kind,
+			}); err != nil {
+				return err
+			}
+			updatedCount++
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 	if err := m.reload(); err != nil {
 		return err
 	}
-	m.selectTaskByID(task.ID)
-	m.message = fmt.Sprintf("Updated kind to %s", kind)
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if updatedCount == 1 {
+		m.message = fmt.Sprintf("Updated kind to %s", kind)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated kind to %s for %d tasks", kind, updatedCount)
 	return nil
 }
 
@@ -2968,6 +3220,194 @@ func (m *calendarTUIModel) applySelectedTaskTags(tags []string) error {
 	}
 	m.message = fmt.Sprintf("Updated tags: %s", strings.Join(normalized, ", "))
 	return nil
+}
+
+func (m calendarTUIModel) currentTagBulkDelta() shelf.SetTaskInput {
+	addTags := make([]string, 0, len(m.tagBulkStates))
+	removeTags := make([]string, 0, len(m.tagBulkStates))
+	for _, tag := range m.tagChoices {
+		switch m.tagBulkState(tag) {
+		case calendarTagBulkStateAdd:
+			addTags = append(addTags, tag)
+		case calendarTagBulkStateRemove:
+			removeTags = append(removeTags, tag)
+		}
+	}
+	return shelf.SetTaskInput{
+		AddTags:    addTags,
+		RemoveTags: removeTags,
+	}
+}
+
+func (m *calendarTUIModel) applySelectedTaskTagDelta(input shelf.SetTaskInput) error {
+	addTags := shelf.NormalizeTags(input.AddTags)
+	removeTags := shelf.NormalizeTags(input.RemoveTags)
+	if len(addTags) == 0 && len(removeTags) == 0 {
+		m.message = "No tag changes selected"
+		return nil
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-tags"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{
+				AddTags:    addTags,
+				RemoveTags: removeTags,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	m.message = formatCalendarTagDeltaMessage(len(taskIDs), addTags, removeTags)
+	return nil
+}
+
+func (m *calendarTUIModel) applySelectedTaskDueOn(value string) error {
+	normalized, err := shelf.NormalizeDueOn(value)
+	if err != nil {
+		return err
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-due"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{DueOn: &normalized}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if normalized == "" {
+		if len(taskIDs) == 1 {
+			m.message = "Cleared due"
+			return nil
+		}
+		m.message = fmt.Sprintf("Cleared due for %d tasks", len(taskIDs))
+		return nil
+	}
+	if len(taskIDs) == 1 {
+		m.message = fmt.Sprintf("Updated due to %s", normalized)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated due to %s for %d tasks", normalized, len(taskIDs))
+	return nil
+}
+
+func (m *calendarTUIModel) applySelectedTaskRepeatEvery(value string) error {
+	normalized, err := shelf.NormalizeRepeatEvery(value)
+	if err != nil {
+		return err
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-repeat"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{RepeatEvery: &normalized}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if normalized == "" {
+		if len(taskIDs) == 1 {
+			m.message = "Cleared repeat"
+			return nil
+		}
+		m.message = fmt.Sprintf("Cleared repeat for %d tasks", len(taskIDs))
+		return nil
+	}
+	if len(taskIDs) == 1 {
+		m.message = fmt.Sprintf("Updated repeat to %s", normalized)
+		return nil
+	}
+	m.message = fmt.Sprintf("Updated repeat to %s for %d tasks", normalized, len(taskIDs))
+	return nil
+}
+
+func (m *calendarTUIModel) applySelectedTaskAppendBody(value string) error {
+	appendix := strings.TrimSpace(value)
+	if appendix == "" {
+		return fmt.Errorf("入力は必須です")
+	}
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
+		return fmt.Errorf("選択中の task がありません")
+	}
+	if err := withWriteLock(m.rootDir, func() error {
+		if err := prepareUndoSnapshot(m.rootDir, "calendar-body"); err != nil {
+			return err
+		}
+		for _, taskID := range taskIDs {
+			if _, err := shelf.SetTask(m.rootDir, taskID, shelf.SetTaskInput{AppendBody: &appendix}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := m.reload(); err != nil {
+		return err
+	}
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if len(taskIDs) == 1 {
+		m.message = "Appended note"
+		return nil
+	}
+	m.message = fmt.Sprintf("Appended note to %d tasks", len(taskIDs))
+	return nil
+}
+
+func formatCalendarTagDeltaMessage(taskCount int, addTags []string, removeTags []string) string {
+	parts := make([]string, 0, 2)
+	if len(addTags) > 0 {
+		parts = append(parts, "+"+strings.Join(addTags, ","))
+	}
+	if len(removeTags) > 0 {
+		parts = append(parts, "-"+strings.Join(removeTags, ","))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Updated tags for %d tasks (%s)", taskCount, strings.Join(parts, "; "))
 }
 
 func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
@@ -3440,6 +3880,8 @@ func (m *calendarTUIModel) applyLinkCandidate(candidate calendarLinkCandidate) e
 }
 
 func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
+	originalMode := m.mode
+	originalSelectedTaskID := m.selectedTaskID
 	if m.mode != calendarModeTree {
 		task, ok := m.selectedTask()
 		if !ok {
@@ -3461,8 +3903,35 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	}
 	m.moveMode = true
 	m.moveSourceIDs = append([]string{}, taskIDs...)
+	if originalMode != calendarModeTree {
+		m.moveReturnMode = originalMode
+		m.moveReturnSelectedTaskID = originalSelectedTaskID
+	} else {
+		m.moveReturnMode = ""
+		m.moveReturnSelectedTaskID = ""
+	}
 	m.message = fmt.Sprintf("move target を選択して Enter (%d task)", len(taskIDs))
 	return m, nil
+}
+
+func (m *calendarTUIModel) finishMoveMode(applied bool, selectedTaskID string) {
+	returnMode := m.moveReturnMode
+	returnSelectedTaskID := m.moveReturnSelectedTaskID
+	m.moveMode = false
+	m.moveSourceIDs = nil
+	m.moveReturnMode = ""
+	m.moveReturnSelectedTaskID = ""
+	if returnMode == "" {
+		return
+	}
+	m.switchMode(returnMode)
+	targetID := returnSelectedTaskID
+	if applied && strings.TrimSpace(selectedTaskID) != "" {
+		targetID = selectedTaskID
+	}
+	if strings.TrimSpace(targetID) != "" {
+		m.selectTaskByID(targetID)
+	}
 }
 
 func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
@@ -3512,8 +3981,7 @@ func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
 
 func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	if m.mode != calendarModeTree {
-		m.moveMode = false
-		m.moveSourceIDs = nil
+		m.finishMoveMode(false, "")
 		m.message = "move は Tree mode で使ってください"
 		return m, nil
 	}
@@ -3522,7 +3990,7 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		sources = m.activeTaskIDs()
 	}
 	if len(sources) == 0 {
-		m.moveMode = false
+		m.finishMoveMode(false, "")
 		m.message = "move 対象の task がありません"
 		return m, nil
 	}
@@ -3570,11 +4038,14 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 		m.message = err.Error()
 		return m, nil
 	}
-	m.moveMode = false
-	m.moveSourceIDs = nil
 	m.clearMarkedSelection()
-	if targetParentID != "" {
-		m.selectTaskByID(targetParentID)
+	if m.moveReturnMode != "" {
+		m.finishMoveMode(true, updated[0].ID)
+	} else {
+		m.finishMoveMode(true, "")
+		if targetParentID != "" {
+			m.selectTaskByID(targetParentID)
+		}
 	}
 	m.message = fmt.Sprintf("moved %d task(s) under %s", len(updated), targetLabel)
 	return m, nil
@@ -3596,38 +4067,61 @@ func isDescendantTask(tasks map[string]shelf.Task, candidateID string, ancestorI
 }
 
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
-	task, ok := m.selectedTask()
-	if !ok {
+	taskIDs := m.activeTaskIDs()
+	if len(taskIDs) == 0 {
 		return fmt.Errorf("選択中の task がありません")
 	}
-
-	var (
-		nextDue string
-		err     error
-	)
-	if option.Mode == snoozeModeTo {
-		nextDue, err = shelf.NormalizeDueOn(option.Value)
-	} else {
-		nextDue, err = applyByDays(task.DueOn, option.Value)
-	}
-	if err != nil {
-		return err
-	}
+	nextDueByTaskID := make(map[string]string, len(taskIDs))
+	dueTargets := map[string]struct{}{}
 
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-snooze"); err != nil {
 			return err
 		}
-		_, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{DueOn: &nextDue})
-		return err
+		for _, taskID := range taskIDs {
+			task, ok := m.taskByID[taskID]
+			if !ok {
+				continue
+			}
+			var (
+				nextDue string
+				err     error
+			)
+			if option.Mode == snoozeModeTo {
+				nextDue, err = shelf.NormalizeDueOn(option.Value)
+			} else {
+				nextDue, err = applyByDays(task.DueOn, option.Value)
+			}
+			if err != nil {
+				return err
+			}
+			if _, err := shelf.SetTask(m.rootDir, task.ID, shelf.SetTaskInput{DueOn: &nextDue}); err != nil {
+				return err
+			}
+			nextDueByTaskID[task.ID] = nextDue
+			dueTargets[nextDue] = struct{}{}
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 	if err := m.reload(); err != nil {
 		return err
 	}
-	m.selectTaskByID(task.ID)
-	m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDue)
+	m.clearMarkedSelection()
+	m.selectTaskByID(taskIDs[0])
+	if len(taskIDs) == 1 {
+		task := m.taskByID[taskIDs[0]]
+		m.message = fmt.Sprintf("Snoozed %s to %s", task.Title, nextDueByTaskID[taskIDs[0]])
+		return nil
+	}
+	if len(dueTargets) == 1 {
+		for nextDue := range dueTargets {
+			m.message = fmt.Sprintf("Snoozed %d tasks to %s", len(nextDueByTaskID), nextDue)
+			return nil
+		}
+	}
+	m.message = fmt.Sprintf("Snoozed %d tasks using %s", len(nextDueByTaskID), option.Label)
 	return nil
 }
 
@@ -4095,17 +4589,25 @@ func calendarMainCellHeight(totalHeight int) int {
 func renderCockpitHelpOverlay(mode calendarMode, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	lines := []string{
 		titleStyle.Render("Help"),
 		mutedStyle.Render(fmt.Sprintf("mode=%s", mode)),
 		mutedStyle.Render(calendarModeHelpSummary(mode)),
+		"",
+		sectionStyle.Render("Views"),
 		"Tab: pane (non-calendar only)  C/T/B/R/N: mode  ?: close",
+		sectionStyle.Render("Navigate"),
 		"h/l: day move or tree collapse/expand  j/k: rows or weeks  n/p: Selected Day task switch",
 		"PgUp/PgDn or Ctrl+U/D: scroll body  Home/End: top/bottom",
 		"sidebar: Calendar / Selected Day / Inspector with two-way selection sync",
-		"v: mark  u: clear marks  V: range mark  m: move in tree (root included)",
-		"o/i/b/d/c: status  a: add child  A: add root  e: edit  y/Y/P/O: copy  M: advanced copy  K: kind  #: tags  f: filter  L/U: link/unlink  z: snooze  r: reload",
-		"Enter: details  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
+		sectionStyle.Render("Select / Move"),
+		"v: mark  u: clear marks  V: range mark  m: move via tree target picker (root included)",
+		sectionStyle.Render("Edit / Copy"),
+		"o/i/b/d/c: status  a/A: add  D/W/J: due repeat note  e: editor  K/#: kind tags  z: snooze",
+		"y/Y/P/O: quick copy  M: advanced copy  L/U: links  f: filter  r: reload",
+		sectionStyle.Render("Close / Apply"),
+		"Enter: details or apply in popups  Ctrl+[: leave popup/input  q: close help or quit  Esc: close/cancel transient state",
 	}
 	return renderPopupBox(lines, width, height, lipgloss.Color("141"), -1)
 }
@@ -4818,6 +5320,9 @@ func formatCalendarRepeat(value string) string {
 }
 
 func formatCalendarStatusFilter(statuses []shelf.Status) string {
+	if len(statuses) == 0 {
+		return "-"
+	}
 	labels := make([]string, 0, len(statuses))
 	for _, status := range statuses {
 		labels = append(labels, string(status))
@@ -4825,11 +5330,26 @@ func formatCalendarStatusFilter(statuses []shelf.Status) string {
 	return strings.Join(labels, ",")
 }
 
-func renderCalendarSnoozePicker(selected int, width int, height int) string {
+func formatCalendarKindFilter(kinds []shelf.Kind) string {
+	if len(kinds) == 0 {
+		return "-"
+	}
+	labels := make([]string, 0, len(kinds))
+	for _, kind := range kinds {
+		labels = append(labels, string(kind))
+	}
+	return strings.Join(labels, ",")
+}
+
+func renderCalendarSnoozePicker(targetLabel string, selected int, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	header := []string{titleStyle.Render("Snooze Presets"), helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る")}
+	header := []string{
+		titleStyle.Render("Snooze Presets"),
+		helpStyle.Render("Target: " + targetLabel),
+		helpStyle.Render(popupControls("j/k: move", "Enter: apply", "Esc/q: close")),
+	}
 	lines := make([]string, 0, len(calendarSnoozeOptions()))
 	anchor := -1
 	for i, option := range calendarSnoozeOptions() {
@@ -4848,10 +5368,10 @@ func renderCalendarLinkPicker(action calendarLinkAction, linkType string, query 
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	title := "Add Link"
-	help := "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Tab/Shift+Tab: type  Enter: apply  Esc/q: close"
+	help := popupControls("/: query", "j/k: move", "h/l: collapse-expand", "Left/Right: cursor", "Tab/Shift+Tab: type", "Enter: apply", "Esc/q: close")
 	if action == calendarLinkActionRemove {
 		title = "Remove Link"
-		help = "/: query  j/k: move  h/l: collapse-expand  Left/Right: cursor  Enter: remove  Esc/q: close"
+		help = popupControls("/: query", "j/k: move", "h/l: collapse-expand", "Left/Right: cursor", "Enter: apply", "Esc/q: close")
 	}
 	header := []string{titleStyle.Render(title), helpStyle.Render(help), helpStyle.Render("Selected: " + selectedTask)}
 	if action == calendarLinkActionAdd {
@@ -4921,7 +5441,9 @@ func renderCalendarFilterPicker(m calendarTUIModel, width int, height int) strin
 	sectionTitles := []string{"Include Status", "Exclude Status", "Include Kind", "Exclude Kind"}
 	header := []string{
 		titleStyle.Render("Filter"),
-		mutedStyle.Render("h/l or Tab: section  j/k: move  Space: toggle  Enter: apply  Esc/q: cancel"),
+		mutedStyle.Render(popupControls("h/l or Tab: section", "j/k: move", "Space: toggle", "Enter: apply", "Esc/q: close")),
+		mutedStyle.Render(fmt.Sprintf("include: status=%s  kind=%s", formatCalendarStatusFilter(m.filter.Statuses), formatCalendarKindFilter(m.filter.Kinds))),
+		mutedStyle.Render(fmt.Sprintf("exclude: status=%s  kind=%s", formatCalendarStatusFilter(m.filter.NotStatuses), formatCalendarKindFilter(m.filter.NotKinds))),
 	}
 	lines := make([]string, 0, 32)
 	anchor := -1
@@ -4984,7 +5506,7 @@ func renderCalendarKindPicker(selectedTask string, kinds []shelf.Kind, selected 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	header := []string{titleStyle.Render("Kind"), helpStyle.Render("Selected: " + selectedTask), helpStyle.Render("j/k: 移動  Enter: 決定  Esc/q: 戻る")}
+	header := []string{titleStyle.Render("Kind"), helpStyle.Render("Target: " + selectedTask), helpStyle.Render(popupControls("j/k: move", "Enter: apply", "Esc/q: close"))}
 	lines := make([]string, 0, len(kinds))
 	anchor := -1
 	for i, kind := range kinds {
@@ -4998,14 +5520,19 @@ func renderCalendarKindPicker(selectedTask string, kinds []shelf.Kind, selected 
 	return renderPopupBoxWithHeader(header, lines, width, height, lipgloss.Color("81"), anchor)
 }
 
-func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []string, selected int, inputMode bool, inputValue string, width int, height int) string {
+func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []string, bulkMode bool, bulkStates map[string]calendarTagBulkState, selected int, inputMode bool, inputValue string, width int, height int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true)
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	targetLabel := "Target: " + selectedTask
+	helpLabel := popupControls("j/k: move", "Space: toggle", "Left/Right: cursor", "Enter: save/add", "Ctrl+S: save", "Esc/q: close")
+	if bulkMode {
+		helpLabel = popupControls("j/k: move", "Space: cycle [+]/[-]/[ ]", "Left/Right: cursor", "Enter: save/add", "Ctrl+S: save", "Esc/q: close")
+	}
 	header := []string{
 		titleStyle.Render("Tags"),
-		helpStyle.Render("Selected: " + selectedTask),
-		helpStyle.Render("j/k: move  Space: toggle  Left/Right: cursor  Enter: Done/Add  Ctrl+S: save  Esc/q: close"),
+		helpStyle.Render(targetLabel),
+		helpStyle.Render(helpLabel),
 	}
 	if inputMode {
 		header = append(header, helpStyle.Render("Add new tag: "+inputValue))
@@ -5013,7 +5540,11 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	options := []string{"Done", "+ Add new tag"}
 	for _, tag := range tags {
 		marker := "[ ]"
-		if containsTag(selectedTags, tag) {
+		if bulkMode {
+			if bulkStates != nil {
+				marker = markerForCalendarTagBulkState(bulkStates[tag])
+			}
+		} else if containsTag(selectedTags, tag) {
 			marker = "[x]"
 		}
 		options = append(options, fmt.Sprintf("%s %s", marker, tag))
@@ -5031,14 +5562,25 @@ func renderCalendarTagPicker(selectedTask string, tags []string, selectedTags []
 	return renderPopupBoxWithHeader(header, lines, width, height, lipgloss.Color("220"), anchor)
 }
 
-func renderCalendarTextPrompt(title string, value string) string {
+func renderCalendarTextPrompt(title string, help string, value string) string {
 	boxStyle := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("141")).Padding(1, 2).Width(72)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("141"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	lines := []string{
 		titleStyle.Render(title),
-		helpStyle.Render("入力して Enter で確定  Left/Right で移動  Esc/q でキャンセル"),
-		"Value: " + value,
+		helpStyle.Render(popupControls("Enter: save", "Left/Right: cursor", "Esc/q: close")),
+		helpStyle.Render(help),
+	}
+	valueLines := strings.Split(value, "\n")
+	if len(valueLines) == 0 {
+		valueLines = []string{""}
+	}
+	for i, line := range valueLines {
+		prefix := "       "
+		if i == 0 {
+			prefix = "Value: "
+		}
+		lines = append(lines, prefix+line)
 	}
 	return boxStyle.Render(strings.Join(lines, "\n"))
 }
@@ -5065,7 +5607,7 @@ func renderCalendarAddComposer(date string, defaultKind shelf.Kind, defaultStatu
 	}
 	header := []string{
 		titleStyle.Render("Add Task"),
-		helpStyle.Render("Tab/Shift+Tab: switch  Left/Right: cursor  Enter: create  j/k: kind  Esc: cancel"),
+		helpStyle.Render(popupControls("Tab/Shift+Tab: switch", "Left/Right: cursor", "j/k: kind", "Enter: create", "Esc: cancel")),
 		fmt.Sprintf("due=%s  status=%s  target=%s", date, defaultStatus, targetMode),
 		fmt.Sprintf("parent=%s", trimLine(targetLabel, 42)),
 	}
@@ -5088,6 +5630,10 @@ func calendarSnoozeOptions() []snoozePreset {
 		options = append(options, option)
 	}
 	return options
+}
+
+func popupControls(parts ...string) string {
+	return strings.Join(parts, "  ")
 }
 
 func dominantCalendarStatus(tasks []shelf.Task) shelf.Status {

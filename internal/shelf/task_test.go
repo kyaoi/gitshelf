@@ -194,3 +194,64 @@ func TestTaskStoreCRUD(t *testing.T) {
 		t.Fatalf("task file missing: %v", err)
 	}
 }
+
+func TestTaskStoreListSortsByID(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(TasksDir(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewTaskStore(root)
+	now := time.Now().UTC().Round(time.Second)
+	for _, task := range []Task{
+		{ID: "01C", Title: "C", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+		{ID: "01A", Title: "A", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+		{ID: "01B", Title: "B", Kind: "todo", Status: "open", CreatedAt: now, UpdatedAt: now},
+	} {
+		if err := store.Upsert(task); err != nil {
+			t.Fatalf("upsert failed: %v", err)
+		}
+	}
+
+	listed, err := store.List()
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(listed) != 3 {
+		t.Fatalf("expected 3 tasks, got %d", len(listed))
+	}
+	if listed[0].ID != "01A" || listed[1].ID != "01B" || listed[2].ID != "01C" {
+		t.Fatalf("unexpected task order: %+v", listed)
+	}
+}
+
+func TestShortID(t *testing.T) {
+	if got := ShortID(" 01ABCDEFGHIJK "); got != "01ABCDEF" {
+		t.Fatalf("unexpected short id: %q", got)
+	}
+	if got := ShortID("01ABC"); got != "01ABC" {
+		t.Fatalf("unexpected short id for short input: %q", got)
+	}
+}
+
+func TestEnsureTaskExists(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	task, err := AddTask(root, AddTaskInput{Title: "task"})
+	if err != nil {
+		t.Fatalf("add task failed: %v", err)
+	}
+
+	got, err := EnsureTaskExists(root, task.ID)
+	if err != nil {
+		t.Fatalf("EnsureTaskExists failed: %v", err)
+	}
+	if got.ID != task.ID {
+		t.Fatalf("unexpected task: %+v", got)
+	}
+	if _, err := EnsureTaskExists(root, "missing"); err == nil {
+		t.Fatal("expected missing task error")
+	}
+}

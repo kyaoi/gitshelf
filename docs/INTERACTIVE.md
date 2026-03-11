@@ -87,20 +87,25 @@ These are compact operational views inside the same workspace.
 
 These actions operate on the selected task, or on marked tasks when multi-select is active.
 
-- `K`: edit kind on the selected task
-- `#`: edit tags for the selected task
+- `m`: move the selected task, or marked tasks; non-tree modes temporarily switch to the tree target picker
+- `K`: edit kind on the selected task, or on marked tasks when multi-select is active
+- `#`: edit tags for the selected task, or edit marked tasks with bulk add/remove
+- `D`: edit `due_on` for the selected task, or for marked tasks
+- `W`: edit `repeat_every` for the selected task, or for marked tasks
+- `J`: append a quick note to the selected task body, or to marked task bodies
 - `y`: copy the selected title, or marked titles joined by the configured separator
 - `Y`: copy the selected task subtree, or marked subtrees, as an indented title tree
 - `P`: copy the selected task file path, or marked file paths, as absolute paths
 - `O`: copy the selected task body, or marked task bodies
 - `M`: open advanced copy presets with preview and save-command help
+  - the popup also shows what `y`, `Y`, `P`, and `O` would copy for the current selection
 - `o`: set `open`
 - `i`: set `in_progress`
 - `b`: set `blocked`
 - `d`: set `done`
 - `c`: set `cancelled`
 - `x`: archive toggle
-- `z`: snooze presets
+- `z`: snooze the selected task, or marked tasks, with presets
 - `e`: open the task file in `$VISUAL`, `$EDITOR`, then `vi`
 - `L`: add a link from the selected task
 - `U`: remove one outbound link from the selected task
@@ -111,6 +116,7 @@ Inside advanced copy (`M`):
 
 - `j` / `k`: choose `Custom` or one saved preset
 - `Tab` / `Shift+Tab`: move focus between preset list and custom fields
+- the popup shows the current target and a quick-copy summary for `y` / `Y` / `P` / `O`
 - custom `template` / `join_with` fields use escaped text such as `\n`
 - `subtree style` switches `{{subtree}}` between plain indentation and ASCII tree rendering
 - `Enter`: copy the currently previewed payload
@@ -142,15 +148,51 @@ IDs are hidden there unless `--show-id` is enabled.
 
 - `f`: open a popup filter editor
 - include / exclude filters are available for both `status` and `kind`
+- the popup header summarizes the current include / exclude filter state before you apply it
 - the applied filters affect every Cockpit mode
 
 ## Tags
 
-- `Space`: toggle the highlighted tag
+- single-task mode keeps the current exact-set editor
+- marked tasks switch `#` into bulk mode with tri-state markers
+- bulk markers: `[ ]` unchanged, `[+]` add to all marked tasks, `[-]` remove from all marked tasks
+- `Space`: toggle the highlighted tag in single-task mode, or cycle bulk state in marked-task mode
 - `Enter` on `Done`: save and close
 - `Enter` on `+ Add new tag`: enter text input mode
 - `Ctrl+S`: save and close from anywhere in tag editing
 - while typing a new tag, `Left` / `Right` move the cursor and typed text is inserted at the cursor position
+- new tags are immediately selected in single-task mode, and become `[+]` in bulk mode
+
+## Due / Repeat
+
+- `D`: open a text prompt to edit `due_on`
+- `W`: open a text prompt to edit `repeat_every`
+- marked tasks use the same prompt and apply one value to all marked tasks
+- if all targeted tasks already share the same value, the prompt is prefilled with it
+- blank input clears the field
+- due accepts the same tokens as the CLI: `YYYY-MM-DD`, `today`, `tomorrow`, `+Nd`, `-Nd`, `next-week`, `this-week`, `mon`..`sun`, `next-mon`..`next-sun`, `in N days`
+- repeat accepts `<N>d`, `<N>w`, `<N>m`, or `<N>y`
+
+## Notes
+
+- `J`: open a quick note prompt that appends to `body`
+- marked tasks use the same prompt and append the same note to all marked tasks
+- `Ctrl+J` inserts a newline inside the note prompt
+- `Enter` saves the appended note
+- `e` still opens the full task file in the external editor for full-body edits
+
+## Popup Conventions
+
+- pickers use `j` / `k` for movement and `Esc` / `q` to close
+- `Enter` applies or saves the current popup action
+- `Ctrl+S` is used only where a popup has an explicit save action separate from normal navigation
+- `Left` / `Right` always mean cursor movement inside editable text fields
+- add mode keeps `q` as normal text input and uses `Esc` for cancel
+
+## Help Overlay
+
+- `?` opens an in-TUI help overlay grouped by `Views`, `Navigate`, `Select / Move`, `Edit / Copy`, and `Close / Apply`
+- the overlay stays mode-aware via the top summary line, but the action list is shared across Cockpit modes
 
 ## Non-Calendar Sidebar
 

@@ -188,3 +188,73 @@ func TestSaveActiveCopyPresetPersistsToConfig(t *testing.T) {
 		t.Fatalf("unexpected saved copy presets: %+v", cfg.Commands.Cockpit.CopyPresets)
 	}
 }
+
+func TestQuickCopyLegendLinesShowsCounts(t *testing.T) {
+	model := calendarTUIModel{
+		rootDir:       t.TempDir(),
+		mode:          calendarModeTree,
+		copySeparator: "\n",
+		taskByID: map[string]shelf.Task{
+			"01A": {ID: "01A", Title: "First", Body: "body"},
+			"01B": {ID: "01B", Title: "Second"},
+		},
+		allTasks:      []shelf.Task{{ID: "01A", Title: "First", Body: "body"}, {ID: "01B", Title: "Second"}},
+		treeRows:      []cockpitTreeRow{{Task: shelf.Task{ID: "01A", Title: "First", Body: "body"}}, {Task: shelf.Task{ID: "01B", Title: "Second"}}},
+		treeRowIndex:  0,
+		markedTaskIDs: map[string]struct{}{"01A": {}, "01B": {}},
+		rangeBaseIDs:  map[string]struct{}{},
+		sectionRows:   map[calendarSectionID]int{},
+		boardRowIndex: map[int]int{},
+	}
+
+	lines := model.quickCopyLegendLines(80)
+
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"y  titles (2 items)",
+		"Y  subtrees (2 items)",
+		"P  paths (2 items)",
+		"O  bodies (1 item)",
+		"M  advanced preset preview",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected quick copy legend to contain %q, got:\n%s", want, joined)
+		}
+	}
+}
+
+func TestRenderCalendarCopyPresetPopupShowsTargetAndQuickCopySection(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	first := shelf.Task{ID: "01A", Title: "First", Body: "body"}
+	second := shelf.Task{ID: "01B", Title: "Second"}
+	model := calendarTUIModel{
+		rootDir:                root,
+		mode:                   calendarModeTree,
+		copySeparator:          "\n",
+		taskByID:               map[string]shelf.Task{"01A": first, "01B": second},
+		allTasks:               []shelf.Task{first, second},
+		treeRows:               []cockpitTreeRow{{Task: first}, {Task: second}},
+		treeRowIndex:           0,
+		markedTaskIDs:          map[string]struct{}{"01A": {}, "01B": {}},
+		rangeBaseIDs:           map[string]struct{}{},
+		sectionRows:            map[calendarSectionID]int{},
+		boardRowIndex:          map[int]int{},
+		copyPresetMode:         true,
+		copyPresetFocus:        calendarCopyPresetFocusPresets,
+		copyPresetScope:        shelf.CopyPresetScopeSubtree,
+		copyPresetSubtreeStyle: shelf.CopySubtreeStyleIndented,
+		copyPresetTemplate:     encodeCopyPresetEscapes("{{title}}"),
+		copyPresetJoinWith:     encodeCopyPresetEscapes("\n"),
+	}
+
+	rendered := renderCalendarCopyPresetPopup(model, 80, 30)
+
+	for _, want := range []string{"Target: 2 marked tasks", "Quick Copy", "y  titles", "M  advanced preset preview"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("expected rendered popup to contain %q, got:\n%s", want, rendered)
+		}
+	}
+}

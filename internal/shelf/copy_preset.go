@@ -99,3 +99,23 @@ func (c *Config) UpsertCopyPreset(preset CopyPreset) (bool, error) {
 	c.Commands.Cockpit.CopyPresets = append(c.Commands.Cockpit.CopyPresets, preset)
 	return false, nil
 }
+
+func (c Config) FindCopyPreset(name string) (CopyPreset, bool) {
+	for _, preset := range c.Commands.Cockpit.CopyPresets {
+		if preset.Name == name {
+			return preset, true
+		}
+	}
+	return CopyPreset{}, false
+}
+
+func (c *Config) DeleteCopyPreset(name string) bool {
+	for i := range c.Commands.Cockpit.CopyPresets {
+		if c.Commands.Cockpit.CopyPresets[i].Name != name {
+			continue
+		}
+		c.Commands.Cockpit.CopyPresets = append(c.Commands.Cockpit.CopyPresets[:i], c.Commands.Cockpit.CopyPresets[i+1:]...)
+		return true
+	}
+	return false
+}

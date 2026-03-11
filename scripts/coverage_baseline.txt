@@ -1,0 +1,6 @@
+# package minimum_coverage_percent
+github.com/kyaoi/gitshelf/internal/cli 59.9
+github.com/kyaoi/gitshelf/internal/interactive 32.1
+github.com/kyaoi/gitshelf/internal/paths 46.2
+github.com/kyaoi/gitshelf/internal/shelf 74.9
+github.com/kyaoi/gitshelf/internal/versioninfo 73.1

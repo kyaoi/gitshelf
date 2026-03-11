@@ -1,0 +1,20 @@
+{
+  "task": {
+    "id": "01FIXCHILD0000000000000002",
+    "file": "{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md",
+    "title": "Build CLI",
+    "path": "root \u003e Project Alpha \u003e Build CLI"
+  },
+  "summary": [
+    {
+      "direction": "inbound",
+      "type": "related",
+      "count": 1
+    },
+    {
+      "direction": "outbound",
+      "type": "depends_on",
+      "count": 1
+    }
+  ]
+}

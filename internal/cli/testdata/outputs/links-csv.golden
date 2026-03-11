@@ -1,0 +1,3 @@
+direction,type,source_id,target_id,target_path,target_file
+outbound,depends_on,01FIXCHILD0000000000000002,01FIXPEER0000000000000004,root > Peer Task,{{ROOT}}/.shelf/tasks/01FIXPEER0000000000000004.md
+inbound,related,01FIXPARENT0000000000000001,01FIXCHILD0000000000000002,root > Project Alpha > Build CLI,{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md
