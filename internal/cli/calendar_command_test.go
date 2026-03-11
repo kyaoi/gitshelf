@@ -562,6 +562,7 @@ func TestCalendarApplySelectedTaskKindUsesMarkedTasks(t *testing.T) {
 	}
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
 	model.selectTaskByID(second.ID)
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySelectedTaskKind("idea"); err != nil {
 		t.Fatalf("applySelectedTaskKind failed: %v", err)
@@ -579,8 +580,8 @@ func TestCalendarApplySelectedTaskKindUsesMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after bulk kind update, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Updated kind to idea for 2 tasks" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -654,6 +655,7 @@ func TestCalendarApplySnoozeOptionUsesMarkedTasks(t *testing.T) {
 	}
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
 	model.selectTaskByID(second.ID)
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySnoozeOption(snoozePreset{Label: "Today", Mode: snoozeModeTo, Value: "2026-03-20"}); err != nil {
 		t.Fatalf("applySnoozeOption failed: %v", err)
@@ -671,8 +673,8 @@ func TestCalendarApplySnoozeOptionUsesMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after bulk snooze, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Snoozed 2 tasks to 2026-03-20" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -761,6 +763,7 @@ func TestApplySelectedTaskDueOnUsesMarkedTasks(t *testing.T) {
 	model.switchMode(calendarModeTree)
 	model.selectTaskByID(second.ID)
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySelectedTaskDueOn("2026-03-20"); err != nil {
 		t.Fatalf("applySelectedTaskDueOn failed: %v", err)
@@ -778,8 +781,8 @@ func TestApplySelectedTaskDueOnUsesMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after due update, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Updated due to 2026-03-20 for 2 tasks" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -806,6 +809,7 @@ func TestApplySelectedTaskRepeatEveryClearsMarkedTasks(t *testing.T) {
 	model.switchMode(calendarModeTree)
 	model.selectTaskByID(second.ID)
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySelectedTaskRepeatEvery(""); err != nil {
 		t.Fatalf("applySelectedTaskRepeatEvery failed: %v", err)
@@ -823,8 +827,8 @@ func TestApplySelectedTaskRepeatEveryClearsMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after repeat update, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Cleared repeat for 2 tasks" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -906,6 +910,7 @@ func TestApplySelectedTaskAppendBodyUsesMarkedTasks(t *testing.T) {
 	model.switchMode(calendarModeTree)
 	model.selectTaskByID(second.ID)
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySelectedTaskAppendBody("new line 1\nnew line 2"); err != nil {
 		t.Fatalf("applySelectedTaskAppendBody failed: %v", err)
@@ -928,8 +933,8 @@ func TestApplySelectedTaskAppendBodyUsesMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after append body, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Appended note to 2 tasks" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -1871,6 +1876,7 @@ func TestApplySelectedTaskTagDeltaUsesMarkedTasks(t *testing.T) {
 	model.switchMode(calendarModeTree)
 	model.selectTaskByID(second.ID)
 	model.markedTaskIDs = map[string]struct{}{first.ID: {}, second.ID: {}}
+	expectedSelectedTaskID := model.activeTaskIDs()[0]
 
 	if err := model.applySelectedTaskTagDelta(shelf.SetTaskInput{
 		AddTags:    []string{"delta"},
@@ -1896,8 +1902,8 @@ func TestApplySelectedTaskTagDeltaUsesMarkedTasks(t *testing.T) {
 	if model.markedCount() != 0 {
 		t.Fatalf("expected marks cleared after bulk tag update, got %d", model.markedCount())
 	}
-	if model.selectedTaskID != first.ID {
-		t.Fatalf("expected first updated task selected, got %s", model.selectedTaskID)
+	if model.selectedTaskID != expectedSelectedTaskID {
+		t.Fatalf("expected first ordered updated task selected, got %s", model.selectedTaskID)
 	}
 	if model.message != "Updated tags for 2 tasks (+delta; -gamma)" {
 		t.Fatalf("unexpected message: %s", model.message)
@@ -2393,16 +2399,13 @@ func TestTreeModeRangeSelectMarksContinuousTasks(t *testing.T) {
 	if _, err := shelf.Initialize(root, false); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	first, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "First", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add first failed: %v", err)
 	}
-	second, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Second", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add second failed: %v", err)
 	}
-	third, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"})
-	if err != nil {
+	if _, err := shelf.AddTask(root, shelf.AddTaskInput{Title: "Third", Kind: "todo", Status: "open"}); err != nil {
 		t.Fatalf("add third failed: %v", err)
 	}
 	model, err := newCalendarTUIModelWithOptions(root, startOfWeek(time.Now().Local()), 30, []shelf.Status{"open", "done"}, calendarTUIOptions{
@@ -2412,7 +2415,15 @@ func TestTreeModeRangeSelectMarksContinuousTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newCalendarTUIModelWithOptions failed: %v", err)
 	}
-	model.selectTaskByID(first.ID)
+	if len(model.treeRows) != 3 {
+		t.Fatalf("expected 3 tree rows, got %d", len(model.treeRows))
+	}
+	expectedRangeIDs := []string{
+		model.treeRows[0].Task.ID,
+		model.treeRows[1].Task.ID,
+		model.treeRows[2].Task.ID,
+	}
+	model.selectTaskByID(expectedRangeIDs[0])
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
 	treeModel := updatedModel.(calendarTUIModel)
 	if !treeModel.rangeMarkMode {
@@ -2422,7 +2433,7 @@ func TestTreeModeRangeSelectMarksContinuousTasks(t *testing.T) {
 	treeModel = updatedModel.(calendarTUIModel)
 	updatedModel, _ = treeModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	treeModel = updatedModel.(calendarTUIModel)
-	for _, taskID := range []string{first.ID, second.ID, third.ID} {
+	for _, taskID := range expectedRangeIDs {
 		if !treeModel.isMarkedTask(taskID) {
 			t.Fatalf("expected task %s marked in range", taskID)
 		}
