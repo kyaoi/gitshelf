@@ -81,3 +81,11 @@ For a tagged release such as `v1.3`:
 
 GitHub Actions also runs [`release-smoke.yml`](../.github/workflows/release-smoke.yml)
 for tag pushes and manual release smoke checks.
+
+GitHub Actions also runs [`release.yml`](../.github/workflows/release.yml)
+to create a GitHub Release automatically on tag push.
+You can use the manual dispatch once to backfill legacy tags such as
+`v1.0`, `v1.1`, `v1.2`, and `v1.3`.
+
+For future releases, prefer full semver tags such as `v1.3.1` if you want
+exact `go install module@version` resolution through the Go module proxy.

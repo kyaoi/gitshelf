@@ -81,3 +81,11 @@ UPDATE_GOLDEN=1 go test ./internal/cli -run TestCLIMachineReadableOutputGoldens
 
 GitHub Actions でも [`../../.github/workflows/release-smoke.yml`](../../.github/workflows/release-smoke.yml)
 を使って、tag push 時と manual 実行時の release smoke を回します。
+
+GitHub Actions では [`../../.github/workflows/release.yml`](../../.github/workflows/release.yml)
+も使って、tag push 時に GitHub Release を自動作成します。
+今回限りの backfill としては manual dispatch で
+`v1.0`, `v1.1`, `v1.2`, `v1.3` をまとめて release できます。
+
+今後 `go install module@version` を安定して使いたい場合は、
+release tag は `v1.3.1` のような full semver を推奨します。
