@@ -1,0 +1,71 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tags_json:
+        description: 'JSON array of tags to release, for example ["v1.2.0","v1.3.0"]'
+        required: true
+        default: '[]'
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tags_json: ${{ steps.tags.outputs.value }}
+    steps:
+      - name: Resolve tags
+        id: tags
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            printf 'value=["%s"]\n' "${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+          else
+            if [[ '${{ inputs.tags_json }}' == '[]' ]]; then
+              echo "tags_json must include at least one tag for manual release runs" >&2
+              exit 1
+            fi
+            printf 'value=%s\n' '${{ inputs.tags_json }}' >> "${GITHUB_OUTPUT}"
+          fi
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.prepare.outputs.tags_json) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Ensure tag exists locally
+        shell: bash
+        run: |
+          git fetch --tags --force origin "refs/tags/${{ matrix.tag }}:refs/tags/${{ matrix.tag }}"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ matrix.tag }}
+        shell: bash
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --title "${TAG}"
+          else
+            gh release create "${TAG}" --verify-tag --title "${TAG}" --generate-notes
+          fi

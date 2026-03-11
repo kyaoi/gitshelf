@@ -72,12 +72,20 @@ UPDATE_GOLDEN=1 go test ./internal/cli -run TestCLIMachineReadableOutputGoldens
 
 ## Release smoke
 
-`v1.3` のような tag release では:
+`v1.3.1` のような tag release では:
 
-1. `go install github.com/kyaoi/gitshelf/cmd/shelf@v1.3`
-2. `shelf --version` が `v1.3` を表示する
+1. `go install github.com/kyaoi/gitshelf/cmd/shelf@v1.3.1`
+2. `shelf --version` が `v1.3.1` を表示する
 3. `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
 4. `shelf --version` が `dev` ではなく最新 tag を表示する
 
 GitHub Actions でも [`../../.github/workflows/release-smoke.yml`](../../.github/workflows/release-smoke.yml)
 を使って、tag push 時と manual 実行時の release smoke を回します。
+
+GitHub Actions では [`../../.github/workflows/release.yml`](../../.github/workflows/release.yml)
+も使って、tag push 時に GitHub Release を自動作成します。
+manual dispatch では `tags_json` に任意の tag 配列を渡して、
+既存 tag の backfill もできます。
+
+今後 `go install module@version` を安定して使いたい場合は、
+release tag は `v1.3.1` のような full semver を推奨します。

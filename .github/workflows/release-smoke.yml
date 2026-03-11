@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "module version to smoke test (for example v1.3.0 or latest)"
+        description: "tag to smoke test (for example v1.2.0, v1.3.0, or latest)"
         required: true
         default: latest
 
@@ -19,7 +19,39 @@ permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      target_version: ${{ steps.meta.outputs.target_version }}
+      module_version: ${{ steps.meta.outputs.module_version }}
+      exact_module_install: ${{ steps.meta.outputs.exact_module_install }}
+    steps:
+      - name: Resolve target version
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            target_version="${GITHUB_REF_NAME}"
+          else
+            target_version="${{ inputs.version }}"
+          fi
+
+          exact_module_install=false
+          module_version="${target_version}"
+          if [[ "${target_version}" == "latest" ]]; then
+            exact_module_install=true
+          elif [[ "${target_version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.].*)?$ ]]; then
+            exact_module_install=true
+          else
+            module_version=""
+          fi
+
+          printf 'target_version=%s\n' "${target_version}" >> "${GITHUB_OUTPUT}"
+          printf 'module_version=%s\n' "${module_version}" >> "${GITHUB_OUTPUT}"
+          printf 'exact_module_install=%s\n' "${exact_module_install}" >> "${GITHUB_OUTPUT}"
+
   install-smoke:
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -31,27 +63,18 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Resolve target version
-        id: version
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            version="${GITHUB_REF_NAME}"
-          else
-            version="${{ inputs.version }}"
-          fi
-          echo "value=${version}" >> "${GITHUB_OUTPUT}"
-
-      - name: Smoke test go install
+      - name: Smoke test exact module install
+        if: needs.prepare.outputs.exact_module_install == 'true'
         shell: bash
         env:
-          TARGET_VERSION: ${{ steps.version.outputs.value }}
+          TARGET_VERSION: ${{ needs.prepare.outputs.target_version }}
+          MODULE_VERSION: ${{ needs.prepare.outputs.module_version }}
         run: |
           export GOBIN="${RUNNER_TEMP}/go-bin"
           mkdir -p "${GOBIN}"
           export PATH="${GOBIN}:${PATH}"
 
-          go install "github.com/kyaoi/gitshelf/cmd/shelf@${TARGET_VERSION}"
+          go install "github.com/kyaoi/gitshelf/cmd/shelf@${MODULE_VERSION}"
           installed_version="$(shelf --version)"
           echo "go install reported version: ${installed_version}"
 
@@ -61,7 +84,21 @@ jobs:
             [[ "${installed_version}" == "${TARGET_VERSION}" ]]
           fi
 
+      - name: Smoke test checked-out tag build for legacy short tags
+        if: needs.prepare.outputs.exact_module_install != 'true'
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ needs.prepare.outputs.target_version }}
+        run: |
+          export GOBIN="${RUNNER_TEMP}/go-bin"
+          mkdir -p "${GOBIN}"
+          go build -ldflags "-X main.version=${TARGET_VERSION}" -o "${GOBIN}/shelf" ./cmd/shelf
+          installed_version="$("${GOBIN}/shelf" --version)"
+          echo "checked-out build reported version: ${installed_version}"
+          [[ "${installed_version}" == "${TARGET_VERSION}" ]]
+
       - name: Install mise
+        if: needs.prepare.outputs.exact_module_install == 'true'
         shell: bash
         run: |
           curl https://mise.run | sh
@@ -69,6 +106,7 @@ jobs:
           echo "${HOME}/.local/share/mise/shims" >> "${GITHUB_PATH}"
 
       - name: Smoke test mise latest install
+        if: needs.prepare.outputs.exact_module_install == 'true'
         shell: bash
         run: |
           mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest
