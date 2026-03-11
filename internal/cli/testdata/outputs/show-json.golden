@@ -1,0 +1,55 @@
+{
+  "task": {
+    "id": "01FIXCHILD0000000000000002",
+    "file": "{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md",
+    "title": "Build CLI",
+    "path": "root \u003e Project Alpha \u003e Build CLI",
+    "kind": "todo",
+    "status": "in_progress",
+    "tags": [
+      "cli",
+      "release"
+    ],
+    "due_on": "2026-03-12",
+    "repeat_every": "1w",
+    "parent_id": "01FIXPARENT0000000000000001",
+    "parent_path": "root \u003e Project Alpha",
+    "created_at": "2026-03-11T10:00:00Z",
+    "updated_at": "2026-03-11T11:00:00Z",
+    "body": "line one\nline two"
+  },
+  "edges": [
+    {
+      "direction": "outbound",
+      "type": "depends_on",
+      "source": {
+        "id": "01FIXCHILD0000000000000002",
+        "file": "{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md",
+        "title": "Build CLI",
+        "path": "root \u003e Project Alpha \u003e Build CLI"
+      },
+      "target": {
+        "id": "01FIXPEER0000000000000004",
+        "file": "{{ROOT}}/.shelf/tasks/01FIXPEER0000000000000004.md",
+        "title": "Peer Task",
+        "path": "root \u003e Peer Task"
+      }
+    },
+    {
+      "direction": "inbound",
+      "type": "related",
+      "source": {
+        "id": "01FIXPARENT0000000000000001",
+        "file": "{{ROOT}}/.shelf/tasks/01FIXPARENT0000000000000001.md",
+        "title": "Project Alpha",
+        "path": "root \u003e Project Alpha"
+      },
+      "target": {
+        "id": "01FIXCHILD0000000000000002",
+        "file": "{{ROOT}}/.shelf/tasks/01FIXCHILD0000000000000002.md",
+        "title": "Build CLI",
+        "path": "root \u003e Project Alpha \u003e Build CLI"
+      }
+    }
+  ]
+}

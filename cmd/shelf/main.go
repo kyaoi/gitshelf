@@ -4,12 +4,13 @@ import (
 	"os"
 
 	"github.com/kyaoi/gitshelf/internal/cli"
+	"github.com/kyaoi/gitshelf/internal/versioninfo"
 )
 
-var version = "dev"
+var version string
 
 func main() {
-	if err := cli.NewRootCommand(version).Execute(); err != nil {
+	if err := cli.NewRootCommand(versioninfo.Resolve(version)).Execute(); err != nil {
 		os.Exit(1)
 	}
 }

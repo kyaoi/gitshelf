@@ -2,6 +2,8 @@
 
 現在の公開 CLI surface の仕様です。
 
+machine-readable schema は [`OUTPUTS.md`](OUTPUTS.md) を参照してください。
+
 ## 共通
 
 - `--root <dir>` で `.shelf/` を含む root を明示できます
@@ -75,6 +77,50 @@ TTY 必須。
 ## `shelf config`
 
 user-facing config を永続化します。
+
+### `shelf config show`
+
+現在の root で有効な config を表示します。
+
+フラグ:
+
+- `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+
+### `shelf config copy-preset list`
+
+保存済み advanced copy preset の一覧を表示します。
+
+フラグ:
+
+- `--json`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+
+### `shelf config copy-preset get`
+
+保存済み advanced copy preset を1件表示します。
+
+使い方:
+
+- `shelf config copy-preset get <name>`
+
+フラグ:
+
+- `--json`
+
+### `shelf config copy-preset rm`
+
+保存済み advanced copy preset を1件削除します。
+
+使い方:
+
+- `shelf config copy-preset rm <name>`
 
 ### `shelf config copy-preset set`
 
@@ -168,10 +214,35 @@ script と単発確認向けの read-only 一覧です。
 - `--limit <n>`
 - `--include-archived`
 - `--only-archived`
-- `--format compact|detail|kanban`
+- `--format compact|detail|kanban|tree|tsv|csv|jsonl`
+- `--preset <now|review|board>`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
+- `--group-by <status|kind|parent>`
+- `--count`
 - `--json`
 
 未知の kind/status/tag は即エラーです。
+
+`--preset` は対応する Cockpit view に近い read-only default を適用します。
+明示した flag がある場合はそちらが優先されます。
+
+`--format tsv` と `--format csv` は同じ task field を使います。
+TSV は既定で header なし、CSV は既定で header ありです。
+`--header` と `--no-header` で上書きできます。
+
+task field:
+
+- `id`, `title`, `path`, `kind`, `status`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `tags`, `file`
+
+`--fields` で列の順序変更や絞り込みができます。
+`--format jsonl` は `--json` と同じ task object を1行1件で出力します。
+`--group-by` を付けると tabular/JSON 出力には `group` field が追加され、text 出力は group ごとの見出し付きになります。
+`--group-by` は `--format kanban`, `--format tree`, `--count` と併用できません。
+`--count` は条件に一致する task 総数だけを返します。`--json` を付けると `{ "count": N }` です。
 
 ## `shelf next`
 
@@ -180,7 +251,40 @@ script と単発確認向けの read-only 一覧です。
 フラグ:
 
 - `--limit <n>`
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+- `--sort <id|title|path|kind|status|due_on|created_at|updated_at>`
+- `--reverse`
+- `--count`
 - `--json`
+
+`--count` は ready task の総数だけを返します。`--json` を付けると `{ "count": N }` です。
+
+## `shelf show`
+
+1つの task を inspector 風の詳細表示で返します。
+
+使い方:
+
+- `shelf show <task-id>`
+
+フラグ:
+
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+- `--json`
+
+`--format tsv` と `--format csv` は選択 task を1行で出力します。
+使える field:
+
+- `id`, `title`, `path`, `kind`, `status`, `tags`, `due_on`, `repeat_every`, `archived_at`, `parent_id`, `parent_path`, `file`, `created_at`, `updated_at`, `body`
+- `outbound_count`, `inbound_count`
+
+`--format jsonl` は task object を1行で出力します。
 
 ## `shelf link`
 
@@ -216,7 +320,20 @@ outbound link を削除します。
 
 フラグ:
 
+- `--format compact|tsv|csv|jsonl`
+- `--fields <name,...>` (`--format tsv|csv` 専用)
+- `--header`
+- `--no-header`
+- `--summary`
 - `--json`
+
+`--format tsv` と `--format csv` は edge ごとに1行です。
+使える field:
+
+- `direction`, `type`, `source_id`, `source_title`, `source_path`, `source_file`, `target_id`, `target_title`, `target_path`, `target_file`
+
+`--format jsonl` は edge object を1行1件で出力します。
+`--summary` を付けると `direction/type/count` の集計行に切り替わります。
 
 text 出力は tree/path ラベルを使い、同名 task を見分けやすくしています。
 ID は `--show-id` を付けたときだけ表示します。

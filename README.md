@@ -12,7 +12,9 @@
 
 - CLI spec: [`docs/COMMANDS.md`](docs/COMMANDS.md)
 - Workflow guide: [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)
+- Output contract: [`docs/OUTPUTS.md`](docs/OUTPUTS.md)
 - Interactive behavior: [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md)
+- Testing and quality gates: [`docs/TESTING.md`](docs/TESTING.md)
 - Storage: [`docs/STORAGE.md`](docs/STORAGE.md)
 - Default config example: [`docs/default_config.toml`](docs/default_config.toml)
 - Japanese user docs: [`docs/ja/README.md`](docs/ja/README.md)
@@ -25,6 +27,10 @@
 go install github.com/kyaoi/gitshelf/cmd/shelf@latest
 ```
 
+Tagged installs report the tagged release in `shelf --version`.
+For example, `go install ...@v1.3.0` and `mise use -g go:github.com/kyaoi/gitshelf/cmd/shelf@latest`
+should both print the selected release version.
+
 ### Local development: clone and build
 
 ```bash
@@ -32,6 +38,8 @@ git clone https://github.com/kyaoi/gitshelf.git
 cd gitshelf
 go install ./cmd/shelf
 ```
+
+Local checkout builds report `dev+<shortsha>` when VCS metadata is available.
 
 
 ## Shell Completion
@@ -95,6 +103,20 @@ shelf now
 
 # script-friendly queries
 shelf ls --status open --json
+shelf next --format tsv
+shelf next --format csv --fields id,title,path --no-header
+shelf next --format tsv --fields title,due_on --sort due_on
+shelf next --count
+shelf ls --format tsv
+shelf ls --format jsonl
+shelf ls --format tsv --fields title,path --sort title --reverse
+shelf ls --format tsv --fields group,title --group-by status
+shelf ls --status open --count --json
+shelf ls --preset board
+shelf show 01AAA
+shelf show 01AAA --format csv --fields title,file,body --no-header
+shelf config show --json
+shelf config copy-preset list --format csv
 shelf link --from 01AAA --to 01BBB --type depends_on
 shelf links 01AAA
 shelf next
@@ -107,18 +129,60 @@ Only these top-level commands are part of the current public CLI surface:
 - `shelf init`
 - `shelf completion`
 - `shelf cockpit`
+- `shelf config`
 - `shelf calendar`
 - `shelf tree`
 - `shelf board`
 - `shelf review`
 - `shelf now`
+- `shelf show`
 - `shelf link`
 - `shelf unlink`
 - `shelf links`
 - `shelf ls`
 - `shelf next`
 
-Most daily editing still happens inside Cockpit, but link management is also available through standalone commands.
+Most daily editing still happens inside Cockpit, but inspection, query, link, and config flows are also available from standalone commands.
+
+For machine-readable shapes, see [`docs/OUTPUTS.md`](docs/OUTPUTS.md).
+
+## Shell Tooling
+
+`gitshelf` is designed to work well with shell tools.
+
+Examples:
+
+```bash
+# inspect current ready tasks with jq
+shelf next --json | jq '.[].path'
+
+# pick one task with fzf, then inspect it
+shelf next --format tsv --fields id,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r shelf show
+
+# the same flow with csv and no header
+shelf next --format csv --fields id,title,path --no-header | fzf --delimiter=, --with-nth=2,3 | cut -d, -f1 | xargs -r shelf show
+
+# open task files from ls output
+shelf ls --format tsv --fields file,title,path | fzf --with-nth=2,3 | cut -f1 | xargs -r ${EDITOR:-vi}
+
+# sort before handing off to another tool
+shelf ls --format tsv --fields title,path --sort title --reverse
+
+# inspect dependency paths from one task
+shelf links 01AAA --json | jq '.edges[] | {direction, type, source: .source.path, target: .target.path}'
+
+# use canonical edge columns
+shelf links 01AAA --format tsv --fields source_id,target_id
+
+# inspect link counts by type
+shelf links 01AAA --summary --format tsv --fields direction,type,count
+
+# inspect one task as a single shell-friendly row
+shelf show 01AAA --format tsv --fields id,title,file,body
+
+# inspect saved copy presets as tabular rows
+shelf config copy-preset list --format csv --fields name,scope,subtree_style
+```
 
 ## Cockpit-First Usage
 
@@ -131,7 +195,7 @@ Most daily editing still happens inside Cockpit, but link management is also ava
 - transient editors and selectors are shown as centered popups
 - non-calendar modes keep `Calendar / Selected Day / Inspector` in the right pane
 - the sidebar and main pane synchronize selection in both directions
-- direct scripting is mainly `ls`, `next`, `link`, `unlink`, and `links`
+- direct scripting is mainly `ls`, `next`, `show`, `links`, and `config`
 
 Detailed keybindings live in [`docs/INTERACTIVE.md`](docs/INTERACTIVE.md).
 
@@ -166,6 +230,14 @@ Links use only:
 ```bash
 gofmt -w .
 go test ./...
+bash scripts/check_coverage_ratchet.sh
 go test -race ./...
 go vet ./...
+bash scripts/check_public_contract_docs.sh
+```
+
+For the same full local suite used by `pre-push`, run:
+
+```bash
+bash scripts/run_heavy_checks.sh
 ```
