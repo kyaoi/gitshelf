@@ -62,7 +62,9 @@ func runPostExitGitAction(rootDir string, settings postExitGitSettings) error {
 	if len(changedPaths) == 0 {
 		return nil
 	}
-	if _, err := runGitCommand(rootDir, append([]string{"add"}, changedPaths...)...); err != nil {
+	addArgs := []string{"add", "-A", "--"}
+	addArgs = append(addArgs, changedPaths...)
+	if _, err := runGitCommand(rootDir, addArgs...); err != nil {
 		return err
 	}
 	args := []string{"commit", "--only", "-m", settings.CommitMessage, "--"}
@@ -79,25 +81,37 @@ func runPostExitGitAction(rootDir string, settings postExitGitSettings) error {
 }
 
 func gitChangedPaths(rootDir string, paths []string) ([]string, error) {
-	args := []string{"status", "--porcelain", "--"}
+	args := []string{"status", "--porcelain=v1", "-z", "--untracked-files=all", "--"}
 	args = append(args, paths...)
 	output, err := runGitCommand(rootDir, args...)
 	if err != nil {
 		return nil, err
 	}
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	changed := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || len(line) < 4 {
+	entries := strings.Split(output, "\x00")
+	changed := make([]string, 0, len(entries))
+	for i := 0; i < len(entries); i++ {
+		entry := entries[i]
+		if entry == "" || len(entry) < 4 {
 			continue
 		}
-		path := strings.TrimSpace(line[3:])
+		status := entry[:2]
+		path := entry[3:]
 		if path == "" {
 			continue
 		}
 		if !slices.Contains(changed, path) {
 			changed = append(changed, path)
+		}
+		if status[0] == 'R' || status[0] == 'C' {
+			if i+1 >= len(entries) {
+				continue
+			}
+			i++
+			previousPath := entries[i]
+			if previousPath == "" || slices.Contains(changed, previousPath) {
+				continue
+			}
+			changed = append(changed, previousPath)
 		}
 	}
 	return changed, nil
@@ -105,20 +119,53 @@ func gitChangedPaths(rootDir string, paths []string) ([]string, error) {
 
 func managedGitPaths(rootDir string) ([]string, error) {
 	paths := []string{filepath.ToSlash(filepath.Join(shelf.ShelfDirName, "config.toml"))}
-	for _, abs := range []string{shelf.TasksDir(rootDir), shelf.EdgesDir(rootDir)} {
+	cfg, err := shelf.LoadConfig(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	paths, err = appendManagedStoragePaths(rootDir, paths, cfg.StorageRoot)
+	if err != nil {
+		return nil, err
+	}
+	headConfig, err := gitHeadShelfConfig(rootDir)
+	if err == nil {
+		paths, err = appendManagedStoragePaths(rootDir, paths, headConfig.StorageRoot)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return paths, nil
+}
+
+func appendManagedStoragePaths(rootDir string, paths []string, storageRoot string) ([]string, error) {
+	storageDir, err := shelf.ResolveStorageRootDir(rootDir, storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	for _, abs := range []string{
+		filepath.Join(storageDir, "tasks"),
+		filepath.Join(storageDir, "edges"),
+	} {
 		rel, err := filepath.Rel(rootDir, abs)
 		if err != nil {
 			return nil, err
 		}
 		rel = filepath.ToSlash(rel)
-		if rel == "." {
+		if rel == "." || slices.Contains(paths, rel) {
 			continue
 		}
-		if !slices.Contains(paths, rel) {
-			paths = append(paths, rel)
-		}
+		paths = append(paths, rel)
 	}
 	return paths, nil
+}
+
+func gitHeadShelfConfig(rootDir string) (shelf.Config, error) {
+	configPath := filepath.ToSlash(filepath.Join(shelf.ShelfDirName, "config.toml"))
+	data, err := runGitCommand(rootDir, "show", "HEAD:"+configPath)
+	if err != nil {
+		return shelf.Config{}, err
+	}
+	return shelf.ParseConfigTOML([]byte(data))
 }
 
 func runGitCommand(rootDir string, args ...string) (string, error) {
