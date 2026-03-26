@@ -57,6 +57,52 @@ func TestRenderCopyPresetPayloadSupportsSubtreeAndAbsolutePath(t *testing.T) {
 	}
 }
 
+func TestRenderCopyPresetPayloadSupportsTaskBodyAndAbsolutePath(t *testing.T) {
+	root := t.TempDir()
+	if _, err := shelf.Initialize(root, false); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	task := shelf.Task{ID: "01A", Title: "First", Body: "line one\nline two"}
+	model := calendarTUIModel{
+		rootDir:           root,
+		mode:              calendarModeTree,
+		copySeparator:     "\n",
+		taskByID:          map[string]shelf.Task{"01A": task},
+		allTasks:          []shelf.Task{task},
+		treeRows:          []cockpitTreeRow{{Task: task}},
+		treeRowIndex:      0,
+		markedTaskIDs:     map[string]struct{}{},
+		rangeBaseIDs:      map[string]struct{}{},
+		sectionRows:       map[calendarSectionID]int{},
+		boardRowIndex:     map[int]int{},
+		collapsedTree:     map[string]struct{}{},
+		outboundCount:     map[string]int{},
+		inboundCount:      map[string]int{},
+		readiness:         map[string]shelf.TaskReadiness{},
+		titleByID:         map[string]string{},
+		effectiveDue:      map[string]string{},
+		linkCollapsedTree: map[string]struct{}{},
+	}
+
+	text, count, err := model.renderCopyPresetPayload(shelf.CopyPreset{
+		Name:     "task-path-body",
+		Scope:    shelf.CopyPresetScopeTask,
+		Template: "{{path}}\n{{body}}",
+	})
+	if err != nil {
+		t.Fatalf("render copy preset failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("unexpected rendered item count: %d", count)
+	}
+	expectedPath := filepath.Join(shelf.TasksDir(root), "01A.md")
+	expected := expectedPath + "\nline one\nline two"
+	if text != expected {
+		t.Fatalf("unexpected rendered copy payload:\n%s\nwant:\n%s", text, expected)
+	}
+}
+
 func TestRenderCopyPresetPayloadDeduplicatesNestedMarkedSubtrees(t *testing.T) {
 	parent := shelf.Task{ID: "01A", Title: "Parent"}
 	child := shelf.Task{ID: "01B", Title: "Child", Parent: "01A"}

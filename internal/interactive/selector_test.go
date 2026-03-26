@@ -39,8 +39,8 @@ func TestClampSelectorOffsetKeepsCursorVisible(t *testing.T) {
 }
 
 func TestSelectorSearchLineShowsViewportRange(t *testing.T) {
-	line := selectorSearchLine("検索", "(なし)", 5, 10, 42)
-	if line != "検索: (なし)  [6-15/42]" {
+	line := selectorSearchLine("Search", "(none)", 5, 10, 42)
+	if line != "Search: (none)  [6-15/42]" {
 		t.Fatalf("unexpected search line: %q", line)
 	}
 }

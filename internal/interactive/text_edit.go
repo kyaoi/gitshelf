@@ -28,6 +28,17 @@ func MoveTextCursorRight(value string, cursor int) int {
 	return cursor + 1
 }
 
+func MoveTextCursorStart(value string, cursor int) int {
+	_ = value
+	_ = cursor
+	return 0
+}
+
+func MoveTextCursorEnd(value string, cursor int) int {
+	_ = cursor
+	return len([]rune(value))
+}
+
 func InsertRuneAtCursor(value string, cursor int, r rune) (string, int) {
 	runes := []rune(value)
 	cursor = ClampTextCursor(value, cursor)
@@ -43,6 +54,16 @@ func DeleteRuneBeforeCursor(value string, cursor int) (string, int) {
 	}
 	runes = append(runes[:cursor-1], runes[cursor:]...)
 	return string(runes), cursor - 1
+}
+
+func DeleteRuneAtCursor(value string, cursor int) (string, int) {
+	runes := []rune(value)
+	cursor = ClampTextCursor(value, cursor)
+	if cursor >= len(runes) {
+		return value, cursor
+	}
+	runes = append(runes[:cursor], runes[cursor+1:]...)
+	return string(runes), cursor
 }
 
 func RenderTextCursor(value string, cursor int) string {

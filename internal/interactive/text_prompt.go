@@ -57,10 +57,17 @@ func applyTextPromptKey(value string, cursor int, key keyEvent) (done bool, canc
 	case keyKindBackspace:
 		nextValue, nextCursor := DeleteRuneBeforeCursor(value, cursor)
 		return false, false, nextValue, nextCursor
+	case keyKindDelete:
+		nextValue, nextCursor := DeleteRuneAtCursor(value, cursor)
+		return false, false, nextValue, nextCursor
 	case keyKindLeft:
 		return false, false, value, MoveTextCursorLeft(value, cursor)
 	case keyKindRight:
 		return false, false, value, MoveTextCursorRight(value, cursor)
+	case keyKindHome:
+		return false, false, value, MoveTextCursorStart(value, cursor)
+	case keyKindEnd:
+		return false, false, value, MoveTextCursorEnd(value, cursor)
 	default:
 		if key.Kind == keyKindRune && isPrintableRune(key.Rune) {
 			nextValue, nextCursor := InsertRuneAtCursor(value, cursor, key.Rune)
@@ -75,10 +82,10 @@ func renderTextPrompt(prompt string, value string, cursor int) {
 	b.WriteString("\r\033[H\033[2J")
 	b.WriteString(uiPrompt(prompt))
 	b.WriteString(eol)
-	b.WriteString(uiHelp("入力して Enter で確定  Esc/Ctrl+C でキャンセル"))
+	b.WriteString(uiHelp("Type and press Enter to confirm  Esc/Ctrl+C to cancel"))
 	b.WriteString(eol)
 	b.WriteString(eol)
-	b.WriteString(uiSelected("入力: " + RenderTextCursor(value, cursor)))
+	b.WriteString(uiSelected("Input: " + RenderTextCursor(value, cursor)))
 	b.WriteString(eol)
 	fmt.Fprint(os.Stdout, b.String())
 }

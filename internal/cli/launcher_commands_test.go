@@ -167,12 +167,12 @@ func TestLaunchersRequireTTY(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"cockpit", "--root", root}, "cockpit はTTYが必要です"},
-		{[]string{"calendar", "--root", root}, "calendar はTTYが必要です"},
-		{[]string{"tree", "--root", root}, "tree はTTYが必要です"},
-		{[]string{"board", "--root", root}, "board はTTYが必要です"},
-		{[]string{"review", "--root", root}, "review はTTYが必要です"},
-		{[]string{"now", "--root", root}, "now はTTYが必要です"},
+		{[]string{"cockpit", "--root", root}, "cockpit requires a TTY"},
+		{[]string{"calendar", "--root", root}, "calendar requires a TTY"},
+		{[]string{"tree", "--root", root}, "tree requires a TTY"},
+		{[]string{"board", "--root", root}, "board requires a TTY"},
+		{[]string{"review", "--root", root}, "review requires a TTY"},
+		{[]string{"now", "--root", root}, "now requires a TTY"},
 	}
 	for _, tc := range cases {
 		cmd := NewRootCommand("test")

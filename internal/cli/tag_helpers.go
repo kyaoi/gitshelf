@@ -63,7 +63,7 @@ func selectTagsInteractive(prompt string, catalog []string, current []string) ([
 		case "__done":
 			return shelf.NormalizeTags(selected), nil
 		case "__new":
-			tag, err := interactive.PromptText("新しい tag を入力してください")
+			tag, err := interactive.PromptText("Enter a new tag")
 			if err != nil {
 				return nil, err
 			}

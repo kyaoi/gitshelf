@@ -379,7 +379,7 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "esc", "q", "m", "ctrl+[":
 				m.finishMoveMode(false, "")
-				m.message = "move をキャンセルしました"
+				m.message = "Canceled move"
 				return m, nil
 			case "enter":
 				return m.applyMoveSelection()
@@ -639,12 +639,12 @@ func (m calendarTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "z":
 			if _, ok := m.selectedTask(); !ok {
-				m.message = "選択中の task がありません"
+				m.message = "No task selected"
 				return m, nil
 			}
 			m.snoozeMode = true
 			m.snoozeIndex = 0
-			m.message = "期限変更プリセットを選択"
+			m.message = "Select a due-date preset"
 			return m, nil
 		case "K":
 			m.beginKindMode(calendarKindTargetTask)
@@ -934,7 +934,7 @@ func (m calendarTUIModel) updateSnoozeMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
 		m.snoozeMode = false
-		m.message = "期限変更をキャンセルしました"
+		m.message = "Canceled due-date change"
 		return m, nil
 	case "up", "k":
 		if m.snoozeIndex > 0 {
@@ -966,7 +966,7 @@ func (m *calendarTUIModel) beginFilterMode() {
 	m.filterSection = calendarFilterIncludeStatuses
 	m.filterIndex = 0
 	m.filterSnapshot = cloneTaskFilter(m.filter)
-	m.message = "filter を編集"
+	m.message = "Edit filter"
 }
 
 func (m calendarTUIModel) updateFilterMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -975,7 +975,7 @@ func (m calendarTUIModel) updateFilterMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		m.filter = cloneTaskFilter(m.filterSnapshot)
 		m.statuses = deriveActiveStatuses(m.statusChoices, m.filter)
 		m.filterMode = false
-		m.message = "filter 編集をキャンセルしました"
+		m.message = "Canceled filter edit"
 		return m, nil
 	case "left", "h":
 		if m.filterSection > calendarFilterIncludeStatuses {
@@ -1013,7 +1013,7 @@ func (m calendarTUIModel) updateFilterMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			return m, nil
 		}
 		m.filterMode = false
-		m.message = "filter を更新"
+		m.message = "Updated filter"
 		return m, nil
 	}
 	return m, nil
@@ -1113,7 +1113,7 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addKind = m.defaultKind
 		m.addField = calendarAddFieldTitle
 		m.addAtRoot = false
-		m.message = "新規 task 作成をキャンセルしました"
+		m.message = "Canceled new task creation"
 		return m, nil
 	case "tab":
 		if m.addField == calendarAddFieldTitle {
@@ -1132,7 +1132,7 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		title := strings.TrimSpace(m.addTitle)
 		if title == "" {
-			m.message = "title は必須です"
+			m.message = "title is required"
 			return m, nil
 		}
 		if err := m.createTaskFromAddMode(title); err != nil {
@@ -1158,17 +1158,22 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "backspace":
 		if m.addField == calendarAddFieldTitle {
-			m.addTitle, m.addTitleCursor = interactive.DeleteRuneBeforeCursor(m.addTitle, m.addTitleCursor)
+			m.addTitle, m.addTitleCursor, _ = applyBubbleTextInputKey(m.addTitle, m.addTitleCursor, msg)
+		}
+		return m, nil
+	case "delete", " ", "home", "end", "ctrl+a", "ctrl+e":
+		if m.addField == calendarAddFieldTitle {
+			m.addTitle, m.addTitleCursor, _ = applyBubbleTextInputKey(m.addTitle, m.addTitleCursor, msg)
 		}
 		return m, nil
 	case "left":
 		if m.addField == calendarAddFieldTitle {
-			m.addTitleCursor = interactive.MoveTextCursorLeft(m.addTitle, m.addTitleCursor)
+			m.addTitle, m.addTitleCursor, _ = applyBubbleTextInputKey(m.addTitle, m.addTitleCursor, msg)
 		}
 		return m, nil
 	case "right":
 		if m.addField == calendarAddFieldTitle {
-			m.addTitleCursor = interactive.MoveTextCursorRight(m.addTitle, m.addTitleCursor)
+			m.addTitle, m.addTitleCursor, _ = applyBubbleTextInputKey(m.addTitle, m.addTitleCursor, msg)
 		}
 		return m, nil
 	default:
@@ -1184,10 +1189,11 @@ func (m calendarTUIModel) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if m.addField == calendarAddFieldTitle {
-				for _, r := range msg.Runes {
-					m.addTitle, m.addTitleCursor = interactive.InsertRuneAtCursor(m.addTitle, m.addTitleCursor, r)
+				if nextValue, nextCursor, handled := applyBubbleTextInputKey(m.addTitle, m.addTitleCursor, msg); handled {
+					m.addTitle = nextValue
+					m.addTitleCursor = nextCursor
+					return m, nil
 				}
-				return m, nil
 			}
 		}
 	}
@@ -1318,7 +1324,7 @@ func (m calendarTUIModel) commonPromptValue(taskIDs []string, getter func(shelf.
 func (m *calendarTUIModel) beginDuePrompt() {
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.DueOn })
@@ -1328,13 +1334,13 @@ func (m *calendarTUIModel) beginDuePrompt() {
 		current,
 		calendarTextPromptDueOn,
 	)
-	m.message = "due を編集"
+	m.message = "Edit due"
 }
 
 func (m *calendarTUIModel) beginRepeatPrompt() {
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	current := m.commonPromptValue(taskIDs, func(task shelf.Task) string { return task.RepeatEvery })
@@ -1344,13 +1350,13 @@ func (m *calendarTUIModel) beginRepeatPrompt() {
 		current,
 		calendarTextPromptRepeatEvery,
 	)
-	m.message = "repeat を編集"
+	m.message = "Edit repeat"
 }
 
 func (m *calendarTUIModel) beginAppendBodyPrompt() {
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	m.beginTextPrompt(
@@ -1359,7 +1365,7 @@ func (m *calendarTUIModel) beginAppendBodyPrompt() {
 		"",
 		calendarTextPromptAppendBody,
 	)
-	m.message = "note を追記"
+	m.message = "Append note"
 }
 
 func (m calendarTUIModel) tagBulkState(tag string) calendarTagBulkState {
@@ -1410,7 +1416,7 @@ func markerForCalendarTagBulkState(state calendarTagBulkState) string {
 
 func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 	if len(m.kindChoices) == 0 {
-		m.message = "kind が設定されていません"
+		m.message = "kind is not configured"
 		return
 	}
 	current := m.defaultKind
@@ -1419,7 +1425,7 @@ func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 	} else if task, ok := m.selectedTask(); ok {
 		current = task.Kind
 	} else {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	m.kindTarget = target
@@ -1432,17 +1438,17 @@ func (m *calendarTUIModel) beginKindMode(target calendarKindTarget) {
 	}
 	m.kindMode = true
 	if target == calendarKindTargetAdd {
-		m.message = "新規 task の kind を選択"
+		m.message = "Select kind for new task"
 		return
 	}
-	m.message = "kind を選択"
+	m.message = "Select kind"
 }
 
 func (m calendarTUIModel) updateKindMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
 		m.kindMode = false
-		m.message = "kind 変更をキャンセルしました"
+		m.message = "Canceled kind change"
 		return m, nil
 	case "up", "k":
 		if m.kindIndex > 0 {
@@ -1463,7 +1469,7 @@ func (m calendarTUIModel) updateKindMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.kindTarget == calendarKindTargetAdd {
 			m.addKind = selected
 			m.kindMode = false
-			m.message = fmt.Sprintf("新規 task の kind を %s に設定", selected)
+			m.message = fmt.Sprintf("Set new task kind to %s", selected)
 			return m, nil
 		}
 		if err := m.applySelectedTaskKind(selected); err != nil {
@@ -1480,7 +1486,7 @@ func (m calendarTUIModel) updateKindMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *calendarTUIModel) beginTagMode() {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	choices := append([]string{}, m.tagChoices...)
@@ -1519,10 +1525,10 @@ func (m *calendarTUIModel) beginTagMode() {
 	m.tagInputValue = ""
 	m.tagInputCursor = 0
 	if m.tagBulkMode {
-		m.message = "tag を一括編集"
+		m.message = "Bulk edit tags"
 		return
 	}
-	m.message = "tag を編集"
+	m.message = "Edit tags"
 }
 
 func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1532,12 +1538,12 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tagInputMode = false
 			m.tagInputValue = ""
 			m.tagInputCursor = 0
-			m.message = "tag 入力をキャンセルしました"
+			m.message = "Canceled tag input"
 			return m, nil
 		case "enter":
 			value := strings.TrimSpace(m.tagInputValue)
 			if value == "" {
-				m.message = "tag は必須です"
+				m.message = "tag is required"
 				return m, nil
 			}
 			if !containsTag(m.tagChoices, value) {
@@ -1560,22 +1566,24 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tagInputMode = false
 			m.tagInputValue = ""
 			m.tagInputCursor = 0
-			m.message = fmt.Sprintf("tag %s を追加", value)
+			m.message = fmt.Sprintf("Added tag %s", value)
 			return m, nil
 		case "backspace":
-			m.tagInputValue, m.tagInputCursor = interactive.DeleteRuneBeforeCursor(m.tagInputValue, m.tagInputCursor)
+			m.tagInputValue, m.tagInputCursor, _ = applyBubbleTextInputKey(m.tagInputValue, m.tagInputCursor, msg)
+			return m, nil
+		case "delete", " ", "home", "end", "ctrl+a", "ctrl+e":
+			m.tagInputValue, m.tagInputCursor, _ = applyBubbleTextInputKey(m.tagInputValue, m.tagInputCursor, msg)
 			return m, nil
 		case "left":
-			m.tagInputCursor = interactive.MoveTextCursorLeft(m.tagInputValue, m.tagInputCursor)
+			m.tagInputValue, m.tagInputCursor, _ = applyBubbleTextInputKey(m.tagInputValue, m.tagInputCursor, msg)
 			return m, nil
 		case "right":
-			m.tagInputCursor = interactive.MoveTextCursorRight(m.tagInputValue, m.tagInputCursor)
+			m.tagInputValue, m.tagInputCursor, _ = applyBubbleTextInputKey(m.tagInputValue, m.tagInputCursor, msg)
 			return m, nil
 		default:
-			if msg.Type == tea.KeyRunes {
-				for _, r := range msg.Runes {
-					m.tagInputValue, m.tagInputCursor = interactive.InsertRuneAtCursor(m.tagInputValue, m.tagInputCursor, r)
-				}
+			if nextValue, nextCursor, handled := applyBubbleTextInputKey(m.tagInputValue, m.tagInputCursor, msg); handled {
+				m.tagInputValue = nextValue
+				m.tagInputCursor = nextCursor
 				return m, nil
 			}
 		}
@@ -1603,7 +1611,7 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "esc", "q", "ctrl+[":
 		m.clearTagModeState()
-		m.message = "tag 変更をキャンセルしました"
+		m.message = "Canceled tag change"
 		return m, nil
 	case "up", "k":
 		if m.tagIndex > 0 {
@@ -1654,7 +1662,7 @@ func (m calendarTUIModel) updateTagMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tagInputMode = true
 			m.tagInputValue = ""
 			m.tagInputCursor = 0
-			m.message = "新しい tag を入力"
+			m.message = "Enter a new tag"
 			return m, nil
 		}
 	}
@@ -1665,12 +1673,12 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
 		m.clearTextPromptState()
-		m.message = "入力をキャンセルしました"
+		m.message = "Canceled input"
 		return m, nil
 	case "enter":
 		value := strings.TrimSpace(m.textPromptValue)
 		if value == "" && m.textPromptPurpose == calendarTextPromptTag {
-			m.message = "入力は必須です"
+			m.message = "input is required"
 			return m, nil
 		}
 		switch m.textPromptPurpose {
@@ -1690,7 +1698,7 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 					break
 				}
 			}
-			m.message = fmt.Sprintf("tag %s を追加", value)
+			m.message = fmt.Sprintf("Added tag %s", value)
 		case calendarTextPromptDueOn:
 			if err := m.applySelectedTaskDueOn(value); err != nil {
 				m.message = err.Error()
@@ -1705,7 +1713,7 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 			}
 		case calendarTextPromptAppendBody:
 			if value == "" {
-				m.message = "入力は必須です"
+				m.message = "input is required"
 				return m, nil
 			}
 			if err := m.applySelectedTaskAppendBody(m.textPromptValue); err != nil {
@@ -1722,19 +1730,21 @@ func (m calendarTUIModel) updateTextPromptMode(msg tea.KeyMsg) (tea.Model, tea.C
 			return m, nil
 		}
 	case "backspace":
-		m.textPromptValue, m.textPromptCursor = interactive.DeleteRuneBeforeCursor(m.textPromptValue, m.textPromptCursor)
+		m.textPromptValue, m.textPromptCursor, _ = applyBubbleTextInputKey(m.textPromptValue, m.textPromptCursor, msg)
+		return m, nil
+	case "delete", " ", "home", "end", "ctrl+a", "ctrl+e":
+		m.textPromptValue, m.textPromptCursor, _ = applyBubbleTextInputKey(m.textPromptValue, m.textPromptCursor, msg)
 		return m, nil
 	case "left":
-		m.textPromptCursor = interactive.MoveTextCursorLeft(m.textPromptValue, m.textPromptCursor)
+		m.textPromptValue, m.textPromptCursor, _ = applyBubbleTextInputKey(m.textPromptValue, m.textPromptCursor, msg)
 		return m, nil
 	case "right":
-		m.textPromptCursor = interactive.MoveTextCursorRight(m.textPromptValue, m.textPromptCursor)
+		m.textPromptValue, m.textPromptCursor, _ = applyBubbleTextInputKey(m.textPromptValue, m.textPromptCursor, msg)
 		return m, nil
 	default:
-		if msg.Type == tea.KeyRunes {
-			for _, r := range msg.Runes {
-				m.textPromptValue, m.textPromptCursor = interactive.InsertRuneAtCursor(m.textPromptValue, m.textPromptCursor, r)
-			}
+		if nextValue, nextCursor, handled := applyBubbleTextInputKey(m.textPromptValue, m.textPromptCursor, msg); handled {
+			m.textPromptValue = nextValue
+			m.textPromptCursor = nextCursor
 			return m, nil
 		}
 	}
@@ -1867,7 +1877,7 @@ func (m calendarTUIModel) isMarkedTask(taskID string) bool {
 func (m *calendarTUIModel) toggleMarkedSelection() {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	if m.markedTaskIDs == nil {
@@ -1885,7 +1895,7 @@ func (m *calendarTUIModel) toggleMarkedSelection() {
 func (m *calendarTUIModel) unmarkCurrentSelection() {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	if _, exists := m.markedTaskIDs[task.ID]; !exists {
@@ -1904,7 +1914,7 @@ func (m *calendarTUIModel) unmarkCurrentSelection() {
 func (m *calendarTUIModel) toggleRangeSelectionMode() {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	if m.rangeMarkMode {
@@ -2750,7 +2760,7 @@ func (m *calendarTUIModel) expandCurrentTreeNode() {
 func (m *calendarTUIModel) moveFocusedDayTask(delta int) {
 	section := m.focusedDaySection()
 	if section == nil || len(section.Items) == 0 {
-		m.message = "selected day に task がありません"
+		m.message = "No tasks on selected day"
 		return
 	}
 	row := m.sectionRows[section.ID] + delta
@@ -2767,7 +2777,7 @@ func (m *calendarTUIModel) moveFocusedDayTask(delta int) {
 func (m *calendarTUIModel) moveSelectedDayTask(delta int) {
 	section := m.focusedDaySection()
 	if section == nil || len(section.Items) == 0 {
-		m.message = "selected day に task がありません"
+		m.message = "No tasks on selected day"
 		return
 	}
 	row := m.sectionRows[section.ID] + delta
@@ -2956,7 +2966,7 @@ func (m calendarTUIModel) focusedDay() *calendarDay {
 func (m calendarTUIModel) focusedDate() (time.Time, error) {
 	day := m.focusedDay()
 	if day == nil {
-		return time.Time{}, fmt.Errorf("選択中の日付がありません")
+		return time.Time{}, fmt.Errorf("no selected date")
 	}
 	return time.ParseInLocation("2006-01-02", day.Date, time.Now().Location())
 }
@@ -3015,7 +3025,7 @@ func (m calendarTUIModel) selectedTask() (shelf.Task, bool) {
 func (m calendarTUIModel) openEditorForSelectedTask() (tea.Model, tea.Cmd) {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return m, nil
 	}
 	editorCmd, err := resolveEditorCommand(os.LookupEnv)
@@ -3046,7 +3056,7 @@ func (m calendarTUIModel) openEditorForSelectedTask() (tea.Model, tea.Cmd) {
 func (m calendarTUIModel) openEditorForSelectedTaskEdges() (tea.Model, tea.Cmd) {
 	task, ok := m.selectedTask()
 	if !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return m, nil
 	}
 	editorCmd, err := resolveEditorCommand(os.LookupEnv)
@@ -3088,10 +3098,10 @@ func (m *calendarTUIModel) beginAddMode(atRoot bool) {
 	m.addField = calendarAddFieldTitle
 	m.addAtRoot = atRoot
 	if atRoot {
-		m.message = "root task title を入力"
+		m.message = "Enter root task title"
 		return
 	}
-	m.message = "子 task title を入力"
+	m.message = "Enter child task title"
 }
 
 func (m *calendarTUIModel) createTaskFromAddMode(title string) error {
@@ -3104,7 +3114,7 @@ func (m *calendarTUIModel) createTaskFromAddMode(title string) error {
 	case calendarModeCalendar, calendarModeReview, calendarModeNow:
 		day := m.focusedDay()
 		if day == nil {
-			return fmt.Errorf("選択中の日付がありません")
+			return fmt.Errorf("no selected date")
 		}
 		input.DueOn = day.Date
 	case calendarModeBoard:
@@ -3115,7 +3125,7 @@ func (m *calendarTUIModel) createTaskFromAddMode(title string) error {
 	if !m.addAtRoot {
 		task, ok := m.selectedTask()
 		if !ok {
-			return fmt.Errorf("親 task が選択されていません")
+			return fmt.Errorf("no parent task selected")
 		}
 		input.Parent = task.ID
 	}
@@ -3161,7 +3171,7 @@ func (m *calendarTUIModel) createTaskOnFocusedDay(title string) error {
 func (m *calendarTUIModel) applySelectedTaskKind(kind shelf.Kind) error {
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	updatedCount := 0
 	if err := withWriteLock(m.rootDir, func() error {
@@ -3196,7 +3206,7 @@ func (m *calendarTUIModel) applySelectedTaskKind(kind shelf.Kind) error {
 func (m *calendarTUIModel) applySelectedTaskTags(tags []string) error {
 	task, ok := m.selectedTask()
 	if !ok {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	normalized := shelf.NormalizeTags(tags)
 	if err := withWriteLock(m.rootDir, func() error {
@@ -3248,7 +3258,7 @@ func (m *calendarTUIModel) applySelectedTaskTagDelta(input shelf.SetTaskInput) e
 	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-tags"); err != nil {
@@ -3282,7 +3292,7 @@ func (m *calendarTUIModel) applySelectedTaskDueOn(value string) error {
 	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-due"); err != nil {
@@ -3325,7 +3335,7 @@ func (m *calendarTUIModel) applySelectedTaskRepeatEvery(value string) error {
 	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-repeat"); err != nil {
@@ -3364,11 +3374,11 @@ func (m *calendarTUIModel) applySelectedTaskRepeatEvery(value string) error {
 func (m *calendarTUIModel) applySelectedTaskAppendBody(value string) error {
 	appendix := strings.TrimSpace(value)
 	if appendix == "" {
-		return fmt.Errorf("入力は必須です")
+		return fmt.Errorf("input is required")
 	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	if err := withWriteLock(m.rootDir, func() error {
 		if err := prepareUndoSnapshot(m.rootDir, "calendar-body"); err != nil {
@@ -3421,7 +3431,7 @@ func (m calendarTUIModel) selectedTitleCopyText() (string, int, error) {
 		titles = append(titles, task.Title)
 	}
 	if len(titles) == 0 {
-		return "", 0, fmt.Errorf("コピー対象の title がありません")
+		return "", 0, fmt.Errorf("no title to copy")
 	}
 	return strings.Join(titles, m.copySeparator), len(titles), nil
 }
@@ -3436,7 +3446,7 @@ func (m calendarTUIModel) selectedPathCopyText() (string, int, error) {
 		paths = append(paths, filepath.Join(shelf.TasksDir(m.rootDir), taskID+".md"))
 	}
 	if len(paths) == 0 {
-		return "", 0, fmt.Errorf("コピー対象の path がありません")
+		return "", 0, fmt.Errorf("no path to copy")
 	}
 	return strings.Join(paths, m.copySeparator), len(paths), nil
 }
@@ -3452,7 +3462,7 @@ func (m calendarTUIModel) selectedBodyCopyText() (string, int, error) {
 		bodies = append(bodies, task.Body)
 	}
 	if len(bodies) == 0 {
-		return "", 0, fmt.Errorf("コピー対象の本文がありません")
+		return "", 0, fmt.Errorf("no task body to copy")
 	}
 	return strings.Join(bodies, m.copySeparator), len(bodies), nil
 }
@@ -3460,7 +3470,7 @@ func (m calendarTUIModel) selectedBodyCopyText() (string, int, error) {
 func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
 	rootIDs := m.copySubtreeRootIDs()
 	if len(rootIDs) == 0 {
-		return "", 0, fmt.Errorf("選択中の task がありません")
+		return "", 0, fmt.Errorf("no task selected")
 	}
 	lines := make([]string, 0, len(rootIDs))
 	count := 0
@@ -3476,7 +3486,7 @@ func (m calendarTUIModel) selectedSubtreeCopyText() (string, int, error) {
 		count += subtreeCount
 	}
 	if count == 0 {
-		return "", 0, fmt.Errorf("コピー対象の subtree がありません")
+		return "", 0, fmt.Errorf("no subtree to copy")
 	}
 	return strings.Join(lines, "\n"), count, nil
 }
@@ -3527,7 +3537,7 @@ func (m *calendarTUIModel) copySelectedTaskSubtrees() error {
 
 func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
 	if _, ok := m.selectedTask(); !ok {
-		m.message = "選択中の task がありません"
+		m.message = "No task selected"
 		return
 	}
 	m.linkMode = true
@@ -3539,49 +3549,52 @@ func (m *calendarTUIModel) beginLinkMode(action calendarLinkAction) {
 	m.linkTypeIndex = 0
 	m.linkCollapsedTree = map[string]struct{}{}
 	if action == calendarLinkActionAdd {
-		m.message = "link 先を選択"
+		m.message = "Select link target"
 		return
 	}
 	if len(m.currentLinkCandidates()) == 0 {
 		m.linkMode = false
-		m.message = "削除できる outbound link がありません"
+		m.message = "No outbound link can be removed"
 		return
 	}
-	m.message = "削除する outbound link を選択"
+	m.message = "Select outbound link to remove"
 }
 
 func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.linkQueryMode && msg.Type == tea.KeyRunes && string(msg.Runes) == "/" {
 		m.linkQueryMode = true
 		m.linkQueryCursor = len([]rune(m.linkQuery))
-		m.message = "query を入力"
+		m.message = "Enter query"
 		return m, nil
 	}
 	if m.linkQueryMode {
 		switch msg.String() {
 		case "esc", "ctrl+[":
 			m.linkQueryMode = false
-			m.message = "query 入力を終了"
+			m.message = "Closed query input"
 			return m, nil
 		case "enter":
 			m.linkQueryMode = false
-			m.message = "query を適用"
+			m.message = "Applied query"
 			return m, nil
 		case "backspace":
-			m.linkQuery, m.linkQueryCursor = interactive.DeleteRuneBeforeCursor(m.linkQuery, m.linkQueryCursor)
+			m.linkQuery, m.linkQueryCursor, _ = applyBubbleTextInputKey(m.linkQuery, m.linkQueryCursor, msg)
+			m.linkIndex = 0
+			return m, nil
+		case "delete", " ", "home", "end", "ctrl+a", "ctrl+e":
+			m.linkQuery, m.linkQueryCursor, _ = applyBubbleTextInputKey(m.linkQuery, m.linkQueryCursor, msg)
 			m.linkIndex = 0
 			return m, nil
 		case "left":
-			m.linkQueryCursor = interactive.MoveTextCursorLeft(m.linkQuery, m.linkQueryCursor)
+			m.linkQuery, m.linkQueryCursor, _ = applyBubbleTextInputKey(m.linkQuery, m.linkQueryCursor, msg)
 			return m, nil
 		case "right":
-			m.linkQueryCursor = interactive.MoveTextCursorRight(m.linkQuery, m.linkQueryCursor)
+			m.linkQuery, m.linkQueryCursor, _ = applyBubbleTextInputKey(m.linkQuery, m.linkQueryCursor, msg)
 			return m, nil
 		default:
-			if msg.Type == tea.KeyRunes {
-				for _, r := range msg.Runes {
-					m.linkQuery, m.linkQueryCursor = interactive.InsertRuneAtCursor(m.linkQuery, m.linkQueryCursor, r)
-				}
+			if nextValue, nextCursor, handled := applyBubbleTextInputKey(m.linkQuery, m.linkQueryCursor, msg); handled {
+				m.linkQuery = nextValue
+				m.linkQueryCursor = nextCursor
 				m.linkIndex = 0
 				return m, nil
 			}
@@ -3594,7 +3607,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.linkQuery = ""
 		m.linkQueryCursor = 0
 		m.linkQueryMode = false
-		m.message = "link 操作をキャンセルしました"
+		m.message = "Canceled link action"
 		return m, nil
 	case "up", "k":
 		if m.linkIndex > 0 {
@@ -3629,7 +3642,7 @@ func (m calendarTUIModel) updateLinkMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		candidates := m.currentLinkCandidates()
 		if len(candidates) == 0 {
 			m.linkMode = false
-			m.message = "候補がありません"
+			m.message = "No candidates"
 			return m, nil
 		}
 		if m.linkIndex >= len(candidates) {
@@ -3832,7 +3845,7 @@ func flattenLinkCandidates(tasks []shelf.Task, byParent map[string][]shelf.Task,
 func (m *calendarTUIModel) applyLinkCandidate(candidate calendarLinkCandidate) error {
 	task, ok := m.selectedTask()
 	if !ok {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	if m.linkAction == calendarLinkActionRemove {
 		if err := withWriteLock(m.rootDir, func() error {
@@ -3885,7 +3898,7 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	if m.mode != calendarModeTree {
 		task, ok := m.selectedTask()
 		if !ok {
-			m.message = "move 対象の task がありません"
+			m.message = "No task selected to move"
 			return m, nil
 		}
 		m.switchMode(calendarModeTree)
@@ -3898,11 +3911,19 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 	}
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		m.message = "move 対象の task がありません"
+		m.message = "No task selected to move"
 		return m, nil
 	}
 	m.moveMode = true
 	m.moveSourceIDs = append([]string{}, taskIDs...)
+	if m.mode == calendarModeTree && len(m.moveSourceIDs) == 1 {
+		for i, row := range m.treeRows {
+			if row.Task.ID == m.moveSourceIDs[0] {
+				m.treeRowIndex = i
+				break
+			}
+		}
+	}
 	if originalMode != calendarModeTree {
 		m.moveReturnMode = originalMode
 		m.moveReturnSelectedTaskID = originalSelectedTaskID
@@ -3910,7 +3931,7 @@ func (m calendarTUIModel) beginMoveSelection() (tea.Model, tea.Cmd) {
 		m.moveReturnMode = ""
 		m.moveReturnSelectedTaskID = ""
 	}
-	m.message = fmt.Sprintf("move target を選択して Enter (%d task)", len(taskIDs))
+	m.message = fmt.Sprintf("Select move target and press Enter (%d task(s))", len(taskIDs))
 	return m, nil
 }
 
@@ -3982,7 +4003,7 @@ func (m calendarTUIModel) toggleArchivedState() (tea.Model, tea.Cmd) {
 func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	if m.mode != calendarModeTree {
 		m.finishMoveMode(false, "")
-		m.message = "move は Tree mode で使ってください"
+		m.message = "Use move in Tree mode"
 		return m, nil
 	}
 	sources := append([]string{}, m.moveSourceIDs...)
@@ -3991,7 +4012,7 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	}
 	if len(sources) == 0 {
 		m.finishMoveMode(false, "")
-		m.message = "move 対象の task がありません"
+		m.message = "No task selected to move"
 		return m, nil
 	}
 	targetParentID := ""
@@ -3999,7 +4020,7 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	if m.treeRowIndex >= 0 {
 		target, ok := m.selectedTask()
 		if !ok {
-			m.message = "move 先の task がありません"
+			m.message = "No move target task"
 			return m, nil
 		}
 		targetParentID = target.ID
@@ -4007,11 +4028,11 @@ func (m calendarTUIModel) applyMoveSelection() (tea.Model, tea.Cmd) {
 	}
 	for _, sourceID := range sources {
 		if targetParentID != "" && sourceID == targetParentID {
-			m.message = "自分自身の下には移動できません"
+			m.message = "Cannot move under itself"
 			return m, nil
 		}
 		if targetParentID != "" && isDescendantTask(m.taskByID, targetParentID, sourceID) {
-			m.message = "子孫 task の下には移動できません"
+			m.message = "Cannot move under a descendant task"
 			return m, nil
 		}
 	}
@@ -4069,7 +4090,7 @@ func isDescendantTask(tasks map[string]shelf.Task, candidateID string, ancestorI
 func (m *calendarTUIModel) applySnoozeOption(option snoozePreset) error {
 	taskIDs := m.activeTaskIDs()
 	if len(taskIDs) == 0 {
-		return fmt.Errorf("選択中の task がありません")
+		return fmt.Errorf("no task selected")
 	}
 	nextDueByTaskID := make(map[string]string, len(taskIDs))
 	dueTargets := map[string]struct{}{}
@@ -4894,7 +4915,7 @@ func renderCockpitTreePane(rows []cockpitTreeRow, selected int, marked map[strin
 	header := []string{titleStyle.Render("Tree")}
 	anchor := -1
 	if moveMode {
-		header = append(header, mutedStyle.Render("move target を選んで Enter"))
+		header = append(header, mutedStyle.Render("Select a move target and press Enter"))
 		rootLabel := trimLine("(root)", max(20, width))
 		if selected == -1 {
 			anchor = 0
@@ -5256,7 +5277,7 @@ func renderCalendarInspectorPane(task shelf.Task, ok bool, showID bool, showTask
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 	lines := []string{titleStyle.Render("Inspector")}
 	if !ok {
-		lines = append(lines, mutedStyle.Render("No task selected"), mutedStyle.Render("main pane から task を選択してください"))
+		lines = append(lines, mutedStyle.Render("No task selected"), mutedStyle.Render("Select a task from the main pane"))
 		return boxStyle.Render(strings.Join(lines, "\n"))
 	}
 	label := task.Title

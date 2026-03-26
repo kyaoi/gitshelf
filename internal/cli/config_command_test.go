@@ -29,7 +29,7 @@ func TestConfigCopyPresetSetCommandPersistsPreset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config copy-preset set failed: %v", err)
 	}
-	if !strings.Contains(out, "copy preset を保存しました: subtree-path") {
+	if !strings.Contains(out, "Saved copy preset: subtree-path") {
 		t.Fatalf("unexpected command output: %s", out)
 	}
 
@@ -80,7 +80,7 @@ func TestConfigCopyPresetSetCommandUpdatesExistingPreset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config copy-preset set failed: %v", err)
 	}
-	if !strings.Contains(out, "copy preset を更新しました: subtree-path") {
+	if !strings.Contains(out, "Updated copy preset: subtree-path") {
 		t.Fatalf("unexpected command output: %s", out)
 	}
 
@@ -239,7 +239,7 @@ func TestConfigCopyPresetGetCommandJSONAndRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("copy-preset rm failed: %v", err)
 	}
-	if !strings.Contains(out, "copy preset を削除しました: subtree-path") {
+	if !strings.Contains(out, "Deleted copy preset: subtree-path") {
 		t.Fatalf("unexpected rm output: %s", out)
 	}
 

@@ -40,7 +40,7 @@ func newReviewCommand(ctx *commandContext) *cobra.Command {
 			"  shelf review --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return fmt.Errorf("review はTTYが必要です")
+				return fmt.Errorf("review requires a TTY")
 			}
 			return runCockpitLaunch(ctx, cmd, calendarModeReview, flags)
 		},

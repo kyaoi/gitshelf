@@ -251,7 +251,7 @@ func newConfigCopyPresetRemoveCommand(ctx *commandContext) *cobra.Command {
 			if err := shelf.SaveConfig(ctx.rootDir, cfg); err != nil {
 				return err
 			}
-			fmt.Printf("copy preset を削除しました: %s\n", name)
+			fmt.Printf("Deleted copy preset: %s\n", name)
 			return nil
 		},
 	}
@@ -290,9 +290,9 @@ func newConfigCopyPresetSetCommand(ctx *commandContext) *cobra.Command {
 				return err
 			}
 			if updated {
-				fmt.Printf("copy preset を更新しました: %s\n", preset.Name)
+				fmt.Printf("Updated copy preset: %s\n", preset.Name)
 			} else {
-				fmt.Printf("copy preset を保存しました: %s\n", preset.Name)
+				fmt.Printf("Saved copy preset: %s\n", preset.Name)
 			}
 			return nil
 		},

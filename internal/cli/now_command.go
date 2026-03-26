@@ -18,7 +18,7 @@ func newNowCommand(ctx *commandContext) *cobra.Command {
 			"  shelf now --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return fmt.Errorf("now はTTYが必要です")
+				return fmt.Errorf("now requires a TTY")
 			}
 			return runCockpitLaunch(ctx, cmd, calendarModeNow, flags)
 		},

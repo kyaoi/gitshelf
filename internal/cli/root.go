@@ -36,13 +36,13 @@ func NewRootCommand(version string) *cobra.Command {
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("作業ディレクトリの取得に失敗しました: %w", err)
+				return fmt.Errorf("failed to get working directory: %w", err)
 			}
 
 			rootDir, err := shelf.ResolveShelfRoot(ctx.rootOverride, cwd)
 			if err != nil {
 				if errors.Is(err, shelf.ErrShelfNotFound) {
-					return errors.New(".shelf が見つかりません。`shelf init` または `shelf init --global` を実行してください")
+					return errors.New(".shelf not found. Run `shelf init` or `shelf init --global`.")
 				}
 				return err
 			}
@@ -111,7 +111,7 @@ func newInitCommand(ctx *commandContext) *cobra.Command {
 			if targetDir == "" {
 				cwd, err := os.Getwd()
 				if err != nil {
-					return fmt.Errorf("作業ディレクトリの取得に失敗しました: %w", err)
+					return fmt.Errorf("failed to get working directory: %w", err)
 				}
 				targetDir = cwd
 			}
@@ -122,11 +122,11 @@ func newInitCommand(ctx *commandContext) *cobra.Command {
 			}
 			switch {
 			case result.ConfigForced:
-				fmt.Printf("初期化しました: %s (config.toml を再生成)\n", result.ShelfDir)
+				fmt.Printf("Initialized: %s (rewrote config.toml)\n", result.ShelfDir)
 			case result.ConfigCreated:
-				fmt.Printf("初期化しました: %s\n", result.ShelfDir)
+				fmt.Printf("Initialized: %s\n", result.ShelfDir)
 			default:
-				fmt.Printf("既に初期化済みです: %s\n", result.ShelfDir)
+				fmt.Printf("Already initialized: %s\n", result.ShelfDir)
 			}
 			return nil
 		},
@@ -190,15 +190,15 @@ func runGlobalInit(rootOverride string, force bool) error {
 		return err
 	}
 
-	fmt.Printf("グローバル設定: %s\n", globalPath)
+	fmt.Printf("Global config: %s\n", globalPath)
 	fmt.Printf("default_root: %s\n", defaultRoot)
 	switch {
 	case result.ConfigForced:
-		fmt.Printf("初期化しました: %s (config.toml を再生成)\n", result.ShelfDir)
+		fmt.Printf("Initialized: %s (rewrote config.toml)\n", result.ShelfDir)
 	case result.ConfigCreated:
-		fmt.Printf("初期化しました: %s\n", result.ShelfDir)
+		fmt.Printf("Initialized: %s\n", result.ShelfDir)
 	default:
-		fmt.Printf("既に初期化済みです: %s\n", result.ShelfDir)
+		fmt.Printf("Already initialized: %s\n", result.ShelfDir)
 	}
 	return nil
 }

@@ -95,3 +95,23 @@ func TestApplyTextPromptKeySupportsCursorMovementAndMidStringInsert(t *testing.T
 		t.Fatalf("unexpected mid-string insert: value=%q cursor=%d", value, cursor)
 	}
 }
+
+func TestApplyTextPromptKeySupportsHomeEndAndDelete(t *testing.T) {
+	value := "abcd"
+	cursor := 2
+
+	_, _, value, cursor = applyTextPromptKey(value, cursor, keyEvent{Kind: keyKindHome})
+	if cursor != 0 {
+		t.Fatalf("expected cursor at start, got %d", cursor)
+	}
+
+	_, _, value, cursor = applyTextPromptKey(value, cursor, keyEvent{Kind: keyKindEnd})
+	if cursor != 4 {
+		t.Fatalf("expected cursor at end, got %d", cursor)
+	}
+
+	_, _, value, cursor = applyTextPromptKey(value, 1, keyEvent{Kind: keyKindDelete})
+	if value != "acd" || cursor != 1 {
+		t.Fatalf("unexpected delete result: value=%q cursor=%d", value, cursor)
+	}
+}

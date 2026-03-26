@@ -85,3 +85,31 @@ func TestReadKeyEventCtrlEnterCSI(t *testing.T) {
 		t.Fatalf("expected ctrl+enter, got %+v", got)
 	}
 }
+
+func TestReadKeyEventHomeEndAndDeleteCSI(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\x1b[H\x1b[F\x1b[3~"))
+
+	home, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent home failed: %v", err)
+	}
+	if home.Kind != keyKindHome {
+		t.Fatalf("expected home, got %+v", home)
+	}
+
+	end, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent end failed: %v", err)
+	}
+	if end.Kind != keyKindEnd {
+		t.Fatalf("expected end, got %+v", end)
+	}
+
+	del, err := readKeyEvent(reader)
+	if err != nil {
+		t.Fatalf("readKeyEvent delete failed: %v", err)
+	}
+	if del.Kind != keyKindDelete {
+		t.Fatalf("expected delete, got %+v", del)
+	}
+}

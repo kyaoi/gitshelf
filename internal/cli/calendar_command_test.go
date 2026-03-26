@@ -1330,6 +1330,39 @@ func TestCalendarLinkQueryModeSupportsMidStringEditing(t *testing.T) {
 	}
 }
 
+func TestCalendarLinkQueryModeSupportsSpaceHomeEndAndDelete(t *testing.T) {
+	model := calendarTUIModel{
+		linkMode:        true,
+		linkQueryMode:   true,
+		linkQuery:       "ab",
+		linkQueryCursor: 1,
+	}
+
+	updated, _ := model.updateLinkMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != "a b" || model.linkQueryCursor != 2 {
+		t.Fatalf("unexpected query after space insert: value=%q cursor=%d", model.linkQuery, model.linkQueryCursor)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyHome})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryCursor != 0 {
+		t.Fatalf("expected cursor at start, got %d", model.linkQueryCursor)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyDelete})
+	model = updated.(calendarTUIModel)
+	if model.linkQuery != " b" || model.linkQueryCursor != 0 {
+		t.Fatalf("unexpected query after delete: value=%q cursor=%d", model.linkQuery, model.linkQueryCursor)
+	}
+
+	updated, _ = model.updateLinkMode(tea.KeyMsg{Type: tea.KeyEnd})
+	model = updated.(calendarTUIModel)
+	if model.linkQueryCursor != len([]rune(model.linkQuery)) {
+		t.Fatalf("expected cursor at end, got %d", model.linkQueryCursor)
+	}
+}
+
 func TestCalendarLinkModeUsesTabForTypeAndSupportsCollapse(t *testing.T) {
 	root := t.TempDir()
 	if _, err := shelf.Initialize(root, false); err != nil {
@@ -1669,6 +1702,41 @@ func TestUpdateAddModeSupportsMidStringEditing(t *testing.T) {
 	model = updated.(calendarTUIModel)
 	if model.addTitle != "aXb" || model.addTitleCursor != 2 {
 		t.Fatalf("unexpected title edit: value=%q cursor=%d", model.addTitle, model.addTitleCursor)
+	}
+}
+
+func TestUpdateAddModeSupportsSpaceHomeEndAndDelete(t *testing.T) {
+	model := calendarTUIModel{
+		addMode:        true,
+		addField:       calendarAddFieldTitle,
+		addTitle:       "ab",
+		addTitleCursor: 1,
+		defaultKind:    "todo",
+		addKind:        "todo",
+	}
+
+	updated, _ := model.updateAddMode(tea.KeyMsg{Type: tea.KeySpace})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != "a b" || model.addTitleCursor != 2 {
+		t.Fatalf("unexpected title after space insert: value=%q cursor=%d", model.addTitle, model.addTitleCursor)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyHome})
+	model = updated.(calendarTUIModel)
+	if model.addTitleCursor != 0 {
+		t.Fatalf("expected cursor at start, got %d", model.addTitleCursor)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyDelete})
+	model = updated.(calendarTUIModel)
+	if model.addTitle != " b" || model.addTitleCursor != 0 {
+		t.Fatalf("unexpected title after delete: value=%q cursor=%d", model.addTitle, model.addTitleCursor)
+	}
+
+	updated, _ = model.updateAddMode(tea.KeyMsg{Type: tea.KeyEnd})
+	model = updated.(calendarTUIModel)
+	if model.addTitleCursor != len([]rune(model.addTitle)) {
+		t.Fatalf("expected cursor at end, got %d", model.addTitleCursor)
 	}
 }
 

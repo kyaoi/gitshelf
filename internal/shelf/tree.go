@@ -35,6 +35,12 @@ func BuildTree(rootDir string, options TreeOptions) ([]TreeNode, error) {
 	}
 	for parent := range byParent {
 		slices.SortFunc(byParent[parent], func(a, b Task) int {
+			if a.Title < b.Title {
+				return -1
+			}
+			if a.Title > b.Title {
+				return 1
+			}
 			if a.ID < b.ID {
 				return -1
 			}

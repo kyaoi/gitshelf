@@ -39,7 +39,7 @@ func newCockpitCommand(ctx *commandContext) *cobra.Command {
 			"  shelf cockpit --mode review --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return errors.New("cockpit はTTYが必要です")
+				return errors.New("cockpit requires a TTY")
 			}
 			parsedMode, err := parseCockpitMode(mode)
 			if err != nil {

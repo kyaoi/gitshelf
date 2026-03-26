@@ -15,7 +15,7 @@ import (
 
 var byDaysPattern = regexp.MustCompile(`^(-?\d+)d$`)
 
-const selectorHelpText = "j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"
+const selectorHelpText = "j/k: move  Enter: confirm  /: search  ?: help  q/Esc/Ctrl+C: cancel"
 
 func resolveEditorCommand(lookupEnv func(string) (string, bool)) (string, error) {
 	for _, key := range []string{"VISUAL", "EDITOR"} {
@@ -42,7 +42,7 @@ func selectEnumOption(prompt string, options []interactive.Option) (interactive.
 		ShowPreview:       false,
 		MaxRows:           15,
 		HelpText:          selectorHelpText,
-		SearchPlaceholder: "検索",
+		SearchPlaceholder: "Search",
 	})
 }
 

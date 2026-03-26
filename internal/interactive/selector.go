@@ -16,8 +16,8 @@ var ErrCanceled = errors.New("selection canceled")
 
 const eol = "\r\n"
 const defaultMaxRows = 15
-const defaultHelpText = "j/k: 移動  Enter: 決定  /: 検索  ?: ヘルプ  q/Esc/Ctrl+C: キャンセル"
-const defaultSearchPlaceholder = "検索"
+const defaultHelpText = "j/k: move  Enter: confirm  /: search  ?: help  q/Esc/Ctrl+C: cancel"
+const defaultSearchPlaceholder = "Search"
 
 type Option struct {
 	Value      string
@@ -216,7 +216,7 @@ func render(cfg SelectConfig, options []Option, cursor int, offset int, visibleR
 	b.WriteString(uiHelp(cfg.HelpText))
 	b.WriteString(eol)
 	if showHelp {
-		b.WriteString(uiHelp("↑/↓ でも移動できます。検索中は通常文字が検索語に追加されます。"))
+		b.WriteString(uiHelp("You can also move with Up/Down. While searching, regular typing appends to the query."))
 		b.WriteString(eol)
 	}
 
@@ -227,7 +227,7 @@ func render(cfg SelectConfig, options []Option, cursor int, offset int, visibleR
 		b.WriteString(uiSearch(selectorSearchLine(cfg.SearchPlaceholder, search, offset, visibleRows, len(options))))
 		b.WriteString(eol)
 	} else {
-		b.WriteString(uiHelp(selectorSearchLine(cfg.SearchPlaceholder, "(なし)", offset, visibleRows, len(options))))
+		b.WriteString(uiHelp(selectorSearchLine(cfg.SearchPlaceholder, "(none)", offset, visibleRows, len(options))))
 		b.WriteString(eol)
 	}
 
@@ -242,7 +242,7 @@ func render(cfg SelectConfig, options []Option, cursor int, offset int, visibleR
 		b.WriteString(prefix + label + eol)
 	}
 	if len(options) == 0 {
-		b.WriteString(uiHelp("(候補なし)"))
+		b.WriteString(uiHelp("(no options)"))
 		b.WriteString(eol)
 	} else if cfg.ShowPreview && cursor >= 0 && cursor < len(options) {
 		preview := strings.TrimSpace(options[cursor].Preview)

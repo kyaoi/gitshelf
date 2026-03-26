@@ -33,3 +33,23 @@ func TestRenderTextCursorUsesClampedCursor(t *testing.T) {
 		t.Fatalf("unexpected rendered cursor: %q", got)
 	}
 }
+
+func TestTextCursorHelpersSupportHomeEndAndDelete(t *testing.T) {
+	value := "abcd"
+	cursor := 2
+
+	cursor = MoveTextCursorStart(value, cursor)
+	if cursor != 0 {
+		t.Fatalf("expected cursor at start, got %d", cursor)
+	}
+
+	cursor = MoveTextCursorEnd(value, cursor)
+	if cursor != 4 {
+		t.Fatalf("expected cursor at end, got %d", cursor)
+	}
+
+	value, cursor = DeleteRuneAtCursor(value, 1)
+	if value != "acd" || cursor != 1 {
+		t.Fatalf("unexpected delete-at-cursor result: value=%q cursor=%d", value, cursor)
+	}
+}

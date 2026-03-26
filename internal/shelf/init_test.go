@@ -103,3 +103,31 @@ func TestInitializeCreatesConfiguredStorageDirs(t *testing.T) {
 		}
 	}
 }
+
+func TestInitializeCreatesNestedConfiguredStorageDirs(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("first initialize failed: %v", err)
+	}
+
+	cfg, err := LoadConfig(root)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	cfg.StorageRoot = "data/shelf-store"
+	if err := SaveConfig(root, cfg); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	if _, err := Initialize(root, false); err != nil {
+		t.Fatalf("second initialize failed: %v", err)
+	}
+	for _, p := range []string{
+		filepath.Join(root, "data", "shelf-store", "tasks"),
+		filepath.Join(root, "data", "shelf-store", "edges"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("path does not exist: %s (%v)", p, err)
+		}
+	}
+}

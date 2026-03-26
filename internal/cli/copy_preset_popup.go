@@ -170,7 +170,7 @@ func (m calendarTUIModel) updateCopyPresetMode(msg tea.KeyMsg) (tea.Model, tea.C
 	switch msg.String() {
 	case "esc", "q", "ctrl+[":
 		m.copyPresetMode = false
-		m.message = "advanced copy をキャンセルしました"
+		m.message = "Canceled advanced copy"
 		return m, nil
 	case "enter":
 		if err := m.copySelectedWithPreset(m.activeCopyPreset()); err != nil {
@@ -234,19 +234,9 @@ func (m calendarTUIModel) updateCopyPresetMode(msg tea.KeyMsg) (tea.Model, tea.C
 
 func (m *calendarTUIModel) updateCopyPresetTextField(msg tea.KeyMsg, value *string, cursor *int) (tea.Model, tea.Cmd) {
 	m.ensureCustomCopyPresetSelected()
-	switch msg.String() {
-	case "backspace":
-		*value, *cursor = interactive.DeleteRuneBeforeCursor(*value, *cursor)
-	case "left":
-		*cursor = interactive.MoveTextCursorLeft(*value, *cursor)
-	case "right":
-		*cursor = interactive.MoveTextCursorRight(*value, *cursor)
-	default:
-		if msg.Type == tea.KeyRunes {
-			for _, r := range msg.Runes {
-				*value, *cursor = interactive.InsertRuneAtCursor(*value, *cursor, r)
-			}
-		}
+	if nextValue, nextCursor, handled := applyBubbleTextInputKey(*value, *cursor, msg); handled {
+		*value = nextValue
+		*cursor = nextCursor
 	}
 	return m, nil
 }
@@ -283,9 +273,9 @@ func (m *calendarTUIModel) saveActiveCopyPreset() error {
 		}
 	}
 	if updated {
-		m.message = fmt.Sprintf("copy preset を更新しました: %s", preset.Name)
+		m.message = fmt.Sprintf("Updated copy preset: %s", preset.Name)
 	} else {
-		m.message = fmt.Sprintf("copy preset を保存しました: %s", preset.Name)
+		m.message = fmt.Sprintf("Saved copy preset: %s", preset.Name)
 	}
 	return nil
 }
@@ -299,7 +289,7 @@ func (m calendarTUIModel) renderCopyPresetPayload(preset shelf.CopyPreset) (stri
 		taskIDs = m.copySubtreeRootIDs()
 	}
 	if len(taskIDs) == 0 {
-		return "", 0, fmt.Errorf("選択中の task がありません")
+		return "", 0, fmt.Errorf("no task selected")
 	}
 	items := make([]string, 0, len(taskIDs))
 	for _, taskID := range taskIDs {
@@ -324,7 +314,7 @@ func (m calendarTUIModel) renderCopyPresetPayload(preset shelf.CopyPreset) (stri
 		items = append(items, rendered)
 	}
 	if len(items) == 0 {
-		return "", 0, fmt.Errorf("コピー対象がありません")
+		return "", 0, fmt.Errorf("nothing to copy")
 	}
 	return strings.Join(items, preset.EffectiveJoinWith(m.copySeparator)), len(items), nil
 }

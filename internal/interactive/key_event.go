@@ -17,10 +17,13 @@ const (
 	keyKindCtrlS
 	keyKindCtrlEnter
 	keyKindBackspace
+	keyKindDelete
 	keyKindUp
 	keyKindDown
 	keyKindLeft
 	keyKindRight
+	keyKindHome
+	keyKindEnd
 )
 
 type keyEvent struct {
@@ -78,12 +81,33 @@ func readCSIKeyEvent(reader *bufio.Reader) (bool, keyEvent, error) {
 	case len(seq) >= 2 && seq[1] == 'D':
 		_, _ = reader.Discard(2)
 		return true, keyEvent{Kind: keyKindLeft}, nil
+	case len(seq) >= 2 && seq[1] == 'H':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindHome}, nil
+	case len(seq) >= 2 && seq[1] == 'F':
+		_, _ = reader.Discard(2)
+		return true, keyEvent{Kind: keyKindEnd}, nil
 	}
 
 	for _, pattern := range []string{"[13;5u", "[13;5~", "[27;5;13~"} {
 		if len(seq) >= len(pattern) && string(seq[:len(pattern)]) == pattern {
 			_, _ = reader.Discard(len(pattern))
 			return true, keyEvent{Kind: keyKindCtrlEnter}, nil
+		}
+	}
+	for _, pattern := range []struct {
+		seq  string
+		kind keyKind
+	}{
+		{seq: "[1~", kind: keyKindHome},
+		{seq: "[7~", kind: keyKindHome},
+		{seq: "[4~", kind: keyKindEnd},
+		{seq: "[8~", kind: keyKindEnd},
+		{seq: "[3~", kind: keyKindDelete},
+	} {
+		if len(seq) >= len(pattern.seq) && string(seq[:len(pattern.seq)]) == pattern.seq {
+			_, _ = reader.Discard(len(pattern.seq))
+			return true, keyEvent{Kind: pattern.kind}, nil
 		}
 	}
 	return false, keyEvent{}, nil

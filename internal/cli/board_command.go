@@ -22,7 +22,7 @@ func newBoardCommand(ctx *commandContext) *cobra.Command {
 			"  shelf board --show-id",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return errors.New("board はTTYが必要です")
+				return errors.New("board requires a TTY")
 			}
 			return runCockpitLaunch(ctx, cmd, calendarModeBoard, flags)
 		},

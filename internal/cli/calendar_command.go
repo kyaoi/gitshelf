@@ -29,7 +29,7 @@ func newCalendarCommand(ctx *commandContext) *cobra.Command {
 			"  shelf calendar --status open --status blocked",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return errors.New("calendar はTTYが必要です")
+				return errors.New("calendar requires a TTY")
 			}
 			return runCockpitLaunch(ctx, cmd, calendarModeCalendar, flags)
 		},
@@ -89,7 +89,7 @@ func resolveCalendarRange(startDate time.Time, days int, months int, years int, 
 		}
 	}
 	if changedCount > 1 {
-		return time.Time{}, 0, fmt.Errorf("--days / --months / --years はどれか1つだけ指定してください")
+		return time.Time{}, 0, fmt.Errorf("specify only one of --days / --months / --years")
 	}
 	if monthsChanged {
 		if months <= 0 {

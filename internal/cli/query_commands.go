@@ -467,7 +467,7 @@ func newTreeCommand(ctx *commandContext) *cobra.Command {
 			"  shelf tree --months 3 --status open",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !dailyCockpitIsTTY() {
-				return fmt.Errorf("tree はTTYが必要です")
+				return fmt.Errorf("tree requires a TTY")
 			}
 			return runCockpitLaunch(ctx, cmd, calendarModeTree, flags)
 		},
